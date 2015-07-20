@@ -5,8 +5,8 @@ from PySide.QtCore import Qt
 
 from pytd.util.sysutils import toUnicode
 
-from pytd.core.itemviews.baseproxymodel import BaseProxyModel
-from pytd.core.itemviews.baseselectionmodel import BaseSelectionModel
+from pytd.gui.itemviews.baseproxymodel import BaseProxyModel
+from pytd.gui.itemviews.baseselectionmodel import BaseSelectionModel
 
 from .ui.children_widget import Ui_ChildrenWidget
 

@@ -1,8 +1,8 @@
 
 from PySide import QtGui
 
-from pytd.core.itemviews.basecontextmenu import BaseContextMenu
-from pytd.core.dialogs import confirmDialog
+from pytd.gui.itemviews.basecontextmenu import BaseContextMenu
+from pytd.gui.dialogs import confirmDialog
 
 # from pytd.util.sysutils import toStr
 from pytd.util.logutils import logMsg

@@ -211,7 +211,7 @@
   <customwidget>
    <class>ImageButton</class>
    <extends>QPushButton</extends>
-   <header>pytk.core.widgets</header>
+   <header>pytd.gui.widgets</header>
   </customwidget>
  </customwidgets>
  <resources/>

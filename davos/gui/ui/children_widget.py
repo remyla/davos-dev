@@ -110,4 +110,4 @@ class Ui_ChildrenWidget(object):
         self.filterLabel.setText(QtGui.QApplication.translate("ChildrenWidget", "Filter :", None, QtGui.QApplication.UnicodeUTF8))
 
 from davos.gui.childrenview import ChildrenView
-from pytd.core.widgets import TabBar
+from pytd.gui.widgets import TabBar

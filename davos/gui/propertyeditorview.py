@@ -3,7 +3,7 @@ from PySide import QtGui
 from PySide import QtCore
 Qt = QtCore.Qt
 
-from pytd.core.itemviews.utils import ItemUserFlag
+from pytd.gui.itemviews.utils import ItemUserFlag
 from pytd.util.qtutils import toColorSheet
 
 from .ui.property_widget import Ui_PropertyWidget

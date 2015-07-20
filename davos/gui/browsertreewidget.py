@@ -2,11 +2,11 @@
 from PySide.QtCore import Qt, QFileInfo
 from PySide import QtGui
 
-from pytd.core.itemviews.baseproxymodel import BaseProxyModel
-from pytd.core.itemviews.basetreeview import BaseTreeView
-from pytd.core.itemviews.basetreewidget import BaseTreeWidget
-from pytd.core.itemviews.propertyitemmodel import PropertyItemModel
-from pytd.core.itemviews.propertyitemmodel import PropertyIconProvider
+from pytd.gui.itemviews.baseproxymodel import BaseProxyModel
+from pytd.gui.itemviews.basetreeview import BaseTreeView
+from pytd.gui.itemviews.basetreewidget import BaseTreeWidget
+from pytd.gui.itemviews.propertyitemmodel import PropertyItemModel
+from pytd.gui.itemviews.propertyitemmodel import PropertyIconProvider
 
 from pytd.util.logutils import logMsg
 

@@ -205,13 +205,13 @@
   <customwidget>
    <class>TabBar</class>
    <extends>QWidget</extends>
-   <header>pytk.core.widgets</header>
+   <header>pytd.gui.widgets</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>ChildrenView</class>
    <extends>QWidget</extends>
-   <header>pytk.davos.gui.childrenview</header>
+   <header>davos.gui.childrenview</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

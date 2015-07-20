@@ -1,7 +1,7 @@
 
 import re
 
-from pytd.core.dialogs import promptDialog
+from pytd.gui.dialogs import promptDialog
 from pytd.util.logutils import logMsg
 from pytd.util.sysutils import importModule
 

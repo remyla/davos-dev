@@ -52,13 +52,13 @@
   <customwidget>
    <class>PropertyEditorView</class>
    <extends>QWidget</extends>
-   <header>pytk.davos.gui.propertyeditorview</header>
+   <header>davos.gui.propertyeditorview</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>BrowserTreeWidget</class>
    <extends>QWidget</extends>
-   <header>pytk.davos.gui.browsertreewidget</header>
+   <header>davos.gui.browsertreewidget</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

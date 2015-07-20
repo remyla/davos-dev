@@ -7,7 +7,7 @@ import filecmp
 
 from PySide.QtCore import QDir
 
-from pytd.core.dialogs import confirmDialog
+from pytd.gui.dialogs import confirmDialog
 
 from pytd.util.logutils import logMsg, forceLog
 from pytd.util.qtutils import toQFileInfo
