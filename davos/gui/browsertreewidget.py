@@ -2,17 +2,17 @@
 from PySide.QtCore import Qt, QFileInfo
 from PySide import QtGui
 
-from pytk.core.itemviews.baseproxymodel import BaseProxyModel
-from pytk.core.itemviews.basetreeview import BaseTreeView
-from pytk.core.itemviews.basetreewidget import BaseTreeWidget
-from pytk.core.itemviews.propertyitemmodel import PropertyItemModel
-from pytk.core.itemviews.propertyitemmodel import PropertyIconProvider
+from pytd.core.itemviews.baseproxymodel import BaseProxyModel
+from pytd.core.itemviews.basetreeview import BaseTreeView
+from pytd.core.itemviews.basetreewidget import BaseTreeWidget
+from pytd.core.itemviews.propertyitemmodel import PropertyItemModel
+from pytd.core.itemviews.propertyitemmodel import PropertyIconProvider
 
-from pytk.util.logutils import logMsg
+from pytd.util.logutils import logMsg
 
 from .childrenwidget import ChildrenWidget
 from .browsercontextmenu import BrowserContextMenu
-from pytk.util.sysutils import inDevMode
+from pytd.util.sysutils import inDevMode
 
 
 class DrcIconProvider(PropertyIconProvider):

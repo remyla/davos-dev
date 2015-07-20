@@ -1,9 +1,9 @@
 import os
 
-from pytk.core.authenticator import Authenticator
+from pytd.core.authenticator import Authenticator
 
-from pytk.util.fsutils import jsonRead, jsonWrite
-from pytk.util.fsutils import pathJoin
+from pytd.util.fsutils import jsonRead, jsonWrite
+from pytd.util.fsutils import pathJoin
 
 class HellAuth(Authenticator):
 

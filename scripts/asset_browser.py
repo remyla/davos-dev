@@ -3,9 +3,9 @@ import sys
 
 from PySide import QtGui
 
-from pytk.davos.core.damproject import DamProject
+from davos.core.damproject import DamProject
 
-from pytk.davos.gui.assetbrowserwidget import AssetBrowserWidget
+from davos.gui.assetbrowserwidget import AssetBrowserWidget
 
 
 def main(*argv):

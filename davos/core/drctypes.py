@@ -7,23 +7,23 @@ import filecmp
 
 from PySide.QtCore import QDir
 
-from pytk.core.dialogs import confirmDialog
+from pytd.core.dialogs import confirmDialog
 
-from pytk.util.logutils import logMsg, forceLog
-from pytk.util.qtutils import toQFileInfo
-from pytk.util.fsutils import pathJoin, pathSuffixed, pathRel, normCase
-from pytk.util.fsutils import copyFile
-from pytk.util.fsutils import sha1HashFile
-from pytk.util.qtutils import setWaitCursor
-from pytk.util.strutils import padded
-from pytk.util.external.send2trash import send2trash
+from pytd.util.logutils import logMsg, forceLog
+from pytd.util.qtutils import toQFileInfo
+from pytd.util.fsutils import pathJoin, pathSuffixed, pathRel, normCase
+from pytd.util.fsutils import copyFile
+from pytd.util.fsutils import sha1HashFile
+from pytd.util.qtutils import setWaitCursor
+from pytd.util.strutils import padded
+from pytd.util.external.send2trash import send2trash
 
 from .properties import DrcMetaObject
 from .properties import DrcEntryProperties, DrcFileProperties
 from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
-from pytk.util.sysutils import timer, getCaller
+from pytd.util.sysutils import timer, getCaller
 
 
 class DrcEntry(DrcMetaObject):

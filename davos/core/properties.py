@@ -1,11 +1,11 @@
 
 
-from pytk.util.sysutils import MemSize
+from pytd.util.sysutils import MemSize
 
-from pytk.core.metaproperty import BasePropertyFactory
-from pytk.core.metaproperty import MetaProperty
-from pytk.core.metaproperty import EditState as Eds
-from pytk.core.metaobject import MetaObject
+from pytd.core.metaproperty import BasePropertyFactory
+from pytd.core.metaproperty import MetaProperty
+from pytd.core.metaproperty import EditState as Eds
+from pytd.core.metaobject import MetaObject
 
 
 DrcLibraryProperties = (

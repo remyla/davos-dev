@@ -1,16 +1,16 @@
 
 from PySide import QtGui
 
-from pytk.core.itemviews.basecontextmenu import BaseContextMenu
-from pytk.core.dialogs import confirmDialog
+from pytd.core.itemviews.basecontextmenu import BaseContextMenu
+from pytd.core.dialogs import confirmDialog
 
-# from pytk.util.sysutils import toStr
-from pytk.util.logutils import logMsg
-from pytk.util.fsutils import  pathSuffixed
+# from pytd.util.sysutils import toStr
+from pytd.util.logutils import logMsg
+from pytd.util.fsutils import  pathSuffixed
 
-# from pytk.util.fsutils import pathNorm
-# from pytk.util.logutils import forceLog
-from pytk.davos.core.drctypes import DrcFile
+# from pytd.util.fsutils import pathNorm
+# from pytd.util.logutils import forceLog
+from davos.core.drctypes import DrcFile
 
 
 class BrowserContextMenu(BaseContextMenu):

@@ -3,10 +3,10 @@
 from PySide import QtGui
 from PySide.QtCore import Qt
 
-from pytk.util.sysutils import toUnicode
+from pytd.util.sysutils import toUnicode
 
-from pytk.core.itemviews.baseproxymodel import BaseProxyModel
-from pytk.core.itemviews.baseselectionmodel import BaseSelectionModel
+from pytd.core.itemviews.baseproxymodel import BaseProxyModel
+from pytd.core.itemviews.baseselectionmodel import BaseSelectionModel
 
 from .ui.children_widget import Ui_ChildrenWidget
 

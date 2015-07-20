@@ -3,8 +3,8 @@ from PySide import QtGui
 from PySide import QtCore
 Qt = QtCore.Qt
 
-from pytk.core.itemviews.utils import ItemUserFlag
-from pytk.util.qtutils import toColorSheet
+from pytd.core.itemviews.utils import ItemUserFlag
+from pytd.util.qtutils import toColorSheet
 
 from .ui.property_widget import Ui_PropertyWidget
 from .ui.property_editor_view import Ui_PropertyEditorView

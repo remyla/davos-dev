@@ -98,4 +98,4 @@ class Ui_PropertyEditorView(object):
     def retranslateUi(self, PropertyEditorView):
         PropertyEditorView.setWindowTitle(QtGui.QApplication.translate("PropertyEditorView", "Form", None, QtGui.QApplication.UnicodeUTF8))
 
-from pytk.core.widgets import ImageButton
+from pytd.core.widgets import ImageButton

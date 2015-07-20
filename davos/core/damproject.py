@@ -1,8 +1,8 @@
 
-from pytk.util.pyconfparser import PyConfParser
-from pytk.util.logutils import logMsg
-from pytk.util.fsutils import pathJoin, pathResolve, pathNorm
-from pytk.util.strutils import findFields
+from pytd.util.pyconfparser import PyConfParser
+from pytd.util.logutils import logMsg
+from pytd.util.fsutils import pathJoin, pathResolve, pathNorm
+from pytd.util.strutils import findFields
 
 from .drclibrary import DrcLibrary
 from .damtypes import DamUser
@@ -214,7 +214,7 @@ class DamProject(object):
 
         print "damas !!"
 
-        from pytk.davos.core import damas
+        from davos.core import damas
         self._damasdb = damas.http_connection("http://62.210.104.42:8090")
 
     def __repr__(self):

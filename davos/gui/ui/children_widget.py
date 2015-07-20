@@ -109,5 +109,5 @@ class Ui_ChildrenWidget(object):
         ChildrenWidget.setWindowTitle(QtGui.QApplication.translate("ChildrenWidget", "Form", None, QtGui.QApplication.UnicodeUTF8))
         self.filterLabel.setText(QtGui.QApplication.translate("ChildrenWidget", "Filter :", None, QtGui.QApplication.UnicodeUTF8))
 
-from pytk.davos.gui.childrenview import ChildrenView
-from pytk.core.widgets import TabBar
+from davos.gui.childrenview import ChildrenView
+from pytd.core.widgets import TabBar

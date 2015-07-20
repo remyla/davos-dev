@@ -1,5 +1,5 @@
-from pytk.util.logutils import logMsg, forceLog
-from pytk.util.sysutils import toStr
+from pytd.util.logutils import logMsg, forceLog
+from pytd.util.sysutils import toStr
 
 class DrcDb(object):
 

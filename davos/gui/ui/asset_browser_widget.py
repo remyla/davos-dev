@@ -43,5 +43,5 @@ class Ui_AssetBrowserWidget(object):
     def retranslateUi(self, AssetBrowserWidget):
         AssetBrowserWidget.setWindowTitle(QtGui.QApplication.translate("AssetBrowserWidget", "Form", None, QtGui.QApplication.UnicodeUTF8))
 
-from pytk.davos.gui.propertyeditorview import PropertyEditorView
-from pytk.davos.gui.browsertreewidget import BrowserTreeWidget
+from davos.gui.propertyeditorview import PropertyEditorView
+from davos.gui.browsertreewidget import BrowserTreeWidget

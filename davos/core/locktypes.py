@@ -1,11 +1,11 @@
 
 import os
 
-from pytk.util.logutils import logMsg
+from pytd.util.logutils import logMsg
 
-from pytk.util.external.lockfile import LockError, UnlockError
-from pytk.util.external.lockfile import LockBase
-from pytk.util.external.lockfile.mkdirlockfile import MkdirLockFile
+from pytd.util.external.lockfile import LockError, UnlockError
+from pytd.util.external.lockfile import LockBase
+from pytd.util.external.lockfile.mkdirlockfile import MkdirLockFile
 
 
 class LockFile(MkdirLockFile):

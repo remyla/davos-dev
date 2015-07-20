@@ -3,8 +3,8 @@ from PySide import QtGui
 from PySide import QtCore
 from PySide.QtCore import Qt
 
-#from pytk.core.itemviews.basecontextmenu import BaseContextMenu
-from pytk.core.itemviews.basetreeview import BaseTreeView
+#from pytd.core.itemviews.basecontextmenu import BaseContextMenu
+from pytd.core.itemviews.basetreeview import BaseTreeView
 
 from .browsercontextmenu import BrowserContextMenu
 

@@ -1,9 +1,9 @@
 
 import re
 
-from pytk.core.dialogs import promptDialog
-from pytk.util.logutils import logMsg
-from pytk.util.sysutils import importModule
+from pytd.core.dialogs import promptDialog
+from pytd.util.logutils import logMsg
+from pytd.util.sysutils import importModule
 
 
 _interDashesRgx = re.compile(r'-([a-z][0-9]+)')
@@ -16,7 +16,7 @@ def getConfigModule(sProjectName):
     try:
         modobj = importModule(sConfigModule)
     except ImportError:
-        sConfigModule = 'pytk.davos.config.' + sProjectName
+        sConfigModule = 'davos.config.' + sProjectName
         modobj = importModule(sConfigModule)
 
     reload(modobj)

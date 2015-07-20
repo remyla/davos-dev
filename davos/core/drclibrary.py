@@ -3,11 +3,11 @@ import os.path as osp
 
 from PySide.QtCore import QFileInfo
 
-from pytk.util.logutils import logMsg
+from pytd.util.logutils import logMsg
 
-from pytk.util.sysutils import listClassesFromModule, getCaller
-from pytk.util.qtutils import toQFileInfo
-from pytk.util.fsutils import pathNorm
+from pytd.util.sysutils import listClassesFromModule, getCaller
+from pytd.util.qtutils import toQFileInfo
+from pytd.util.fsutils import pathNorm
 
 from . import drctypes
 from .drctypes import DrcEntry, DrcDir, DrcFile
