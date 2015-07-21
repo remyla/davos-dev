@@ -94,7 +94,7 @@ class DamProject(object):
 
         return bAuth
 
-    def getLoggedUser(self, **kwargs):
+    def loggedUser(self, **kwargs):
         logMsg(log='all')
 
         bForce = kwargs.get("force", False)

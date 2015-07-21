@@ -65,30 +65,44 @@ class DrcLibrary(DrcEntry):
 
     def getEntry(self, pathOrInfo, weak=False, drcType=None, dbNode=False):
         logMsg(log="all")
+        """
+        weak means that we do not check if the path exists.  
+        """
 
         fileInfo = None
+        sRelPath = ""
+
         if isinstance(pathOrInfo, QFileInfo):
             sAbsPath = pathOrInfo.absoluteFilePath()
             fileInfo = pathOrInfo
         elif isinstance(pathOrInfo, basestring):
             sAbsPath = pathNorm(pathOrInfo)
+            if not osp.isabs(sAbsPath):
+                sRelPath = sAbsPath
+                sAbsPath = self.relToAbsPath(sRelPath)
         else:
             raise TypeError("argument 'pathOrInfo' must be of type <QFileInfo> \
                             or <basestring>. Got {0}.".format(type(pathOrInfo)))
 
-        sRelPath = self.relFromAbsPath(sAbsPath) if osp.isabs(sAbsPath) else sAbsPath
+        if not sRelPath:
+            sRelPath = self.absToRelPath(sAbsPath) if osp.isabs(sAbsPath) else sAbsPath
+
         drcEntry = self._cachedEntries.get(sRelPath)
         if drcEntry:
             drcEntry.loadData(drcEntry._qfileinfo)
-            return drcEntry if drcEntry.exists() else None
+            if weak:
+                return drcEntry
+            else:
+                return drcEntry if drcEntry.exists() else None
 
         if not fileInfo:
             fileInfo = toQFileInfo(sAbsPath)
 
-        # weak means that we do not check if the path exists.
-        # as we can't guess the type, we must use the one passed to "drcType" argument.
         if weak:
-            cls = drcType
+            if drcType:
+                cls = drcType
+            else:
+                cls = DrcDir if sAbsPath.endswith('/') else DrcFile
         else:
             if fileInfo.isDir():
                 cls = DrcDir

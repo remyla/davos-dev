@@ -58,7 +58,7 @@ DrcEntryProperties = (
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
     'uiDisplay':'Modif. Date',
-    'uiCategory':"05_File",
+    'uiCategory':'05_File',
     }
 ),
 # ('creationTime',
@@ -86,7 +86,7 @@ DrcFileProperties = [
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
     'uiDisplay':'Size',
-    'uiCategory':"05_File",
+    'uiCategory':'05_File',
     }
 ),
 ('currentVersion',
@@ -101,8 +101,8 @@ DrcFileProperties = [
     'copyable':True,
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
-    'uiDisplay':"Version",
-    'uiCategory':"04_Version",
+    'uiDisplay':'Version',
+    'uiCategory':'04_Version',
     }
 ),
 ('lockOwner',
@@ -114,8 +114,8 @@ DrcFileProperties = [
     'reader':'owner()',
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
-    'uiDisplay':"Locked by",
-    'uiCategory':"04_Version",
+    'uiDisplay':'Locked by',
+    'uiCategory':'04_Version',
     }
 ),
 ('locked',
@@ -128,7 +128,7 @@ DrcFileProperties = [
     'writer':'set_locked()',
     'uiEditable':Eds.Disabled,
     'uiVisible':False,
-    'uiDisplay':"",
+    'uiDisplay':'',
     'uiCategory':None,
     }
 ),
@@ -145,7 +145,7 @@ DrcFileProperties = [
     'uiEditable':Eds.Enabled,
     'uiVisible':True,
     'uiDisplay':'',
-    'uiCategory':"04_Version",
+    'uiCategory':'04_Version',
     }
 ),
 ('checksum',
@@ -193,7 +193,7 @@ DrcFileProperties = [
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
     'uiDisplay':'',
-    'uiCategory':"04_Version",
+    'uiCategory':'04_Version',
     }
 ),
 ]

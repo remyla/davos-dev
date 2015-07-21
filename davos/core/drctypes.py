@@ -9,9 +9,10 @@ from PySide.QtCore import QDir
 
 from pytd.gui.dialogs import confirmDialog
 
-from pytd.util.logutils import logMsg, forceLog
+from pytd.util.logutils import logMsg#, forceLog
 from pytd.util.qtutils import toQFileInfo
-from pytd.util.fsutils import pathJoin, pathSuffixed, pathRel, normCase
+from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
+from pytd.util.fsutils import pathRel, addEndSlash
 from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
@@ -23,7 +24,7 @@ from .properties import DrcEntryProperties, DrcFileProperties
 from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
-from pytd.util.sysutils import timer, getCaller
+#from pytd.util.sysutils import timer, getCaller
 
 
 class DrcEntry(DrcMetaObject):
@@ -108,13 +109,14 @@ class DrcEntry(DrcMetaObject):
         parent = kwargs.get("parent", None)
 
         fileInfo = self._qfileinfo
-
         if not fileInfo.exists():
             self._forget(parent=parent, recursive=True)
         else:
             self.loadData(fileInfo)
+
             if bDbNode and self._dbnode:
                 self._dbnode.refresh()
+
             self.updateModelRow()
 
             if bChildren and self.childrenLoaded:
@@ -138,7 +140,20 @@ class DrcEntry(DrcMetaObject):
     def getChild(self, sChildName):
         return self.library.getEntry(pathJoin(self.absPath(), sChildName))
 
+    def listChildren(self, *nameFilters, **kwargs):
+        return tuple(self.iterChildren(*nameFilters, **kwargs))
+
+    def loadChildren(self):
+
+        self.childrenLoaded = True
+
+        for child in self.iterChildren():
+            child.addModelRow(self)
+            self.loadedChildren.append(child)
+
     def iterChildren(self, *nameFilters, **kwargs):
+
+        assert self.exists(), "No such directory: '{}'".format(self.absPath())
 
         if self.isPublic():
             self.loadChildDbNodes()
@@ -149,25 +164,44 @@ class DrcEntry(DrcMetaObject):
     def hasChildren(self):
         return False
 
+    ''
+    #=======================================================================
+    # Pathname related methods
+    #=======================================================================
+
     def absDirPath(self):
         return self._qfileinfo.absolutePath()
 
     def relDirPath(self):
-        return self.library.relFromAbsPath(self.absDirPath())
+        return self.library.absToRelPath(self.absDirPath())
 
     def absPath(self):
         return self._qfileinfo.absoluteFilePath()
 
     def relPath(self):
-        return self.library.relFromAbsPath(self.absPath())
+        return self.library.absToRelPath(self.absPath())
 
-    def relFromAbsPath(self, sAbsPath):
+    def absToRelPath(self, sAbsPath):
         return pathRel(sAbsPath, self.absPath())
+
+    def relToAbsPath(self, sRelPath):
+        return pathJoin(self.absPath(), sRelPath)
 
     def damasPath(self):
         sLibPath = self.library.absPath()
         sLibDmsPath = self.library.getVar("damas_path")
-        return re.sub('^' + sLibPath, sLibDmsPath, self.absPath())
+        p = re.sub('^' + sLibPath, sLibDmsPath, self.absPath())
+        return normCase(p)
+
+    def damasToRelPath(self, sDamasPath):
+        p = sDamasPath
+        bHasEndSlash = (p.endswith('/') or p.endswith('\\'))
+        sRelPath = pathRel(sDamasPath, self.library.damasPath())
+        return addEndSlash(sRelPath) if bHasEndSlash else sRelPath
+    ''
+    #=======================================================================
+    # Database related methods
+    #=======================================================================
 
     #@forceLog(log='debug')
     def getDbNode(self, create=False, find=False):
@@ -175,87 +209,106 @@ class DrcEntry(DrcMetaObject):
         assert self.isPublic(), "File is NOT public !"
 
         _cachedDbNodes = self.library._cachedDbNodes
-        sRelPath = normCase(self.relPath())
 
-        logMsg(u"\ngetting DbNode: '{}'".format(sRelPath), log='debug')
-        dbnode = _cachedDbNodes.get(sRelPath)
+        cacheKey = self.getDbCacheKey()
+        dbnode = _cachedDbNodes.get(cacheKey)
         if dbnode:
-            logMsg(u"got from CACHE.", log='debug')
+            logMsg(u"got from CACHE: '{}'".format(cacheKey), log='debug')
+            return dbnode
         elif find:
-            sParentDirPath, sEntryName = osp.split(sRelPath)
-            data = {
-                    "project":self.library.project.name,
-                    "library":self.library.fullName,
-                    "parentDir": sParentDirPath,
-                    "name":sEntryName,
-                    }
-            sQuery = " ".join("{}:{}".format(k, v) for k, v in data.iteritems())
-            print sQuery
-            dbnode = self.library._db.findOne(sQuery)
+            dbnode = self.findDbNode(useCache=False)
             if dbnode:
-                logMsg(u"got from DB.", log='debug')
-                _cachedDbNodes[sRelPath] = dbnode
+                logMsg(u"got from DB: '{}'".format(cacheKey), log='debug')
 
         if (not dbnode) and create:
-            dbnode = self.createDbNode()
-            logMsg(u"just created.", log='debug')
+            dbnode = self.createDbNode(useCache=False)
+            logMsg(u"just created: '{}'".format(cacheKey), log='debug')
+
+        if dbnode:
+            logMsg(u"loading: {}".format(cacheKey), log='debug')
+            _cachedDbNodes[cacheKey] = dbnode
         else:
-            logMsg(u"not found.", log='debug')
+            pass#logMsg(u"    - not found.", log='debug')
 
         return dbnode
 
-    def createDbNode(self):
+    def findDbNode(self, useCache=True):
 
         assert self.isPublic(), "File is NOT public !"
 
-        print u"creating DbNode for {}".format(self)
-        data = self._initialDbNodeData()
+        if useCache:
+            _cachedDbNodes = self.library._cachedDbNodes
+            cacheKey = self.getDbCacheKey()
+            if cacheKey in _cachedDbNodes:
+                return _cachedDbNodes[cacheKey]
 
-        _cachedDbNodes = self.library._cachedDbNodes
+        sQuery = u"file:{}".format(self.damasPath())
+        dbnode = self.library._db.findOne(sQuery)
 
-        cacheKey = pathJoin(data.get("parentDir"), data.get("name"))
-        if cacheKey in _cachedDbNodes:
-            raise RuntimeError("DbNode already created: '{}'".format(cacheKey))
-
-        dbnode = self.library._db.createNode(data)
-        print u"storing DbNode:", cacheKey
-        _cachedDbNodes[cacheKey] = dbnode
+        if useCache and dbnode:
+            logMsg(u"loading DbNode: {}".format(cacheKey), log='debug')
+            _cachedDbNodes[cacheKey] = dbnode
 
         return dbnode
 
-    #@timer
+    def createDbNode(self, useCache=True):
+
+        assert self.isPublic(), "File is NOT public !"
+
+        if useCache:
+            _cachedDbNodes = self.library._cachedDbNodes
+            cacheKey = self.getDbCacheKey()
+            if cacheKey in _cachedDbNodes:
+                return _cachedDbNodes[cacheKey]
+
+        data = {"file":self.damasPath(), }
+        dbnode = self.library._db.createNode(data)
+
+        if useCache and dbnode:
+            logMsg(u"loading DbNode: {}".format(cacheKey), log='debug')
+            _cachedDbNodes[cacheKey] = dbnode
+
+        return dbnode
+
     def loadChildDbNodes(self):
 
         _cachedDbNodes = self.library._cachedDbNodes
 
-        for dbnode in self.getChildDbNodes():
+        for dbnode in self.listChildDbNodes():
 
-            cacheKey = pathJoin(dbnode.getValue("parentDir"), dbnode.getValue("name"))
+            sDamasPath = dbnode.getValue("file")
+            if not sDamasPath:
+                continue
+
+            cacheKey = self.damasToRelPath(sDamasPath)
             cachedNode = _cachedDbNodes.get(cacheKey)
             if cachedNode:
                 cachedNode.refresh(dbnode._data)
             else:
-                #print u"loading DbNode:", cacheKey, dbnode.dataRepr()
+                logMsg(u"loading: {}".format(cacheKey), log='debug')
                 _cachedDbNodes[cacheKey] = dbnode
 
-    def getChildDbNodes(self, **kwargs):
+    def listChildDbNodes(self, sQuery="", **kwargs):
 
-        data = {
-                "library":self.library.fullName,
-                "parentDir": normCase(self.relPath()),
-                }
+        assert self.isPublic(), "File is NOT public !"
 
-        sQuery = " ".join(u"{}:{}".format(k, v) for k, v in data.iteritems())
-        return self.library._db.findNodes(sQuery, **kwargs)
+        if kwargs.pop('recursive', False):
+            sBaseQuery = u"file:/^{}/"
+        else:
+            sBaseQuery = u"file:/^{}[^/]*$/"
 
-    #@timer
-    def loadChildren(self):
+        sBaseQuery = sBaseQuery.format(self.damasPath())
+        sFullQuery = " ".join((sBaseQuery, sQuery))
 
-        self.childrenLoaded = True
+        return self.library._db.findNodes(sFullQuery, **kwargs)
 
-        for child in self.iterChildren():
-            child.addModelRow(self)
-            self.loadedChildren.append(child)
+    def getDbCacheKey(self):
+        return normCase(self.relPath())
+
+    ''
+    #=======================================================================
+    # Model/View related methods
+    #=======================================================================
 
     def addModelRow(self, parent):
 
@@ -299,32 +352,25 @@ class DrcEntry(DrcMetaObject):
         send2trash(self.absPath())
         self.refresh(children=True)
 
-    def _initialDbNodeData(self):
-
-        return {
-                "project":self.library.project.name,
-                "library":self.library.fullName,
-                "parentDir": normCase(self.relDirPath()),
-                "name":normCase(self.name),
-                }
 
     def _writeAllValues(self, propertyNames=None):
 
         sPropertyList = tuple(self.__class__._iterPropertyArg(propertyNames))
 
-        print getCaller(), "sPropertyList", sPropertyList
+        logMsg("sPropertyList", sPropertyList, log='debug')
 
         sDbNodePrptySet = set(self.filterPropertyNames(sPropertyList,
                                                        accessor="_dbnode"))
 
         sOtherPrptySet = set(sPropertyList) - sDbNodePrptySet
-        print "sOtherPrptySet", sOtherPrptySet
 
+        logMsg("sOtherPrptySet", sOtherPrptySet, log='debug')
         DrcMetaObject._writeAllValues(self, propertyNames=sOtherPrptySet)
 
-        print "sDbNodePrptySet", sDbNodePrptySet
+        logMsg("sDbNodePrptySet", sDbNodePrptySet, log='debug')
         data = self.getAllValues(sDbNodePrptySet)
-        print "Writing data:", data, self
+
+        logMsg("Writing DbNode data:", data, self, log='debug')
         self.getDbNode(create=True).setData(data)
 
     def _remember(self):
@@ -334,7 +380,7 @@ class DrcEntry(DrcMetaObject):
         _cachedEntries = self.library._cachedEntries
 
         if key in _cachedEntries:
-            logMsg("Already cached: {0}.".format(self), log="debug")
+            logMsg("Already useCache: {0}.".format(self), log="debug")
         else:
             logMsg("Caching: {0}.".format(self), log="debug")
             _cachedEntries[key] = self
@@ -411,6 +457,12 @@ class DrcDir(DrcEntry):
 
         return homoLib.getEntry(sHomoPath)
 
+    def damasPath(self):
+        return addEndSlash(DrcEntry.damasPath(self))
+
+    def getDbCacheKey(self):
+        return addEndSlash(DrcEntry.getDbCacheKey(self))
+
     def suppress(self):
         parentDir = self.parentDir()
         if parentDir._qdir.rmdir(self.name):
@@ -435,7 +487,7 @@ class DrcFile(DrcEntry):
 
     def loadData(self, fileInfo, **kwargs):
 
-        sLogin = self.library.project.getLoggedUser().loginName
+        sLogin = self.library.project.loggedUser().loginName
         self._lockobj = LockFile(fileInfo.absoluteFilePath(), sLogin)
 
         DrcEntry.loadData(self, fileInfo, **kwargs)
@@ -838,7 +890,6 @@ You have {0} version of '{1}':
 
     def getBackupDir(self):
         backupDir = self.library.getEntry(self.backupDirPath())
-        #backupDir.loadChildDbNodes()
         return backupDir
 
     def backupDirPath(self):
@@ -848,7 +899,7 @@ You have {0} version of '{1}':
         logMsg(log='all')
 
         sLockOwner = self.getLockOwner()
-        sLoggedUser = self.library.project.getLoggedUser(force=True).loginName
+        sLoggedUser = self.library.project.loggedUser(force=True).loginName
 
         if sLockOwner:
             if sLockOwner == sLoggedUser:
@@ -887,10 +938,12 @@ You have {0} version of '{1}':
         if parentDir._qdir.remove(self.name):
             self.refresh(children=True, parent=parentDir)
 
-    def _initialDbNodeData(self):
-        data = DrcEntry._initialDbNodeData(self)
-        data.update({"file":self.damasPath()})
-        return data
+
+    def absToRelPath(self, sAbsPath):
+        raise NotImplementedError('Not applicable to a File')
+
+    def relToAbsPath(self, sRelPath):
+        raise NotImplementedError('Not applicable to a File')
 
     def _weakBackupFile(self, version):
 

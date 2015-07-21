@@ -1,5 +1,10 @@
+
+import os
+
 from pytd.util.logutils import logMsg, forceLog
 from pytd.util.sysutils import toStr
+
+from .damas import http_connection
 
 class DrcDb(object):
 
@@ -12,7 +17,10 @@ class DrcDb(object):
         if rec is None:
             raise DbCreateError("Failed to create node: {}".format(data))
 
-        return DbNode(self._dbcon, rec)
+        #TODO:remove return type when fixed by remy
+        #r = rec[0] if isinstance(rec, (list, tuple, set)) else rec
+
+        return DbNode(self, rec)
 
     def findOne(self, sQuery):
 
@@ -25,7 +33,7 @@ class DrcDb(object):
         else:
             nodeId = ids[0]
             recs = self.read(nodeId)
-            return DbNode(self._dbcon, recs[0])
+            return DbNode(self, recs[0])
 
     def findNodes(self, sQuery, asDict=False, keyField=""):
 
@@ -45,7 +53,7 @@ class DrcDb(object):
         if not ids:
             return None
 
-        return (DbNode(self._dbcon, r) for r in self.read(ids))
+        return (DbNode(self, r) for r in self.read(ids))
 
     def search(self, sQuery):
         ids = self._dbcon.search(sQuery)
@@ -58,27 +66,29 @@ class DrcDb(object):
     def read(self, ids):
 
         if isinstance(ids, basestring):
-            s = ids
+            sIds = ids
         else:
-            s = ",".join(ids)
+            sIds = ",".join(ids)
 
-        recs = self._dbcon.read(s)
+        recs = self._dbcon.read(sIds)
         if recs is None:
-            raise DbReadError('Failed to read ids: \n\n{}'.format(s))
+            raise DbReadError('Failed to read ids: \n\n{}'.format(sIds))
 
         return recs
 
 
 class DbNode(object):
 
-    __slots__ = ('_dbcon', '_data', 'id_', '__dirty')
+    __slots__ = ('__drcdb', '_dbcon', '_data', 'id_', '__dirty', 'name')
 
-    def __init__(self, dbcon, record=None):
+    def __init__(self, drcdb, record=None):
 
-        self._dbcon = dbcon
+        self.__drcdb = drcdb
+        self._dbcon = drcdb._dbcon
         self.id_ = ''
         self._data = None
         self.__dirty = False
+        self.name = ''
 
         if record is not None:
             self.loadData(record)
@@ -88,13 +98,15 @@ class DbNode(object):
         if not isinstance(data, dict):
             raise TypeError("argument 'data' must be a {}. Got {}."
                             .format(dict, type(data)))
-        elif not data:
-            raise ValueError("Invalid value passed to argument 'data': {}"
-                             .format(data))
+#        elif not data:
+#            raise ValueError("Invalid value passed to argument 'data': {}"
+#                             .format(data))
 
         self.id_ = data.pop('_id', self.id_)
         self._data = data.copy()
         self.__dirty = False
+
+        self.name = os.path.basename(data.get('file', ''))
 
     def isDirty(self):
         return self.__dirty
@@ -102,9 +114,9 @@ class DbNode(object):
     def getValue(self, sField):
         return self._data.get(sField, "")
 
-    def setValue(self, sField, value, cached=False):
+    def setValue(self, sField, value, useCache=False):
 
-        if cached:
+        if useCache:
             self._data[sField] = value
             self.__dirty = True
         else:
@@ -128,7 +140,7 @@ class DbNode(object):
 
         return True
 
-    @forceLog(log='debug')
+    #@forceLog(log='debug')
     def refresh(self, data=None):
         logMsg(log='all')
 
@@ -156,25 +168,28 @@ class DbNode(object):
     def delete(self):
         return self._dbcon.delete(self.id_)
 
-    def logData(self):
-        print self.dataRepr()
+    def logData(self, *fields):
+        print self.dataRepr(*fields)
 
-    def dataRepr(self):
+    def dataRepr(self, *fields):
+        bFilter = True if fields else False
         s = '{'
         for k, v in sorted(self._data.iteritems(), key=lambda x:x[0]):
+            if bFilter and k not in fields:
+                continue
             s += "\n'{}':'{}'".format(k, toStr(v))
         return s + '\n}'
 
-#    def __getattr__(self, name):
-#
-#        sAccessor = '_data'
-#
-#        if (name == sAccessor) and not hasattr(self, sAccessor):
-#            s = "'{}' object has no attribute '{}'.".format(type(self).__name__, name)
-#            raise AttributeError(s)
-#
-#        value = self._data.get(name, "")
-#        return value
+    def __getattr__(self, name):
+
+        sAccessor = '_data'
+
+        if (name == sAccessor) and not hasattr(self, sAccessor):
+            s = "'{}' object has no attribute '{}'.".format(type(self).__name__, name)
+            raise AttributeError(s)
+
+        value = self._data.get(name, "")
+        return value
 
 
     def __repr__(self):
@@ -182,12 +197,25 @@ class DbNode(object):
         cls = self.__class__
 
         try:
-            sRepr = ("{}('{}')".format(cls.__name__, self._data.get("name", self.id_)))
+            sRepr = ("{}('{}')".format(cls.__name__, getattr(self, "name", self.id_)))
         except AttributeError:
             sRepr = cls.__name__
 
         return sRepr
 
+class dryrun_connection(http_connection):
+
+    def create(self, keys):
+        print u"{}({})".format('dry-run: create', keys)
+        return {}
+
+    def update(self, id_, keys):
+        print u"{}({})".format('dry-run: update', id_, keys)
+        return []
+
+    def delete(self, id_) :
+        print u"{}({})".format('dry-run: delete', id_)
+        return True
 
 
 class DbError(Exception):
