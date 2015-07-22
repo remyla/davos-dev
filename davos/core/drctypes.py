@@ -9,7 +9,7 @@ from PySide.QtCore import QDir
 
 from pytd.gui.dialogs import confirmDialog
 
-from pytd.util.logutils import logMsg#, forceLog
+from pytd.util.logutils import logMsg
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
 from pytd.util.fsutils import pathRel, addEndSlash
@@ -27,6 +27,7 @@ from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
 from pytd.util.sysutils import timer#, getCaller
+#from pytd.util.logutils import forceLog
 
 
 class DrcEntry(DrcMetaObject):
@@ -81,8 +82,7 @@ class DrcEntry(DrcMetaObject):
 
         #print self._dbnode, sAbsPath
         if (not self._dbnode) and self.isPublic():
-            bFindDbNode = kwargs.get('dbNode', True)
-            self._dbnode = self.getDbNode(find=bFindDbNode)
+            self._dbnode = self.getDbNode(fromDb=kwargs.get('dbNode', True))
 
         super(DrcEntry, self).loadData()
 
@@ -97,8 +97,9 @@ class DrcEntry(DrcMetaObject):
         fileInfo.setCaching(False)
 
     def parentDir(self):
-        return self.library.getEntry(self.relDirPath())
+        return self.library.getEntry(self.relDirPath(), dbNode=False)
 
+    #@timer
     def refresh(self, **kwargs):
         logMsg(log="all")
 
@@ -118,7 +119,7 @@ class DrcEntry(DrcMetaObject):
             if bDbNode and self._dbnode:
                 self._dbnode.refresh()
 
-            self.loadData(fileInfo)
+            self.loadData(fileInfo, dbNode=bDbNode)
 
             self.updateModelRow()
 
@@ -132,7 +133,7 @@ class DrcEntry(DrcMetaObject):
                         self.loadedChildren.append(child)
 
                 for child in oldChildren:
-                    child.refresh(children=bChildren, parent=self, dbNode=False)
+                    child.refresh(children=False, parent=self, dbNode=False)
 
     def isPublic(self):
         return self.library.space == "public"
@@ -208,8 +209,9 @@ class DrcEntry(DrcMetaObject):
     # Database related methods
     #=======================================================================
 
-    #@forceLog(log='debug')
-    def getDbNode(self, create=False, find=True):
+    #@timer
+    def getDbNode(self, create=False, fromDb=True):
+        logMsg(log='all')
 
         assert self.isPublic(), "File is NOT public !"
 
@@ -220,7 +222,7 @@ class DrcEntry(DrcMetaObject):
         if dbnode:
             logMsg(u"got from CACHE: '{}'".format(cacheKey), log='debug')
             return dbnode
-        elif find:
+        elif fromDb:
             dbnode = self.findDbNode(useCache=False)
             if dbnode:
                 logMsg(u"got from DB: '{}'".format(cacheKey), log='debug')
@@ -238,6 +240,7 @@ class DrcEntry(DrcMetaObject):
         return dbnode
 
     def findDbNode(self, useCache=True):
+        logMsg(log='all')
 
         assert self.isPublic(), "File is NOT public !"
 
@@ -268,8 +271,12 @@ class DrcEntry(DrcMetaObject):
             if cacheKey in _cachedDbNodes:
                 return _cachedDbNodes[cacheKey]
 
-        data = {"file":self.damasPath()}
-        dbnode = self.library._db.createNode(data)
+        dbnode = self.findDbNode(useCache=False)
+        if not dbnode:
+            data = {"file":self.damasPath()}
+            dbnode = self.library._db.createNode(data)
+        else:
+            print u"DbNode already created: '{}'".format(dbnode.file)
 
         if useCache and dbnode:
             logMsg(u"loading DbNode: {}".format(cacheKey), log='debug')
@@ -297,6 +304,7 @@ class DrcEntry(DrcMetaObject):
             else:
                 logMsg(u"loading: {}".format(cacheKey), log='debug')
                 _cachedDbNodes[cacheKey] = dbnode
+
 
     def listChildDbNodes(self, sQuery="", **kwargs):
 
@@ -499,10 +507,12 @@ class DrcFile(DrcEntry):
     propertiesDct = dict(propertiesDctItems)
 
     def __init__(self, drcLibrary, absPathOrInfo=None, **kwargs):
-        super(DrcFile, self).__init__(drcLibrary, absPathOrInfo, **kwargs)
 
         self.publishAsserted = False
         self.__savedLockState = None
+
+        super(DrcFile, self).__init__(drcLibrary, absPathOrInfo, **kwargs)
+
 
     def loadData(self, fileInfo, **kwargs):
 
@@ -643,7 +653,7 @@ You have {0} version of '{1}':
         sPubFilename = sPrivFilename.split('-v')[0] + sExt
         sPubFilePath = pathJoin(sPubDirPath, sPubFilename)
 
-        return pubDir.library.getEntry(sPubFilePath)
+        return pubDir.library.getEntry(sPubFilePath, dbNode=False)
 
     def getPrivateDir(self):
 
@@ -673,7 +683,7 @@ You have {0} version of '{1}':
             return None
 
         sFilePath = pathJoin(backupDir.absPath(), sEntryList[0])
-        return self.library.getEntry(sFilePath)
+        return self.library.getEntry(sFilePath, dbNode=False)
 
 
     def assertFilePublishable(self, privFile):
@@ -912,7 +922,7 @@ You have {0} version of '{1}':
         return True
 
     def getBackupDir(self):
-        backupDir = self.library.getEntry(self.backupDirPath())
+        backupDir = self.library.getEntry(self.backupDirPath(), dbNode=False)
         return backupDir
 
     def backupDirPath(self):

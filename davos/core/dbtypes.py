@@ -1,7 +1,8 @@
 
 import os
 
-from pytd.util.logutils import logMsg, forceLog
+from pytd.util.logutils import logMsg#, forceLog
+#from pytd.util.sysutils import timer
 #from pytd.util.sysutils import toStr
 
 class DrcDb(object):
@@ -34,6 +35,7 @@ class DrcDb(object):
             return DbNode(self, recs[0])
 
     def findNodes(self, sQuery, asDict=False, keyField=""):
+        logMsg(sQuery, log='all')
 
         nodesIter = self._iterNodes(sQuery)
 
@@ -44,9 +46,10 @@ class DrcDb(object):
 
             return dict((n.getField(keyField), n) for n in nodesIter) if nodesIter else {}
 
-        return list(self._iterNodes(sQuery)) if nodesIter else []
+        return list(nodesIter) if nodesIter else []
 
     def _iterNodes(self, sQuery):
+        logMsg(sQuery, log='all')
 
         ids = self.search(sQuery)
         if not ids:
@@ -54,7 +57,12 @@ class DrcDb(object):
 
         return (DbNode(self, r) for r in self.read(ids))
 
+    def readNodes(self, ids):
+        return list(DbNode(self, r) for r in self.read(ids))
+
     def search(self, sQuery):
+        logMsg(sQuery, log='all')
+
         ids = self._dbcon.search(sQuery)
         if ids is None:
             raise DbSearchError('Failed to search: "{}"'
@@ -163,7 +171,7 @@ class DbNode(object):
 
         return True
 
-    @forceLog(log='debug')
+    #@forceLog(log='debug')
     def refresh(self, data=None):
         logMsg(log='all')
 

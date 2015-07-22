@@ -86,9 +86,11 @@ class DrcLibrary(DrcEntry):
             raise TypeError("argument 'pathOrInfo' must be of type <QFileInfo> \
                             or <basestring>. Got {0}.".format(type(pathOrInfo)))
 
+        # entries are cached using their relative path the the library they belong to.
         if not sRelPath:
             sRelPath = self.absToRelPath(sAbsPath) if osp.isabs(sAbsPath) else sAbsPath
 
+        # try to get an already loaded entry...
         drcEntry = self._cachedEntries.get(sRelPath)
         if drcEntry:
             drcEntry.loadData(drcEntry._qfileinfo, dbNode=dbNode)
@@ -100,6 +102,7 @@ class DrcLibrary(DrcEntry):
         if not fileInfo:
             fileInfo = toQFileInfo(sAbsPath)
 
+        # no cached entry found so let's instance a new one
         if weak:
             if drcType:
                 cls = drcType

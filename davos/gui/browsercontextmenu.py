@@ -12,6 +12,7 @@ from pytd.util.fsutils import  pathSuffixed
 # from pytd.util.logutils import forceLog
 from davos.core.drctypes import DrcFile
 from pytd.util.sysutils import toStr
+from pytd.util.qtutils import setWaitCursor
 
 
 class BrowserContextMenu(BaseContextMenu):
@@ -100,7 +101,7 @@ class BrowserContextMenu(BaseContextMenu):
     setFilesLocked.auth_types = [ "DrcFile" ]
 
 
-    # @forceLog(log="debug")
+    @setWaitCursor
     def refreshItems(self, *itemList, **kwargs):
 
         for item in itemList:

@@ -83,7 +83,7 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
 
         slider = self.rowHeightSlider
         slider.setMinimum(16)
-        slider.setMaximum(32)
+        slider.setMaximum(64)
 
         slider.valueChanged.connect(self.childrenView.setItemHeight)
         slider.setValue(self.childrenView.itemHeight)

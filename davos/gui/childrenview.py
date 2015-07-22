@@ -3,7 +3,7 @@ from PySide import QtGui
 from PySide import QtCore
 from PySide.QtCore import Qt
 
-#from pytd.gui.itemviews.basecontextmenu import BaseContextMenu
+from pytd.gui.itemviews.baseitemdelegate import BaseItemDelegate
 from pytd.gui.itemviews.basetreeview import BaseTreeView
 
 from .browsercontextmenu import BrowserContextMenu
@@ -22,7 +22,7 @@ class ChildrenView(BaseTreeView):
         self.mainCtxMenu = None
         self.contextMenuEnabled = True
 
-        self.setItemDelegate(QtGui.QStyledItemDelegate(self))
+        self.setItemDelegate(BaseItemDelegate(self))
         self.setMouseTracking(True)
 
         self.setItemsExpandable(False)
