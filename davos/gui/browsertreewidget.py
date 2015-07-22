@@ -12,7 +12,6 @@ from pytd.util.logutils import logMsg
 
 from .childrenwidget import ChildrenWidget
 from .browsercontextmenu import BrowserContextMenu
-from pytd.util.sysutils import inDevMode
 
 
 class DrcIconProvider(PropertyIconProvider):
@@ -108,8 +107,6 @@ class BrowserTreeWidget(BaseTreeWidget):
 
         BaseTreeWidget.setupModelData(self, metamodel, **kwargs)
 
-        self.resizeColumnsToContents()
-
         #self.setUiCategory("ZZ_Dev" if inDevMode() else 0)
 
         self.childrenWidget.setModel(self.model())
@@ -117,6 +114,7 @@ class BrowserTreeWidget(BaseTreeWidget):
         self.treeView.clicked.connect(self.childrenWidget.selectionModel().clear)
 
         self.setChildrenWidgetVisible(self.childrenViewEnabled)
+
 
     def syncTreeSelection(self, index):
 

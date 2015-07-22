@@ -11,6 +11,7 @@ from pytd.util.fsutils import  pathSuffixed
 # from pytd.util.fsutils import pathNorm
 # from pytd.util.logutils import forceLog
 from davos.core.drctypes import DrcFile
+from pytd.util.sysutils import toStr
 
 
 class BrowserContextMenu(BaseContextMenu):
@@ -36,19 +37,26 @@ class BrowserContextMenu(BaseContextMenu):
         # proj = self.model().metamodel
 
         actionsCfg = (
-        { "label":"Edit"                , "fnc":self.editFile                   , "menu": "Main"},
+        { "label":"Refresh"             , "menu": "Main"    , "fnc":self.refreshItems               },
 
-        { "label":"separator"                                                   , "menu": "Main"},
-        { "label":"Publish Version"     , "fnc":self.publishEditedVersion             , "menu": "Main"},
+        { "label":"separator"           , "menu": "Main"    , "dev":False                           },
+        { "label":"Edit"                , "menu": "Main"    , "fnc":self.editFile                   },
+        #{ "label":"separator"          , "menu": "Main"},
+        { "label":"Publish..."          , "menu": "Main"    , "fnc":self.publishEditedVersion       },
 
-        { "label":"separator"                                                                                , "menu": "Main"},
-        { "label":"Off"                 , "fnc":self.setFilesLocked        , "args":[False]    , "menu": "Set Lock" },
-        { "label":"On"                  , "fnc":self.setFilesLocked        , "args":[True]        , "menu": "Set Lock" },
+        { "label":"separator"           , "menu": "Main"},
+        { "label":"Private Directory"   , "menu": "Go To"   , "fnc":self.showPrivateDirInExplorer   },
+        #{ "label":"Server Directory"    , "menu": "Go To"   , "fnc":self.exploreItemPath    , "args":["server"]   },
+        #{ "label":"Damas Web Page"      , "menu": "Go To"   , "fnc":self.launchItemWebPage                        },
 
-        { "label":"Remove"              , "dev":True, "fnc":self.removeItems    , "menu": "Advanced" },
+        { "label":"separator"           , "menu": "Main"},
+        { "label":"Off"                 , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[False]      },
+        { "label":"On"                  , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[True]       },
 
-        { "label":"separator"           , "dev":False                           , "menu": "Main"},
-        { "label":"Refresh"             , "fnc":self.refreshItems               , "menu": "Main" },
+        { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
+        { "label":"Log DbNode"          , "menu": "Advanced", "fnc":self.logDbNodeData      , "dev":True},
+        { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer      , "dev":True},
+
         )
 
         return actionsCfg
@@ -57,10 +65,24 @@ class BrowserContextMenu(BaseContextMenu):
     def editFile(self, *itemList):
 
         drcFile = itemList[-1]._metaobj
+
+        sMsg = u'Are you sure you want to EDIT this resource: \n\n    ' + drcFile.relPath()
+
+        sConfirm = confirmDialog(title='WARNING !',
+                                message=sMsg + u' ?',
+                                button=['OK', 'Cancel'],
+                                defaultButton='Cancel',
+                                cancelButton='Cancel',
+                                dismissString='Cancel',
+                                icon="warning")
+
+        if sConfirm == 'Cancel':
+            logMsg("Cancelled !", warning=True)
+            return
+
         drcFile.edit()
 
     editFile.auth_types = ("DrcFile",)
-
 
     def setFilesLocked(self, bLock, *itemList):
 
@@ -97,26 +119,38 @@ class BrowserContextMenu(BaseContextMenu):
 
         sEntryList = "\n    " .join(entry.name for entry in entryList)
 
-        sMsg = u'Are you sure you want to delete these resources: \n\n    ' + sEntryList
+        sMsg = u'Are you sure you want to DELETE these resources: \n\n    ' + sEntryList
 
         sConfirm = confirmDialog(title='WARNING !',
-                                message=sMsg,
-                                button=['OK', 'Cancel'],
+                                 message=sMsg,
+                                 button=['OK', 'Cancel'],
                                  defaultButton='Cancel',
                                  cancelButton='Cancel',
                                  dismissString='Cancel',
                                  icon="warning")
 
         if sConfirm == 'Cancel':
+            logMsg("Cancelled !", warning=True)
             return
 
         for entry in entryList:
 
-            if entry.isPublic():
-                logMsg(u"Cannot remove a public file: {}".format(entry.name) , warning=True)
-                continue
+            try:
+                entry.sendToTrash()
+            except Exception, e:
+                sResult = confirmDialog(title='SORRY !',
+                                        message=toStr(e),
+                                        button=["Continue", "Abort"],
+                                        defaultButton="Continue",
+                                        cancelButton="Abort",
+                                        dismissString="Abort",
+                                        icon="critical")
 
-            entry.sendToTrash()
+                if sResult == "Abort":
+                    return
+                else:
+                    continue
+
 
     @staticmethod
     def pickupPrivateFileToPublish(drcFile):
@@ -152,3 +186,32 @@ class BrowserContextMenu(BaseContextMenu):
         proj.publishEditedVersion(sSrcFilePath, autoLock=True)
 
     publishEditedVersion.auth_types = ("DrcFile" ,)
+
+    def showPrivateDirInExplorer(self, *itemList):
+        item = itemList[-1]
+        drcEntry = item._metaobj
+
+        if isinstance(drcEntry, DrcFile):
+            privDir = drcEntry.parentDir().getHomonym("private")
+        else:
+            privDir = drcEntry.getHomonym("private")
+
+        if not privDir:
+            confirmDialog(title='SORRY !',
+                        message="Private directory not found !",
+                        button=["OK"],
+                        icon="critical")
+            return
+
+        privDir.showInExplorer()
+
+    def showInExplorer(self, *itemList):
+        item = itemList[-1]
+        drcEntry = item._metaobj
+
+        drcEntry.showInExplorer()
+
+    def logDbNodeData(self, *itemList):
+
+        for item in itemList:
+            item._metaobj._dbnode.logData()

@@ -41,9 +41,10 @@ class DrcDb(object):
 
         if asDict:
             if not keyField:
-                raise ValueError("To be able to return as dict, please provide a 'keyField'!")
+                raise ValueError("To be able to return as dict, \
+                                please provide a 'keyField'!")
 
-            return dict((n.getValue(keyField), n) for n in nodesIter) if nodesIter else {}
+            return dict((n.getField(keyField), n) for n in nodesIter) if nodesIter else {}
 
         return list(self._iterNodes(sQuery)) if nodesIter else []
 
@@ -111,10 +112,10 @@ class DbNode(object):
     def isDirty(self):
         return self.__dirty
 
-    def getValue(self, sField):
+    def getField(self, sField):
         return self._data.get(sField, "")
 
-    def setValue(self, sField, value, useCache=False):
+    def setField(self, sField, value, useCache=False):
 
         if useCache:
             self._data[sField] = value
@@ -140,7 +141,7 @@ class DbNode(object):
 
         return True
 
-    #@forceLog(log='debug')
+    @forceLog(log='debug')
     def refresh(self, data=None):
         logMsg(log='all')
 
@@ -173,12 +174,12 @@ class DbNode(object):
 
     def dataRepr(self, *fields):
         bFilter = True if fields else False
-        s = '{'
+        s = u'{'
         for k, v in sorted(self._data.iteritems(), key=lambda x:x[0]):
             if bFilter and k not in fields:
                 continue
-            s += "\n'{}':'{}'".format(k, toStr(v))
-        return s + '\n}'
+            s += u"\n'{}':'{}'".format(k, v)
+        return (s + u'\n}')
 
     def __getattr__(self, name):
 

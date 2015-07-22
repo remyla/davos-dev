@@ -33,6 +33,7 @@ class ChildrenView(BaseTreeView):
         self.setAlternatingRowColors(True)
 
         self.setSortingEnabled(True)
+        self.setItemHeight(32)
 
         #self.setStyleSheet(uiModelView.viewStyleSheet)
         self.doubleClicked.connect(self.changeRootIndex)
@@ -86,6 +87,7 @@ class ChildrenView(BaseTreeView):
         self.setRootIndex(newRootIndex)
         self.selectionModel().clear()
         self.resizeColumnsToContents()
+        self.setItemHeight(self.itemHeight)
         self.rootIndexChanged.emit(newRootIndex)
 
     def backToParentIndex(self):
@@ -112,6 +114,7 @@ class ChildrenView(BaseTreeView):
 #        for i, sProperty in enumerate(model.propertyList):
 #                self.setColumnHidden(i, sProperty not in sPropertyList)
 
+        self.setItemHeight(self.itemHeight)
         self.resizeColumnsToContents()
 
     def contextMenuEvent(self, event):

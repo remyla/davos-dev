@@ -1,5 +1,8 @@
 
+import os
 import sys
+
+os.environ["DEV_MODE_ENV"] = '1'
 
 from PySide import QtGui
 

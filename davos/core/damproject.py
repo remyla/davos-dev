@@ -8,6 +8,7 @@ from .drclibrary import DrcLibrary
 from .damtypes import DamUser
 from .authtypes import HellAuth
 from .utils import getConfigModule
+from pytd.util import sysutils
 
 LIBRARY_SPACES = ("public", "private")
 
@@ -106,8 +107,13 @@ class DamProject(object):
 
     def loadLibraries(self):
 
+        bDevMode = sysutils.inDevMode()
+
         for sSpace, sLibName in self._iterConfigLibraries():
-            self.getLibrary(sSpace, sLibName)
+            drcLib = self.getLibrary(sSpace, sLibName)
+            if (not bDevMode) and sSpace == "private":
+                continue
+            drcLib.addModelRow()
 
     def getLibrary(self, sSpace, sLibName):
 
@@ -117,7 +123,6 @@ class DamProject(object):
         if not drcLib:
             sLibPath = pathResolve(self.getVar(sLibName, sSpace + "_path"))
             drcLib = DrcLibrary(sLibName, sLibPath, sSpace, self)
-            drcLib.addModelRow()
 
         return drcLib
 

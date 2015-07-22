@@ -82,11 +82,11 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
         self.setupUi(self)
 
         slider = self.rowHeightSlider
-        slider.setMinimum(32)
-        slider.setMaximum(128)
+        slider.setMinimum(16)
+        slider.setMaximum(32)
 
-        #slider.valueChanged.connect(self.childrenView.setItemHeight)
-        #slider.setValue(self.childrenView.itemHeight)
+        slider.valueChanged.connect(self.childrenView.setItemHeight)
+        slider.setValue(self.childrenView.itemHeight)
 
         self.pathTabBar.currentChanged.connect(self.tabChanged)
 

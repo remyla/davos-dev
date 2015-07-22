@@ -8,10 +8,12 @@ from pytd.util.logutils import logMsg
 from pytd.util.sysutils import listClassesFromModule, getCaller
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathNorm
+from pytd.util import sysutils
 
 from . import drctypes
 from .drctypes import DrcEntry, DrcDir, DrcFile
 from .dbtypes import DrcDb
+
 
 class DrcLibrary(DrcEntry):
 
@@ -43,7 +45,7 @@ class DrcLibrary(DrcEntry):
         super(DrcLibrary, self).loadData(fileInfo)
         assert self.isDir(), "<{}> No such directory: '{}'".format(self, self.absPath())
 
-        self.label = self.fullName
+        self.label = self.fullName if sysutils.inDevMode() else self.name
 
     def setItemModel(self, model):
         self._itemmodel = model
@@ -63,7 +65,7 @@ class DrcLibrary(DrcEntry):
         return sorted((cls for (_, cls) in listClassesFromModule(drctypes.__name__)
                             if hasattr(cls, "classUiPriority")), key=lambda c: c.classUiPriority)
 
-    def getEntry(self, pathOrInfo, weak=False, drcType=None, dbNode=False):
+    def getEntry(self, pathOrInfo, weak=False, drcType=None, dbNode=True):
         logMsg(log="all")
         """
         weak means that we do not check if the path exists.  
@@ -89,7 +91,7 @@ class DrcLibrary(DrcEntry):
 
         drcEntry = self._cachedEntries.get(sRelPath)
         if drcEntry:
-            drcEntry.loadData(drcEntry._qfileinfo)
+            drcEntry.loadData(drcEntry._qfileinfo, dbNode=dbNode)
             if weak:
                 return drcEntry
             else:

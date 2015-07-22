@@ -17,6 +17,8 @@ from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
+from pytd.util.fsutils import showPathInExplorer
+
 from pytd.util.external.send2trash import send2trash
 
 from .properties import DrcMetaObject
@@ -24,7 +26,7 @@ from .properties import DrcEntryProperties, DrcFileProperties
 from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
-#from pytd.util.sysutils import timer, getCaller
+from pytd.util.sysutils import timer#, getCaller
 
 
 class DrcEntry(DrcMetaObject):
@@ -77,9 +79,10 @@ class DrcEntry(DrcMetaObject):
             self._qdir = QDir(sAbsPath)
             self._qdir.setFilter(QDir.NoDotAndDotDot | QDir.Dirs | QDir.Files)
 
-            if self.isPublic():
-                bFindDbNode = kwargs.get('dbNode', False)
-                self._dbnode = self.getDbNode(find=bFindDbNode)
+        #print self._dbnode, sAbsPath
+        if (not self._dbnode) and self.isPublic():
+            bFindDbNode = kwargs.get('dbNode', True)
+            self._dbnode = self.getDbNode(find=bFindDbNode)
 
         super(DrcEntry, self).loadData()
 
@@ -112,10 +115,10 @@ class DrcEntry(DrcMetaObject):
         if not fileInfo.exists():
             self._forget(parent=parent, recursive=True)
         else:
-            self.loadData(fileInfo)
-
             if bDbNode and self._dbnode:
                 self._dbnode.refresh()
+
+            self.loadData(fileInfo)
 
             self.updateModelRow()
 
@@ -159,7 +162,7 @@ class DrcEntry(DrcMetaObject):
             self.loadChildDbNodes()
 
         getEntry = self.library.getEntry
-        return (getEntry(info) for info in self._qdir.entryInfoList(nameFilters, **kwargs))
+        return (getEntry(info, dbNode=False) for info in self._qdir.entryInfoList(nameFilters, **kwargs))
 
     def hasChildren(self):
         return False
@@ -188,8 +191,10 @@ class DrcEntry(DrcMetaObject):
         return pathJoin(self.absPath(), sRelPath)
 
     def damasPath(self):
-        sLibPath = self.library.absPath()
-        sLibDmsPath = self.library.getVar("damas_path")
+        lib = self.library
+        sLibPath = lib.absPath()
+        sProjDmsPath = lib.project.getVar("project", "damas_path")
+        sLibDmsPath = pathJoin(sProjDmsPath, lib.getVar("dir_name"))
         p = re.sub('^' + sLibPath, sLibDmsPath, self.absPath())
         return normCase(p)
 
@@ -204,7 +209,7 @@ class DrcEntry(DrcMetaObject):
     #=======================================================================
 
     #@forceLog(log='debug')
-    def getDbNode(self, create=False, find=False):
+    def getDbNode(self, create=False, find=True):
 
         assert self.isPublic(), "File is NOT public !"
 
@@ -225,10 +230,10 @@ class DrcEntry(DrcMetaObject):
             logMsg(u"just created: '{}'".format(cacheKey), log='debug')
 
         if dbnode:
-            logMsg(u"loading: {}".format(cacheKey), log='debug')
+            logMsg(u"loading: '{}'".format(cacheKey), log='debug')
             _cachedDbNodes[cacheKey] = dbnode
         else:
-            pass#logMsg(u"    - not found.", log='debug')
+            logMsg(u"not such dbnode: '{}'".format(cacheKey), log='debug')
 
         return dbnode
 
@@ -243,7 +248,9 @@ class DrcEntry(DrcMetaObject):
                 return _cachedDbNodes[cacheKey]
 
         sQuery = u"file:{}".format(self.damasPath())
+#        print "finding DbNode:", sQuery
         dbnode = self.library._db.findOne(sQuery)
+#        print "    - got:", dbnode
 
         if useCache and dbnode:
             logMsg(u"loading DbNode: {}".format(cacheKey), log='debug')
@@ -261,7 +268,7 @@ class DrcEntry(DrcMetaObject):
             if cacheKey in _cachedDbNodes:
                 return _cachedDbNodes[cacheKey]
 
-        data = {"file":self.damasPath(), }
+        data = {"file":self.damasPath()}
         dbnode = self.library._db.createNode(data)
 
         if useCache and dbnode:
@@ -270,19 +277,22 @@ class DrcEntry(DrcMetaObject):
 
         return dbnode
 
+    @timer
     def loadChildDbNodes(self):
 
         _cachedDbNodes = self.library._cachedDbNodes
 
         for dbnode in self.listChildDbNodes():
 
-            sDamasPath = dbnode.getValue("file")
-            if not sDamasPath:
-                continue
+            sDamasPath = dbnode.getField("file")
 
             cacheKey = self.damasToRelPath(sDamasPath)
             cachedNode = _cachedDbNodes.get(cacheKey)
             if cachedNode:
+#                print "-----------------"
+#                print "cachedNode", cacheKey
+#                cachedNode.logData()
+#                print "-----------------"
                 cachedNode.refresh(dbnode._data)
             else:
                 logMsg(u"loading: {}".format(cacheKey), log='debug')
@@ -349,9 +359,19 @@ class DrcEntry(DrcMetaObject):
 
 
     def sendToTrash(self):
+
+        assert not self.isPublic(), (u"Cannot delete a public file: \n\n    '{}'"
+                                  .format(self.relPath()))
+
         send2trash(self.absPath())
         self.refresh(children=True)
 
+    def showInExplorer(self, isFile=False):
+
+        sPath = self.absPath()
+        assert self.isPrivate(), "File is NOT private: '{}'".format(sPath)
+
+        return showPathInExplorer(sPath, isFile)
 
     def _writeAllValues(self, propertyNames=None):
 
@@ -471,7 +491,6 @@ class DrcDir(DrcEntry):
     def hasChildren(self):
         return True
 
-
 class DrcFile(DrcEntry):
 
     classUiPriority = 2
@@ -511,10 +530,12 @@ class DrcFile(DrcEntry):
             return
 
         try:
-            self.makePrivateCopy()
+            privFile = self.makePrivateCopy()
         except:
             self.setLocked(bLockState)
             raise
+
+        privFile.showInExplorer()
 
     def makePrivateCopy(self, **kwargs):
 
@@ -586,7 +607,7 @@ You have {0} version of '{1}':
             # logMsg('\nCoping "{0}" \n\t to: "{1}"'.format(sPubFilePath, sPrivFilePath))
             copyFile(sPubFilePath, sPrivFilePath, **kwargs)
 
-        return sPrivFilePath
+        return privDir.library.getEntry(sPrivFilePath)
 
     def differsFrom(self, sOtherFilePath):
 
@@ -650,7 +671,7 @@ You have {0} version of '{1}':
             return None
 
         sFilePath = pathJoin(backupDir.absPath(), sEntryList[0])
-        return self.library.getEntry(sFilePath, dbNode=True)
+        return self.library.getEntry(sFilePath)
 
 
     def assertFilePublishable(self, privFile):
@@ -937,6 +958,9 @@ You have {0} version of '{1}':
         parentDir = self.parentDir()
         if parentDir._qdir.remove(self.name):
             self.refresh(children=True, parent=parentDir)
+
+    def showInExplorer(self):
+        return DrcEntry.showInExplorer(self, isFile=True)
 
 
     def absToRelPath(self, sAbsPath):
