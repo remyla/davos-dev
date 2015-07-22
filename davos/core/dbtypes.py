@@ -2,9 +2,7 @@
 import os
 
 from pytd.util.logutils import logMsg, forceLog
-from pytd.util.sysutils import toStr
-
-from .damas import http_connection
+#from pytd.util.sysutils import toStr
 
 class DrcDb(object):
 
@@ -76,6 +74,30 @@ class DrcDb(object):
             raise DbReadError('Failed to read ids: \n\n{}'.format(sIds))
 
         return recs
+
+
+#from .damas import http_connection
+class dryrun_connection(object):
+
+    def create(self, keys):
+        logMsg(u"{}({})".format('dry-run: create', keys), log='debug')
+        return {}
+
+    def update(self, id_, keys):
+        logMsg(u"{}({})".format('dry-run: update', id_, keys), log='debug')
+        return []
+
+    def delete(self, id_) :
+        logMsg(u"{}({})".format('dry-run: delete', id_), log='debug')
+        return True
+
+    def search(self, sQuery):
+        logMsg(u"{}({})".format('dry-run: search', sQuery), log='debug')
+        return []
+
+    def read(self, ids):
+        logMsg(u"{}({})".format('dry-run: read', ids), log='debug')
+        return []
 
 
 class DbNode(object):
@@ -204,19 +226,8 @@ class DbNode(object):
 
         return sRepr
 
-class dryrun_connection(http_connection):
 
-    def create(self, keys):
-        print u"{}({})".format('dry-run: create', keys)
-        return {}
 
-    def update(self, id_, keys):
-        print u"{}({})".format('dry-run: update', id_, keys)
-        return []
-
-    def delete(self, id_) :
-        print u"{}({})".format('dry-run: delete', id_)
-        return True
 
 
 class DbError(Exception):

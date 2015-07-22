@@ -12,6 +12,28 @@ from pytd.util import sysutils
 
 LIBRARY_SPACES = ("public", "private")
 
+"""
+from pytd.util.fsutils import pathJoin
+from davos.core import damproject
+reload(damproject)
+
+DamProject = damproject.DamProject
+
+proj = DamProject("zombillenium")
+
+sAssetName = "chr_actionnaire1"
+p = proj.getPath("public","asset_lib","master_file", tokens={"assetType":"chr","asset":sAssetName})
+
+entry = proj.entryFromPath(p)
+privFile = entry.edit()
+
+#entry.nextVersionName()
+#entry.getLatestBackupFile()
+
+proj.publishEditedVersion(privFile.absPath())
+
+"""
+
 class DamProject(object):
 
     def __new__(cls, sProjectName, **kwargs):
@@ -160,12 +182,12 @@ class DamProject(object):
             if drcLib.contains(sPath):
                 return drcLib
 
-    def entryFromPath(self, sEntryPath):
+    def entryFromPath(self, sEntryPath, **kwargs):
 
         drcLib = self.libraryFromPath(sEntryPath)
         assert drcLib is not None, "Path is NOT from a KNOWN library !"
 
-        return drcLib.getEntry(sEntryPath)
+        return drcLib.getEntry(sEntryPath, **kwargs)
 
     def publishEditedVersion(self, sSrcFilePath, **kwargs):
 
@@ -216,6 +238,12 @@ class DamProject(object):
         self._shotgundb = ShotgunEngine()
 
     def __initDamas(self):
+
+        if self.getVar("project", "no_damas", False):
+
+            from .dbtypes import dryrun_connection
+            self._damasdb = dryrun_connection()
+            return
 
         print "damas !!"
 

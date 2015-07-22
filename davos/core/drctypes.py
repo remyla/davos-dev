@@ -17,7 +17,7 @@ from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
-from pytd.util.fsutils import showPathInExplorer
+from pytd.gui.itemviews.utils import showPathInExplorer
 
 from pytd.util.external.send2trash import send2trash
 
@@ -536,6 +536,8 @@ class DrcFile(DrcEntry):
             raise
 
         privFile.showInExplorer()
+
+        return privFile
 
     def makePrivateCopy(self, **kwargs):
 

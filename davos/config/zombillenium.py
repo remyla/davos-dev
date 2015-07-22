@@ -17,6 +17,7 @@ class project:
         )
 
     authenticator = ".authtypes.ShotgunAuth"
+    #no_damas = True
 
 class asset_lib:
 
@@ -34,6 +35,9 @@ class asset_lib:
                 "texture -> texture_dir":{},
                 "ref -> ref_dir":{},
                 "image -> image_dir":{},
+                "{asset}_master.ma -> master_file":{}
+                "{asset}_previz.ma -> previz_file":{}
+                "{asset}_preview.jpg -> preview_file":{}
                 },
             },
         }

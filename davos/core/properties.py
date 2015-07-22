@@ -1,6 +1,6 @@
 
 
-from pytd.util.sysutils import MemSize
+from pytd.util.utiltypes import MemSize
 
 from pytd.core.metaproperty import BasePropertyFactory
 from pytd.core.metaproperty import MetaProperty
