@@ -57,8 +57,14 @@ class BrowserTreeWidget(BaseTreeWidget):
     treeViewClass = BaseTreeView
     contextMenuClass = BrowserContextMenu
 
+#    classStyle = QtGui.QStyleFactory.create("Cleanlooks")
+
+
     def __init__(self, parent=None, childrenViewEnabled=True):
         super(BrowserTreeWidget, self).__init__(parent)
+
+#        print style
+#        self.setStyle(self.__class__.classStyle)
 
         self.treeView.mousePressEventButtons = (Qt.LeftButton,)
 

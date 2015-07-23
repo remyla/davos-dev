@@ -11,9 +11,9 @@ from davos.core.damproject import DamProject
 from davos.gui.assetbrowserwidget import AssetBrowserWidget
 
 
-def main(*argv):
+def main(argv):
 
-    app = QtGui.QApplication(*argv)
+    app = QtGui.QApplication(argv)
 
     # print QtGui.QStyleFactory.keys()
     app.setStyle("Cleanlooks")

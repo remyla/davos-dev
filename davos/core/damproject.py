@@ -232,10 +232,11 @@ class DamProject(object):
         if self.getVar("project", "no_shotgun", False):
             return
 
-        print "shotgun !!"
+        print "connecting to shotgun..."
 
         from zombie.shotgunengine import ShotgunEngine
         self._shotgundb = ShotgunEngine()
+
 
     def __initDamas(self):
 
@@ -245,10 +246,11 @@ class DamProject(object):
             self._damasdb = dryrun_connection()
             return
 
-        print "damas !!"
+        print "connecting to damas..."
 
         from davos.core import damas
         self._damasdb = damas.http_connection("http://62.210.104.42:8090")
+
 
     def __repr__(self):
 
