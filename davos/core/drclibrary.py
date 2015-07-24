@@ -43,7 +43,6 @@ class DrcLibrary(DrcEntry):
             self._db = DrcDb(self.project._damasdb)
 
         super(DrcLibrary, self).loadData(fileInfo)
-        assert self.isDir(), "<{}> No such directory: '{}'".format(self, self.absPath())
 
         self.label = self.fullName if sysutils.inDevMode() else self.name
 

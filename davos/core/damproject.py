@@ -1,4 +1,6 @@
 
+import os.path as osp
+
 from pytd.util.pyconfparser import PyConfParser
 from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm
@@ -132,9 +134,14 @@ class DamProject(object):
         bDevMode = sysutils.inDevMode()
 
         for sSpace, sLibName in self._iterConfigLibraries():
-            drcLib = self.getLibrary(sSpace, sLibName)
+
             if (not bDevMode) and sSpace == "private":
                 continue
+
+            drcLib = self.getLibrary(sSpace, sLibName)
+            if not drcLib:
+                continue
+
             drcLib.addModelRow()
 
     def getLibrary(self, sSpace, sLibName):
@@ -144,7 +151,12 @@ class DamProject(object):
 
         if not drcLib:
             sLibPath = pathResolve(self.getVar(sLibName, sSpace + "_path"))
-            drcLib = DrcLibrary(sLibName, sLibPath, sSpace, self)
+            if osp.isdir(sLibPath):
+                drcLib = DrcLibrary(sLibName, sLibPath, sSpace, self)
+            else:
+                sFullName = DrcLibrary.makeFullName(sSpace, sLibName)
+                logMsg("No such '{}': '{}'"
+                       .format(sFullName, sLibPath), warning=True)
 
         return drcLib
 

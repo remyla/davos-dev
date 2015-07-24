@@ -3,6 +3,10 @@ from PySide import QtGui
 from PySide import QtCore
 Qt = QtCore.Qt
 
+from pytd.gui.widgets import ImageButton
+from pytd.gui.itemviews.utils import ItemUserRole
+from pytd.util.qtutils import clampPixmapSize
+
 from pytd.gui.itemviews.utils import ItemUserFlag
 from pytd.util.qtutils import toColorSheet
 
@@ -29,6 +33,9 @@ class PropertyWidgetDelegate(QtGui.QStyledItemDelegate):
 
     def setEditorData(self, editor, index):
 
+        if not index.isValid():
+            return
+
         if isinstance(editor, QtGui.QLabel):
 
             value = index.data(Qt.DisplayRole)
@@ -45,6 +52,14 @@ class PropertyWidgetDelegate(QtGui.QStyledItemDelegate):
             else:
                 editor.setTextInteractionFlags(Qt.TextSelectableByMouse)
                 editor.setStyleSheet("QLabel {color: gray;}")
+
+        elif isinstance(editor, ImageButton):
+
+            value = index.data(ItemUserRole.ImageRole)
+            if isinstance(value, QtGui.QPixmap):
+                editor.setIcon(QtGui.QIcon(clampPixmapSize(value, 256)))
+            elif isinstance(value, QtGui.QIcon):
+                editor.setIcon(value)
 
         QtGui.QStyledItemDelegate.setEditorData(self, editor, index)
 
@@ -77,7 +92,7 @@ class PropertyEditorView(QtGui.QWidget, Ui_PropertyEditorView):
         self.mapper = PropertyWidgetMapper(self)
         self.setItemDelegate(PropertyWidgetDelegate(self))
 
-        self.dataWidgetsDct = {"image": self.imageButton}
+        self.dataWidgetsDct = {}
         self.categoryProperties = []
 
 #        self.currentItem = None
@@ -112,18 +127,18 @@ class PropertyEditorView(QtGui.QWidget, Ui_PropertyEditorView):
 
         for iSection, sProperty in enumerate(sPropertyList):
 
-            if sProperty in dataWidgetsDct:
-                widget = dataWidgetsDct[sProperty]
-            else:
-                readerWdg = PropertyWidget(sProperty, self.propertiesWidget)
-                self.propertiesLayout.addWidget(readerWdg)
+            readerWdg = PropertyWidget(sProperty, self.propertiesWidget)
+            self.propertiesLayout.addWidget(readerWdg)
 
-                readerWdg.nameLabel.setText(model.headerData(iSection, mapper.orientation()))
+            readerWdg.nameLabel.setText(model.headerData(iSection, mapper.orientation()))
 
-                widget = readerWdg.dataLabel
-                dataWidgetsDct[sProperty] = widget
+            widget = readerWdg.dataLabel
+            dataWidgetsDct[sProperty] = widget
 
             mapper.addMapping(widget, iSection)
+            if iSection == 0:
+                if model.propertiesDct[sProperty].get('uiDecorated', False):
+                    mapper.addMapping(self.imageButton, iSection)
 
         self.propertiesLayout.insertStretch(-1)
 

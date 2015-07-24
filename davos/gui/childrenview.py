@@ -104,10 +104,10 @@ class ChildrenView(BaseTreeView):
 
         self.sortByColumn(0, Qt.AscendingOrder)
 
-        headerView = self.header()
-        if headerView.visualIndex(model.imageSection) > 0:
-            headerView.moveSection(model.imageSection, 0)
-        headerView.setResizeMode(model.imageSection, QtGui.QHeaderView.Fixed)
+#        headerView = self.header()
+#        if headerView.visualIndex(model.imageSection) > 0:
+#            headerView.moveSection(model.imageSection, 0)
+#        headerView.setResizeMode(model.imageSection, QtGui.QHeaderView.Fixed)
 
 #        # hiding unwanted column
 #        sPropertyList = Item.childrenViewProperties

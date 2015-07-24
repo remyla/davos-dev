@@ -191,6 +191,7 @@ class DrcEntry(DrcMetaObject):
     def relToAbsPath(self, sRelPath):
         return pathJoin(self.absPath(), sRelPath)
 
+
     def damasPath(self):
         lib = self.library
         sLibPath = lib.absPath()
@@ -204,6 +205,10 @@ class DrcEntry(DrcMetaObject):
         bHasEndSlash = (p.endswith('/') or p.endswith('\\'))
         sRelPath = pathRel(sDamasPath, self.library.damasPath())
         return addEndSlash(sRelPath) if bHasEndSlash else sRelPath
+
+    def imagePath(self):
+        return ''
+
     ''
     #=======================================================================
     # Database related methods
@@ -362,9 +367,8 @@ class DrcEntry(DrcMetaObject):
         for primeItem in primePrpty.viewItems:
             primeItem.updateRow()
 
-    def getIconData(self):
+    def iconSource(self):
         return self._qfileinfo
-
 
     def sendToTrash(self):
 
@@ -487,6 +491,12 @@ class DrcDir(DrcEntry):
 
     def damasPath(self):
         return addEndSlash(DrcEntry.damasPath(self))
+
+    def imagePath(self):
+
+        sRootPath, sDirName = osp.split(self.absPath())
+        sFileName = sDirName + "_preview.jpg"
+        return pathJoin(sRootPath, sDirName, sFileName)
 
     def getDbCacheKey(self):
         return addEndSlash(DrcEntry.getDbCacheKey(self))
@@ -965,6 +975,10 @@ You have {0} version of '{1}':
 
     def nameFromVersion(self, i):
         return pathSuffixed(self.name, '-v', padded(i))
+
+    def imagePath(self):
+        sRoot, sExt = osp.splitext(self.absPath())
+        return sRoot + sExt.replace('.', '_') + "_preview.jpg"
 
     def suppress(self):
         parentDir = self.parentDir()

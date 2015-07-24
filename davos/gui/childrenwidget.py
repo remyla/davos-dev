@@ -15,7 +15,7 @@ class ChildrenProxyModel(BaseProxyModel):
     def __init__(self, parent=None):
         super(ChildrenProxyModel, self).__init__(parent)
 
-        self.imageSection = -1
+        #self.imageSection = -1
 
         self.setDynamicSortFilter(True)
         self.setFilterCaseSensitivity(Qt.CaseInsensitive)

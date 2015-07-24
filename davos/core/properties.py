@@ -205,9 +205,11 @@ class DrcBaseProperty(MetaProperty):
         super(DrcBaseProperty, self).__init__(sProperty, metaobj)
         self.viewItems = []
 
-    def getIconData(self):
-        return self._metaobj.getIconData()
+    def iconSource(self):
+        return self._metaobj.iconSource()
 
+    def imageSource(self):
+        return self._metaobj.imagePath()
 
 class FileTimeProperty(DrcBaseProperty):
 

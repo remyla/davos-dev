@@ -20,14 +20,15 @@ class DrcIconProvider(PropertyIconProvider):
         super(DrcIconProvider, self).__init__()
         self.__qprovider = QtGui.QFileIconProvider()
 
-    def icon(self, metaprpty):
-        value = metaprpty.getIconData()
+    def icon(self, value):
+
         if isinstance(value, QFileInfo):
             if value.isDir():
                 return self.__qprovider.icon(QtGui.QFileIconProvider.Folder)
             return self.__qprovider.icon(value)
 
-        return PropertyIconProvider.icon(self, metaprpty)
+        return PropertyIconProvider.icon(self, value)
+
 
 class DrcTreeModel(PropertyItemModel):
 
