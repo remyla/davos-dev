@@ -81,7 +81,8 @@ class BrowserContextMenu(BaseContextMenu):
             logMsg("Cancelled !", warning=True)
             return
 
-        drcFile.edit()
+        privFile = drcFile.edit()
+        privFile.showInExplorer()
 
     editFile.auth_types = ("DrcFile",)
 

@@ -21,7 +21,7 @@
     <number>0</number>
    </property>
    <item>
-    <widget class="TabBar" name="pathTabBar" native="true">
+    <widget class="ToolBar" name="pathToolBar" native="true">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
        <horstretch>0</horstretch>
@@ -44,7 +44,6 @@
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
-     <zorder>pathTabBar</zorder>
     </widget>
    </item>
    <item>
@@ -203,15 +202,15 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>TabBar</class>
-   <extends>QWidget</extends>
-   <header>pytd.gui.widgets</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
    <class>ChildrenView</class>
    <extends>QWidget</extends>
    <header>davos.gui.childrenview</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ToolBar</class>
+   <extends>QWidget</extends>
+   <header>pytd.gui.widgets</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

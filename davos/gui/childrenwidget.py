@@ -1,6 +1,6 @@
 
 
-from PySide import QtGui
+from PySide import QtGui, QtCore
 from PySide.QtCore import Qt
 
 from pytd.util.sysutils import toUnicode
@@ -88,7 +88,9 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
         slider.valueChanged.connect(self.childrenView.setItemHeight)
         slider.setValue(self.childrenView.itemHeight)
 
-        self.pathTabBar.currentChanged.connect(self.tabChanged)
+        self.pathToolBar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.pathToolBar.setIconSize(QtCore.QSize(16, 16))
+        self.pathToolBar.actionTriggered.connect(self.pathActionTriggered)
 
     def setModel(self, treeModel):
 
@@ -132,42 +134,46 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
         if self.isVisible():
             self.childrenView.backToParentIndex()
 
-    def tabChanged(self, tabIdx):
+    def pathActionTriggered(self, action):
 
-        pathTabBar = self.pathTabBar
+        pathToolBar = self.pathToolBar
 
-        newRootItem = pathTabBar.tabData(tabIdx)
+        newRootItem = pathToolBar.actionData(action)
         if newRootItem:
 
-            childItem = pathTabBar.tabData(tabIdx + 1)
+            childItem = None
+            actionList = pathToolBar.actions()
+            if actionList:
+                childItem = pathToolBar.actionData(actionList[-1])
 
             self.changeRootIndex(self.model().indexFromItem(newRootItem))
 
             if childItem:
                 self.revealItem(childItem)
 
-    def updatePathBar(self, in_index):
+    def updatePathBar(self, index):
 
-        pathTabBar = self.pathTabBar
+        pathToolBar = self.pathToolBar
         childrenView = self.childrenView
 
-        pathTabBar.currentChanged.disconnect(self.tabChanged)
+        pathToolBar.actionTriggered.disconnect(self.pathActionTriggered)
 
         def restore():
-            pathTabBar.currentChanged.connect(self.tabChanged)
+            pathToolBar.actionTriggered.connect(self.pathActionTriggered)
 
-        pathTabBar.clear()
+        pathToolBar.clear()
 
-        if in_index.column() != 0:
-            parentIndex = in_index.sibling(in_index.row(), 0)
+        if index.column() != 0:
+            parentIndex = index.sibling(index.row(), 0)
         else:
-            parentIndex = in_index
+            parentIndex = index
 
         bBreak = False
 
         treeRoot = childrenView.model().invisibleRootItem()
 
         count = 0
+        prevAction = None
         while True:
 
             if not parentIndex.isValid():
@@ -179,21 +185,25 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
                 parentItem = model.itemFromIndex(parentIndex)
                 sLabel = toUnicode(model.data(parentIndex, Qt.DisplayRole))
 
-            if count == 0:
-                iNewTab = pathTabBar.addTab(sLabel)
-            else:
-                iNewTab = pathTabBar.insertTab(0, sLabel)
-
-            pathTabBar.setTabData(iNewTab, parentItem)
+            sLabel += " /"
 
             viewIndex = childrenView.mappedIdx(parentIndex)
             icon = viewIndex.data(Qt.DecorationRole)
-            if icon:
-                pathTabBar.setTabIcon(iNewTab, QtGui.QIcon(icon))
+            if not icon:
+                icon = QtGui.QIcon()
+
+            if count == 0:
+                curAction = pathToolBar.addAction(icon, sLabel)
+            else:
+                curAction = pathToolBar.addAction(icon, sLabel)
+                pathToolBar.insertAction(prevAction, curAction)
+
+            pathToolBar.setActionData(curAction, parentItem)
 
             if bBreak:
                 break
 
+            prevAction = curAction
             parentIndex = parentIndex.parent()
 
             count += 1

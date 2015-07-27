@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\sebcourtois\devspace\cg-pypeline-toolkit\resources\davos\children_widget.ui'
+# Form implementation generated from reading ui file 'C:\Users\styx\DEVSPACE\git\z2k-pipeline-toolkit\python\davos-dev\resources\ui\children_widget.ui'
 #
-# Created: Thu Jun 25 17:34:42 2015
+# Created: Sat Jul 25 22:37:36 2015
 #      by: pyside-uic 0.2.14 running on PySide 1.2.0
 #
 # WARNING! All changes made in this file will be lost!
@@ -17,15 +17,15 @@ class Ui_ChildrenWidget(object):
         self.verticalLayout.setSpacing(2)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout.setObjectName("verticalLayout")
-        self.pathTabBar = TabBar(ChildrenWidget)
+        self.pathToolBar = ToolBar(ChildrenWidget)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.pathTabBar.sizePolicy().hasHeightForWidth())
-        self.pathTabBar.setSizePolicy(sizePolicy)
-        self.pathTabBar.setMinimumSize(QtCore.QSize(50, 25))
-        self.pathTabBar.setObjectName("pathTabBar")
-        self.verticalLayout.addWidget(self.pathTabBar)
+        sizePolicy.setHeightForWidth(self.pathToolBar.sizePolicy().hasHeightForWidth())
+        self.pathToolBar.setSizePolicy(sizePolicy)
+        self.pathToolBar.setMinimumSize(QtCore.QSize(50, 25))
+        self.pathToolBar.setObjectName("pathToolBar")
+        self.verticalLayout.addWidget(self.pathToolBar)
         self.childrenView = ChildrenView(ChildrenWidget)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -110,4 +110,4 @@ class Ui_ChildrenWidget(object):
         self.filterLabel.setText(QtGui.QApplication.translate("ChildrenWidget", "Filter :", None, QtGui.QApplication.UnicodeUTF8))
 
 from davos.gui.childrenview import ChildrenView
-from pytd.gui.widgets import TabBar
+from pytd.gui.widgets import ToolBar

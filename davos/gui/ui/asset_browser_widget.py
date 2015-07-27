@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\sebcourtois\devspace\cg-pypeline-toolkit\resources\davos\asset_browser_widget.ui'
+# Form implementation generated from reading ui file 'C:\Users\styx\DEVSPACE\git\z2k-pipeline-toolkit\python\davos-dev\resources\ui\asset_browser_widget.ui'
 #
-# Created: Wed Jun 24 18:47:32 2015
+# Created: Sat Jul 25 11:50:13 2015
 #      by: pyside-uic 0.2.14 running on PySide 1.2.0
 #
 # WARNING! All changes made in this file will be lost!

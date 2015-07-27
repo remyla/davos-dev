@@ -555,8 +555,6 @@ class DrcFile(DrcEntry):
             self.setLocked(bLockState)
             raise
 
-        privFile.showInExplorer()
-
         return privFile
 
     def makePrivateCopy(self, **kwargs):
