@@ -18,8 +18,11 @@ def main(argv):
     # print QtGui.QStyleFactory.keys()
     app.setStyle("Cleanlooks")
 
-    view = AssetBrowserWidget()
-    view.show()
+    mainWin = QtGui.QMainWindow()
+    view = AssetBrowserWidget(mainWin)
+    mainWin.setCentralWidget(view)
+    mainWin.resize(1200, 800)
+    mainWin.show()
 
     proj = DamProject("zombillenium", empty=True)
     if proj:
