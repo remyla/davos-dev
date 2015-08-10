@@ -53,6 +53,7 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"separator"           , "menu": "Main"},
         { "label":"Off"                 , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[False]      },
         { "label":"On"                  , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[True]       },
+        { "label":"Break"               , "menu": "Set Lock", "fnc":self.breakFilesLock     , "dev":True       },
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
         { "label":"Log DbNode"          , "menu": "Advanced", "fnc":self.logDbNodeData      , "dev":True},
@@ -101,6 +102,15 @@ class BrowserContextMenu(BaseContextMenu):
 
     setFilesLocked.auth_types = [ "DrcFile" ]
 
+    def breakFilesLock(self, *itemList):
+        drcFiles = (item._metaobj for item in itemList)
+
+        for drcFile in drcFiles:
+            drcFile.refresh()
+            if drcFile.setLocked(False, force=True):
+                logMsg('{0} {1}.'.format("Lock broken:", drcFile))
+
+    breakFilesLock.auth_types = [ "DrcFile" ]
 
     @setWaitCursor
     def refreshItems(self, *itemList, **kwargs):

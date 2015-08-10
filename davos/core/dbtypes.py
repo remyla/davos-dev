@@ -5,10 +5,34 @@ from pytd.util.logutils import logMsg#, forceLog
 #from pytd.util.sysutils import timer
 #from pytd.util.sysutils import toStr
 
+class DummyDbCon(object):
+
+    def create(self, keys):
+        logMsg(u"{}({})".format('dry-run: create', keys), log='debug')
+        return {}
+
+    def update(self, id_, keys):
+        logMsg(u"{}({})".format('dry-run: update', id_, keys), log='debug')
+        return []
+
+    def delete(self, id_) :
+        logMsg(u"{}({})".format('dry-run: delete', id_), log='debug')
+        return True
+
+    def search(self, sQuery):
+        logMsg(u"{}({})".format('dry-run: search', sQuery), log='debug')
+        return []
+
+    def read(self, ids):
+        logMsg(u"{}({})".format('dry-run: read', ids), log='debug')
+        return []
+
+
 class DrcDb(object):
 
-    def __init__(self, dbcon):
+    def __init__(self, dbcon, sUserLogin):
         self._dbcon = dbcon
+        self.userLogin = sUserLogin
 
     def createNode(self, data):
 
@@ -84,30 +108,6 @@ class DrcDb(object):
         return recs
 
 
-#from .damas import http_connection
-class dryrun_connection(object):
-
-    def create(self, keys):
-        logMsg(u"{}({})".format('dry-run: create', keys), log='debug')
-        return {}
-
-    def update(self, id_, keys):
-        logMsg(u"{}({})".format('dry-run: update', id_, keys), log='debug')
-        return []
-
-    def delete(self, id_) :
-        logMsg(u"{}({})".format('dry-run: delete', id_), log='debug')
-        return True
-
-    def search(self, sQuery):
-        logMsg(u"{}({})".format('dry-run: search', sQuery), log='debug')
-        return []
-
-    def read(self, ids):
-        logMsg(u"{}({})".format('dry-run: read', ids), log='debug')
-        return []
-
-
 class DbNode(object):
 
     __slots__ = ('__drcdb', '_dbcon', '_data', 'id_', '__dirty', 'name')
@@ -171,6 +171,25 @@ class DbNode(object):
 
         return True
 
+    def setLocked(self, bLock):
+
+        if bLock:
+            sUserLogin = self.__drcdb.userLogin
+            if not sUserLogin:
+                raise ValueError("Invalid user login: '{}'".format(sUserLogin))
+
+            bSuccess = self.setField("lock", sUserLogin)
+        else:
+            bSuccess = self.setField("lock", None)
+
+        return bSuccess
+
+    def isLocked(self):
+        return True if self.owner() else False
+
+    def owner(self):
+        return self.getField("lock")
+
     #@forceLog(log='debug')
     def refresh(self, data=None):
         logMsg(log='all')
@@ -233,9 +252,6 @@ class DbNode(object):
             sRepr = cls.__name__
 
         return sRepr
-
-
-
 
 
 class DbError(Exception):

@@ -40,7 +40,8 @@ class DrcLibrary(DrcEntry):
 
         if self.project:
             self._itemmodel = self.project._itemmodel
-            self._db = DrcDb(self.project._damasdb)
+            sUserLogin = self.project.loggedUser().loginName
+            self._db = DrcDb(self.project._damasdb, sUserLogin)
 
         super(DrcLibrary, self).loadData(fileInfo)
 

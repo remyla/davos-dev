@@ -254,8 +254,8 @@ class DamProject(object):
 
         if self.getVar("project", "no_damas", False):
 
-            from .dbtypes import dryrun_connection
-            self._damasdb = dryrun_connection()
+            from .dbtypes import DummyDbCon
+            self._damasdb = DummyDbCon()
             return
 
         print "connecting to damas..."

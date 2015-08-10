@@ -21,7 +21,7 @@ def main(argv):
     mainWin = QtGui.QMainWindow()
     view = AssetBrowserWidget(mainWin)
     mainWin.setCentralWidget(view)
-    mainWin.resize(1200, 800)
+    mainWin.resize(1100, 800)
     mainWin.show()
 
     proj = DamProject("zombillenium", empty=True)

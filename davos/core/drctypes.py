@@ -47,6 +47,7 @@ class DrcEntry(DrcMetaObject):
         self._qfileinfo = None
         self._qdir = None
         self._dbnode = None
+        self._lockobj = None
 
         self.loadedChildren = []
         self.childrenLoaded = False
@@ -526,8 +527,10 @@ class DrcFile(DrcEntry):
 
     def loadData(self, fileInfo, **kwargs):
 
-        sLogin = self.library.project.loggedUser().loginName
-        self._lockobj = LockFile(fileInfo.absoluteFilePath(), sLogin)
+        bFileLock = False
+        if bFileLock:
+            sLogin = self.library.project.loggedUser().loginName
+            self._lockobj = LockFile(fileInfo.absoluteFilePath(), sLogin)
 
         DrcEntry.loadData(self, fileInfo, **kwargs)
 
@@ -939,17 +942,19 @@ You have {0} version of '{1}':
     def setLocked(self, bLock, **kwargs):
         logMsg(log='all')
 
-        sLockOwner = self.getLockOwner()
-        sLoggedUser = self.library.project.loggedUser(force=True).loginName
+        if not kwargs.get("force", False):
 
-        if sLockOwner:
-            if sLockOwner == sLoggedUser:
-                if bLock:
-                    return True
-            else:
-                if kwargs.get("warn", True):
-                    self.__warnAlreadyLocked(sLockOwner)
-                    return False
+            sLockOwner = self.getLockOwner()
+            sLoggedUser = self.library.project.loggedUser(force=True).loginName
+
+            if sLockOwner:
+                if sLockOwner == sLoggedUser:
+                    if bLock:
+                        return True
+                else:
+                    if kwargs.get("warn", True):
+                        self.__warnAlreadyLocked(sLockOwner)
+                        return False
 
         if self.setPrpty('locked', bLock):
             self.refresh()# must be done to get "lock" property updated
@@ -962,7 +967,7 @@ You have {0} version of '{1}':
         if self.getPrpty("locked"):
             sLockOwner = self.getPrpty("lockOwner")
             if not sLockOwner:
-                raise ValueError, 'Invalid value for lockOwner: "{0}"'.format(self)
+                raise ValueError('Invalid value for lockOwner: "{0}"'.format(self))
             return sLockOwner
 
         return ""

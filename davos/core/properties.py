@@ -7,7 +7,6 @@ from pytd.core.metaproperty import MetaProperty
 from pytd.core.metaproperty import EditState as Eds
 from pytd.core.metaobject import MetaObject
 
-
 DrcLibraryProperties = (
 ('label',
     {
@@ -107,11 +106,12 @@ DrcFileProperties = [
 ),
 ('lockOwner',
     {
-    'type':'drc_base',
+    'type':'db_str',
     'isMulti':False,
     'default':'',
-    'accessor':'_lockobj',
+    'accessor':'_dbnode',
     'reader':'owner()',
+    'lazy':True,
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
     'uiDisplay':'Locked by',
@@ -120,12 +120,13 @@ DrcFileProperties = [
 ),
 ('locked',
     {
-    'type':'drc_base',
+    'type':'db_str',
     'isMulti':False,
     'default':False,
-    'accessor':'_lockobj',
-    'reader':'is_locked()',
-    'writer':'set_locked()',
+    'accessor':'_dbnode',
+    'reader':'isLocked()',
+    'writer':'setLocked()',
+    'lazy':True,
     'uiEditable':Eds.Disabled,
     'uiVisible':False,
     'uiDisplay':'',

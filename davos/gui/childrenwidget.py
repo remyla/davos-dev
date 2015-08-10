@@ -1,7 +1,8 @@
 
 
-from PySide import QtGui, QtCore
+from PySide import QtGui
 from PySide.QtCore import Qt
+from PySide.QtCore import QSize
 
 from pytd.util.sysutils import toUnicode
 
@@ -10,38 +11,27 @@ from pytd.gui.itemviews.baseselectionmodel import BaseSelectionModel
 
 from .ui.children_widget import Ui_ChildrenWidget
 
+
+_PATH_BAR_SS = """
+QToolBar{
+    spacing:0px;
+}
+
+QToolButton{
+    padding-right:  -1px;
+    padding-left:   -1px;
+    padding-top:     1px;
+    padding-bottom:  1px;
+}
+"""
+
 class ChildrenProxyModel(BaseProxyModel):
 
     def __init__(self, parent=None):
         super(ChildrenProxyModel, self).__init__(parent)
 
-        #self.imageSection = -1
-
         self.setDynamicSortFilter(True)
         self.setFilterCaseSensitivity(Qt.CaseInsensitive)
-
-#    def data(self, index, role):
-#
-#        column = index.column()
-#
-#        if column == self.imageSection:
-#
-#            if role == Qt.DecorationRole:
-#
-#                leaf = self.leafForIndex(index)
-#                if leaf and leaf.thumbnail:
-#                    return leaf.thumbnail
-#                else:
-#                    return QtGui.QPixmap()
-#
-#            else:
-#                return
-#
-#        elif role == Qt.DecorationRole:
-#            return QtGui.QPixmap()
-#
-#        else:
-#            return QtGui.QSortFilterProxyModel.data(self, index, role)
 
     def setSourceModel(self, model):
         BaseProxyModel.setSourceModel(self, model)
@@ -88,8 +78,9 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
         slider.valueChanged.connect(self.childrenView.setItemHeight)
         slider.setValue(self.childrenView.itemHeight)
 
+        self.pathToolBar.setStyleSheet(_PATH_BAR_SS)
         self.pathToolBar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self.pathToolBar.setIconSize(QtCore.QSize(16, 16))
+        self.pathToolBar.setIconSize(QSize(16, 16))
         self.pathToolBar.actionTriggered.connect(self.pathActionTriggered)
 
     def setModel(self, treeModel):
@@ -185,8 +176,6 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
                 parentItem = model.itemFromIndex(parentIndex)
                 sLabel = toUnicode(model.data(parentIndex, Qt.DisplayRole))
 
-            sLabel += " /"
-
             viewIndex = childrenView.mappedIdx(parentIndex)
             icon = viewIndex.data(Qt.DecorationRole)
             if not icon:
@@ -199,6 +188,10 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
                 pathToolBar.insertAction(prevAction, curAction)
 
             pathToolBar.setActionData(curAction, parentItem)
+
+            if icon.isNull():
+                toolBtn = pathToolBar.widgetForAction(curAction)
+                toolBtn.setArrowType(Qt.RightArrow)
 
             if bBreak:
                 break
