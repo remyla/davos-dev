@@ -1,14 +1,15 @@
 
+
 class project:
 
-    dir_name = "zombillenium"
+#    dir_name = "zombillenium"
     maya_version = 2016
 
-    public_path = '//Diskstation/z2k/05_3D/{}/'.format(dir_name)
-    private_path = '${{USERPROFILE}}/cg_projects/{}/'.format(dir_name)
-    damas_path = "zomb/"
+    #public_path = '//Diskstation/z2k/05_3D/{}/'.format(dir_name)
+    private_path = '${ZOMBI_PRIVATE_PATH}/'
+    damas_root_path = "zomb/"
 
-    template_path = '//Diskstation/z2k/05_3D/{}/tool/template/'.format(dir_name)
+    template_path = '${ZOMBI_TOOL_PATH}/template/'
 
     libraries = (
         "asset_lib",
@@ -19,13 +20,13 @@ class project:
     authenticator = ".authtypes.ShotgunAuth"
     #no_damas = True
 
+
 class asset_lib:
 
-    dir_name = "asset"
+    public_path = '${ZOMBI_ASSET_DIR}'#project.public_path + dir_name
+    private_path = project.private_path + "asset"
 
-    public_path = project.public_path + dir_name
-    private_path = project.private_path + dir_name
-
+    asset_types = ("chr", "env", "prp")
 
     asset_tree = {
         "{assetType}":
@@ -35,9 +36,9 @@ class asset_lib:
                 "texture -> texture_dir":{},
                 "ref -> ref_dir":{},
                 "image -> image_dir":{},
-                "{asset}_master.ma -> master_file":{},
-                "{asset}_previz.ma -> previz_file":{},
-                "{asset}_preview.jpg -> preview_file":{},
+                "{asset}_master.ma -> master_scene":{},
+                "{asset}_previz.ma -> previz_scene":{},
+                "{asset}_preview.jpg -> preview_image":{},
                 },
             },
         }
@@ -45,27 +46,33 @@ class asset_lib:
 
 class shot_lib:
 
-    dir_name = "shot"
-
-    public_path = project.public_path + dir_name
-    private_path = project.private_path + dir_name
-
+    public_path = '${ZOMBI_SHOT_DIR}'#project.public_path + dir_name
+    private_path = project.private_path + "shot"
 
     shot_tree = {
         "{sequence}":
             {
             "{shot} -> shot_dir":
                 {
+                 "01_previz@step":
+                    {
+                     "{shot}_previz.ma -> previz_scene":{},
+                     "{shot}_previz.mov -> previz_capture":{},
+                    },
                 },
             },
         }
 
+    all_resources = {
+    "previz_scene":{"produces":["previz_capture", ] },
+    "previz_capture":{},
+                     }
+
+
 class output_lib:
 
-    dir_name = "output"
-
-    public_path = project.public_path + dir_name
-    private_path = project.private_path + dir_name
+    public_path = '${ZOMBI_OUTPUT_DIR}'#project.public_path + dir_name
+    private_path = project.private_path + "output"
 
 
 

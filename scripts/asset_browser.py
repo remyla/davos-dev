@@ -1,15 +1,14 @@
 
-import os
 import sys
-
-os.environ["DEV_MODE_ENV"] = '1'
 
 from PySide import QtGui
 
+sys.path.append(r'C:\Users\sebcourtois\devspace\git\z2k-pipeline-toolkit\launchers\paris')
+import setup_env_tools
+setup_env_tools.loadEnviron()
+
 from davos.core.damproject import DamProject
-
 from davos.gui.assetbrowserwidget import AssetBrowserWidget
-
 
 def main(argv):
 
@@ -24,7 +23,7 @@ def main(argv):
     mainWin.resize(1100, 800)
     mainWin.show()
 
-    proj = DamProject("zombillenium", empty=True)
+    proj = DamProject("zombdev", empty=True)
     if proj:
         proj.init()
         view.setupModelData(proj)
@@ -34,5 +33,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-
     main(sys.argv)

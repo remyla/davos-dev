@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\sebcourtois\git\cg-pypeline-toolkit\resources\davos\property_editor_view.ui'
+# Form implementation generated from reading ui file 'C:\Users\sebcourtois\devspace\git\z2k-pipeline-toolkit\python\davos-dev\resources\ui\property_editor_view.ui'
 #
-# Created: Fri Jun 26 15:37:12 2015
+# Created: Mon Aug 10 11:34:25 2015
 #      by: pyside-uic 0.2.14 running on PySide 1.2.0
 #
 # WARNING! All changes made in this file will be lost!

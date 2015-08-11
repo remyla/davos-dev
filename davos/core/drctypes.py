@@ -41,9 +41,9 @@ class DrcEntry(DrcMetaObject):
     primaryProperty = propertiesDctItems[0][0]
 
 
-    def __init__(self, drcLibrary, absPathOrInfo=None, **kwargs):
+    def __init__(self, drcLib, absPathOrInfo=None, **kwargs):
 
-        self.library = drcLibrary
+        self.library = drcLib
         self._qfileinfo = None
         self._qdir = None
         self._dbnode = None
@@ -57,10 +57,10 @@ class DrcEntry(DrcMetaObject):
         fileInfo = toQFileInfo(absPathOrInfo)
         if fileInfo:
 
-            if id(self) != id(drcLibrary):
+            if id(self) != id(drcLib):
                 sAbsPath = fileInfo.filePath()
-                if not drcLibrary.contains(fileInfo.absoluteFilePath()):
-                    msg = u"Path is NOT part of {}: '{}'".format(drcLibrary, sAbsPath)
+                if not drcLib.contains(fileInfo.absoluteFilePath()):
+                    msg = u"Path is NOT part of {}: '{}'".format(drcLib, sAbsPath)
                     raise AssertionError(msg)
 
             self.loadData(fileInfo, **kwargs)
@@ -196,8 +196,8 @@ class DrcEntry(DrcMetaObject):
     def damasPath(self):
         lib = self.library
         sLibPath = lib.absPath()
-        sProjDmsPath = lib.project.getVar("project", "damas_path")
-        sLibDmsPath = pathJoin(sProjDmsPath, lib.getVar("dir_name"))
+        sProjDmsPath = lib.project.getVar("project", "damas_root_path")
+        sLibDmsPath = pathJoin(sProjDmsPath, lib.name)
         p = re.sub('^' + sLibPath, sLibDmsPath, self.absPath())
         return normCase(p)
 

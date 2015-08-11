@@ -21,6 +21,9 @@ class DrcLibrary(DrcEntry):
     classReprAttr = "fullName"
     classUiPriority = 0
 
+    classFile = DrcFile
+    classDir = DrcDir
+
     def __init__(self, sLibName, sLibPath, sSpace="", project=None):
 
         self._cachedEntries = {}
@@ -35,7 +38,7 @@ class DrcLibrary(DrcEntry):
 
         super(DrcLibrary, self).__init__(self, sLibPath)
 
-    def loadData(self, fileInfo):
+    def loadData(self, fileInfo, **kwargs):
         logMsg(log="all")
 
         if self.project:
@@ -43,7 +46,7 @@ class DrcLibrary(DrcEntry):
             sUserLogin = self.project.loggedUser().loginName
             self._db = DrcDb(self.project._damasdb, sUserLogin)
 
-        super(DrcLibrary, self).loadData(fileInfo)
+        super(DrcLibrary, self).loadData(fileInfo, **kwargs)
 
         self.label = self.fullName if sysutils.inDevMode() else self.name
 
@@ -102,21 +105,23 @@ class DrcLibrary(DrcEntry):
         if not fileInfo:
             fileInfo = toQFileInfo(sAbsPath)
 
+        cls = self.__class__
         # no cached entry found so let's instance a new one
         if weak:
             if drcType:
-                cls = drcType
+                rcCls = drcType
             else:
-                cls = DrcDir if sAbsPath.endswith('/') else DrcFile
+                rcCls = cls.classDir if sAbsPath.endswith('/') else cls.classFile
         else:
             if fileInfo.isDir():
-                cls = DrcDir
+                rcCls = cls.classDir
             elif fileInfo.isFile():
-                cls = DrcFile
+                rcCls = cls.classFile
             else:
                 return None
 
-        entry = cls(self, fileInfo, dbNode=dbNode)
+        entry = rcCls(self, fileInfo, dbNode=dbNode)
+
         return entry
 
     def contains(self, sAbsPath):
@@ -146,10 +151,10 @@ class DrcLibrary(DrcEntry):
         raise RuntimeError("You cannot delete a library !!")
 
     def _weakDir(self, pathOrInfo):
-        return self.getEntry(pathOrInfo, weak=True, drcType=DrcDir)
+        return self.getEntry(pathOrInfo, weak=True, drcType=self.__class__.classDir)
 
     def _weakFile(self, pathOrInfo):
-        return self.getEntry(pathOrInfo, weak=True, drcType=DrcFile)
+        return self.getEntry(pathOrInfo, weak=True, drcType=self.__class__.classFile)
 
     def _remember(self):
 

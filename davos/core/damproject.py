@@ -1,16 +1,17 @@
 
+import os
 import os.path as osp
 
 from pytd.util.pyconfparser import PyConfParser
 from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm
 from pytd.util.strutils import findFields
+from pytd.util import sysutils
 
 from .drclibrary import DrcLibrary
 from .damtypes import DamUser
 from .authtypes import HellAuth
 from .utils import getConfigModule
-from pytd.util import sysutils
 
 LIBRARY_SPACES = ("public", "private")
 
@@ -45,6 +46,7 @@ class DamProject(object):
 
         proj.reset()
         proj.name = sProjectName
+        proj.__libraryType = kwargs.pop("libraryType", DrcLibrary)
 
         if kwargs.pop("empty", False):
             return proj
@@ -97,6 +99,8 @@ class DamProject(object):
 
         self.__loggedUser = DamUser(self, userData)
 
+        os.environ["DAM_USER"] = self.__loggedUser.loginName
+
         return True
 
     def getAuthenticator(self):
@@ -130,6 +134,7 @@ class DamProject(object):
         return self.__loggedUser
 
     def loadLibraries(self):
+        logMsg(log='all')
 
         bDevMode = sysutils.inDevMode()
 
@@ -145,6 +150,7 @@ class DamProject(object):
             drcLib.addModelRow()
 
     def getLibrary(self, sSpace, sLibName):
+        logMsg(log='all')
 
         sFullLibName = DrcLibrary.makeFullName(sSpace, sLibName)
         drcLib = self.loadedLibraries.get(sFullLibName, None)
@@ -152,10 +158,10 @@ class DamProject(object):
         if not drcLib:
             sLibPath = pathResolve(self.getVar(sLibName, sSpace + "_path"))
             if osp.isdir(sLibPath):
-                drcLib = DrcLibrary(sLibName, sLibPath, sSpace, self)
+                drcLib = self.__libraryType(sLibName, sLibPath, sSpace, self)
             else:
                 sFullName = DrcLibrary.makeFullName(sSpace, sLibName)
-                logMsg("No such '{}': '{}'"
+                logMsg("No such '{}': '{}'."
                        .format(sFullName, sLibPath), warning=True)
 
         return drcLib
