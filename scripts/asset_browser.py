@@ -23,7 +23,7 @@ def main(argv):
     mainWin.resize(1100, 800)
     mainWin.show()
 
-    proj = DamProject("zombdev", empty=True)
+    proj = DamProject("zombillenium", empty=True)
     if proj:
         proj.init()
         view.setupModelData(proj)

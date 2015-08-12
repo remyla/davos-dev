@@ -7,7 +7,7 @@ class project(zombase.project):
 
     public_path = '//Diskstation/Projects/{}/'.format(dir_name)
     private_path = '//Diskstation/Projects/private/${{DAM_USER}}/{}/'.format(dir_name)
-    damas_root_path = "{}/".format(dir_name)
+    damas_root_path = "zomb/"
     template_path = '${ZOMBI_TOOL_PATH}/template/'
 
 class asset_lib(zombase.asset_lib):

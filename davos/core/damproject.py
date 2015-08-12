@@ -80,7 +80,14 @@ class DamProject(object):
         except ImportError, msg:
             if kwargs.pop("warn", True):
                 logMsg(msg , warning=True)
-            return None
+            return False
+
+        sMissingPathList = []
+        self.checkTemplatePaths(sMissingPathList)
+        if sMissingPathList:
+            msg = "No such template paths:\n\t" + '\n\t'.join(sMissingPathList)
+            logMsg(msg , warning=True)
+            return False
 
         self.__confLibraries = self.getVar("project", "libraries")
 
@@ -98,7 +105,6 @@ class DamProject(object):
             return False
 
         self.__loggedUser = DamUser(self, userData)
-
         os.environ["DAM_USER"] = self.__loggedUser.loginName
 
         return True
@@ -115,6 +121,9 @@ class DamProject(object):
             return eval(sAuthClass)(self)
 
     def isAuthenticated(self):
+
+        if not self._authobj:
+            return False
 
         bAuth = self._authobj.authenticated
 
@@ -136,6 +145,9 @@ class DamProject(object):
     def loadLibraries(self):
         logMsg(log='all')
 
+        if not self.isAuthenticated():
+            return
+
         bDevMode = sysutils.inDevMode()
 
         for sSpace, sLibName in self._iterConfigLibraries():
@@ -152,11 +164,13 @@ class DamProject(object):
     def getLibrary(self, sSpace, sLibName):
         logMsg(log='all')
 
+        self._assertSpaceAndLibName(sSpace, sLibName)
+
         sFullLibName = DrcLibrary.makeFullName(sSpace, sLibName)
         drcLib = self.loadedLibraries.get(sFullLibName, None)
 
         if not drcLib:
-            sLibPath = pathResolve(self.getVar(sLibName, sSpace + "_path"))
+            sLibPath = self.getPath(sSpace, sLibName)
             if osp.isdir(sLibPath):
                 drcLib = self.__libraryType(sLibName, sLibPath, sSpace, self)
             else:
@@ -166,23 +180,61 @@ class DamProject(object):
 
         return drcLib
 
-    def getVar(self, sSection, sVarName, default="NoEntry", **kwargs):
-        return self.__confobj.getVar(sSection, sVarName, default=default, **kwargs)
+    def checkTemplatePaths(self, out_invalidPaths, sSection="project"):
 
-    def getPath(self, sSpace, sLibName, pathVar="", tokens=None):
+        for p in self.iterPaths("template", sSection):
+            if osp.exists(p):
+                continue
 
-        self._assertSpaceAndLibName(sSpace, sLibName)
+            out_invalidPaths.append(p)
+
+        for sChildSection in self.getVar(sSection, "child_sections", ()):
+            self.checkTemplatePaths(out_invalidPaths, sChildSection)
+
+    def iterPaths(self, sSpace, sLibName, tokens=None, **kwargs):
+
+        bOptional = (sSpace == "template")
+
+        for sPathVar in self.getVar(sLibName, "path_vars", ()):
+            try:
+                p = self.getPath(sSpace, sLibName, pathVar=sPathVar,
+                                 tokens=tokens, **kwargs)
+            except AttributeError:
+                if bOptional:
+                    continue
+
+                raise
+
+            yield p
+
+    def getPath(self, sSpace, sLibName, pathVar="", tokens=None, **kwargs):
 
         sRcPath = self.getVar(sLibName, sSpace + "_path")
         if pathVar:
             sRcPath = pathJoin(sRcPath, self.getVar(sLibName, pathVar))
 
-        sRcPath = pathResolve(sRcPath)
+        if kwargs.get("resEnvs", True):
+            sRcPath = pathResolve(sRcPath)
 
-        if tokens is not None:
+        if kwargs.get("resVars", False):
+            return sRcPath
 
-            fields = findFields(sRcPath)
-            rest = set(fields) - set(tokens.iterkeys())
+        # resolve vars from config
+        sFieldSet = set(findFields(sRcPath))
+        if sFieldSet:
+            sVarFields = set(f for f in sFieldSet if self.hasVar(sLibName, f))
+            if sVarFields:
+                confTokens = dict((f, self.getVar(sLibName, f, '{' + f + '}'))
+                                  for f in sFieldSet)
+                if confTokens:
+                    sRcPath = sRcPath.format(**confTokens)
+
+                sFieldSet -= sVarFields
+
+        # resolve remaining vars from input tokens
+        if tokens and isinstance(tokens, dict):
+
+            rest = sFieldSet - set(tokens.iterkeys())
             if rest:
                 msg = ("Cannot resolve path: '{}'. \n\tMissing tokens: {}"
                         .format(sRcPath, list(rest)))
@@ -191,6 +243,12 @@ class DamProject(object):
             return sRcPath.format(**tokens)
 
         return sRcPath
+
+    def getVar(self, sSection, sVarName, default="NoEntry", **kwargs):
+        return self.__confobj.getVar(sSection, sVarName, default=default, **kwargs)
+
+    def hasVar(self, sSection, sVarName):
+        return self.__confobj.hasVar(sSection, sVarName)
 
     def libraryFromPath(self, sEntryPath):
 
@@ -253,7 +311,7 @@ class DamProject(object):
         print "connecting to shotgun..."
 
         from zombie.shotgunengine import ShotgunEngine
-        self._shotgundb = ShotgunEngine()
+        self._shotgundb = ShotgunEngine(self.name)
 
 
     def __initDamas(self):
