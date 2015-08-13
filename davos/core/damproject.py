@@ -7,6 +7,8 @@ from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm
 from pytd.util.strutils import findFields
 from pytd.util import sysutils
+from pytd.util.sysutils import argToTuple, isQtApp
+from pytd.gui.dialogs import confirmDialog
 
 from .drclibrary import DrcLibrary
 from .damtypes import DamUser
@@ -82,14 +84,14 @@ class DamProject(object):
                 logMsg(msg , warning=True)
             return False
 
+        self.__confLibraries = self.getVar("project", "libraries")
+
         sMissingPathList = []
-        self.checkTemplatePaths(sMissingPathList)
+        self._checkTemplatePaths(sMissingPathList)
         if sMissingPathList:
-            msg = "No such template paths:\n\t" + '\n\t'.join(sMissingPathList)
+            msg = "Missing template paths:\n\t" + '\n\t'.join(sMissingPathList)
             logMsg(msg , warning=True)
             return False
-
-        self.__confLibraries = self.getVar("project", "libraries")
 
         self.__initShotgun()
         self.__initDamas()
@@ -142,21 +144,24 @@ class DamProject(object):
 
         return self.__loggedUser
 
-    def loadLibraries(self):
+    def loadLibraries(self, noError=False):
         logMsg(log='all')
 
         if not self.isAuthenticated():
+            return
+
+        if not self._checkLibraryPaths(noError=noError):
             return
 
         bDevMode = sysutils.inDevMode()
 
         for sSpace, sLibName in self._iterConfigLibraries():
 
-            if (not bDevMode) and sSpace == "private":
-                continue
-
             drcLib = self.getLibrary(sSpace, sLibName)
             if not drcLib:
+                continue
+
+            if (not bDevMode) and sSpace == "private":
                 continue
 
             drcLib.addModelRow()
@@ -174,28 +179,16 @@ class DamProject(object):
             if osp.isdir(sLibPath):
                 drcLib = self.__libraryType(sLibName, sLibPath, sSpace, self)
             else:
-                sFullName = DrcLibrary.makeFullName(sSpace, sLibName)
-                logMsg("No such '{}': '{}'."
-                       .format(sFullName, sLibPath), warning=True)
+                logMsg("No such '{}': '{}'.".format(sFullLibName, sLibPath),
+                       warning=True)
 
         return drcLib
-
-    def checkTemplatePaths(self, out_invalidPaths, sSection="project"):
-
-        for p in self.iterPaths("template", sSection):
-            if osp.exists(p):
-                continue
-
-            out_invalidPaths.append(p)
-
-        for sChildSection in self.getVar(sSection, "child_sections", ()):
-            self.checkTemplatePaths(out_invalidPaths, sChildSection)
 
     def iterPaths(self, sSpace, sLibName, tokens=None, **kwargs):
 
         bOptional = (sSpace == "template")
 
-        for sPathVar in self.getVar(sLibName, "path_vars", ()):
+        for sPathVar in self.getVar(sLibName, "all_path_vars", ()):
             try:
                 p = self.getPath(sSpace, sLibName, pathVar=sPathVar,
                                  tokens=tokens, **kwargs)
@@ -283,6 +276,68 @@ class DamProject(object):
     def iterChildren(self):
         return self.loadedLibraries.itervalues()
 
+    def _checkLibraryPaths(self, noError=False):
+
+        sMissingPathList = []
+
+        for sSpace, sLibName in self._iterConfigLibraries():
+
+            sLibPath = self.getPath(sSpace, sLibName)
+            if not osp.isdir(sLibPath):
+
+                sLibFullName = DrcLibrary.makeFullName(sSpace, sLibName)
+                if sSpace == "public":
+                    msg = "No such '{}': '{}'.".format(sLibFullName, sLibPath)
+                    if noError:
+                        logMsg(msg, warning=True)
+                    else:
+                        raise RuntimeError(msg)
+                elif sSpace == "private":
+                    sMissingPathList.append((sLibFullName, sLibPath))
+
+        if sMissingPathList:
+
+            msgIter = (u"'{}': '{}'".format(n, p) for n, p in sMissingPathList)
+            msg = u"No such libraries:\n\n" + u"\n".join(msgIter)
+
+            if isQtApp():
+                sConfirm = confirmDialog(title='WARNING !',
+                                         message=msg,
+                                         button=['OK', 'Cancel'],
+                                         defaultButton='Cancel',
+                                         cancelButton='Cancel',
+                                         dismissString='Cancel',
+                                         icon="warning")
+
+                if sConfirm == 'Cancel':
+                    logMsg("Cancelled !", warning=True)
+                    return False
+            else:
+                logMsg(msg, warning=True)
+                res = ""
+                while res not in ("yes", "no"):
+                    res = raw_input("Should I create them ? (yes/no)")
+
+                if res == "no":
+                    return False
+
+            for _, p in sMissingPathList:
+                os.makedirs(p)
+
+        return True
+
+    def _checkTemplatePaths(self, out_invalidPaths, sSection="project"):
+
+        for p in self.iterPaths("template", sSection):
+
+            if osp.exists(p):
+                continue
+
+            out_invalidPaths.append(p)
+
+        for sChildSection in self.getVar(sSection, "child_sections", ()):
+            self._checkTemplatePaths(out_invalidPaths, sChildSection)
+
     def _assertSpaceAndLibName(self, sSpace, sLibName):
 
         if sSpace not in LIBRARY_SPACES:
@@ -294,10 +349,12 @@ class DamProject(object):
                    .format(sLibName, self.__confLibraries))
             raise ValueError(msg)
 
-    def _iterConfigLibraries(self, fullName=False):
+    def _iterConfigLibraries(self, space=LIBRARY_SPACES, fullName=False):
+
+        sSpaceList = argToTuple(space)
 
         for sLibName in self.__confLibraries:
-            for sSpace in LIBRARY_SPACES:
+            for sSpace in sSpaceList:
                 if fullName:
                     yield DrcLibrary.makeFullName(sSpace, sLibName)
                 else:
@@ -312,7 +369,6 @@ class DamProject(object):
 
         from zombie.shotgunengine import ShotgunEngine
         self._shotgundb = ShotgunEngine(self.name)
-
 
     def __initDamas(self):
 

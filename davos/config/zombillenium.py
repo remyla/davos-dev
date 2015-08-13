@@ -1,5 +1,5 @@
-import os.path as osp
 
+import os.path as osp
 
 class project:
 
@@ -53,14 +53,14 @@ class camera:
 
 class character3d:
 
-    aliases = ("Character 3D",)
     prefix = "chr"
+    aliases = (prefix, "Character 3D",)
     asset_type = prefix
+    template_dir = "asset_chr"
 
     public_path = osp.join(asset_lib.public_path, asset_lib.asset_dir)
     private_path = osp.join(asset_lib.private_path, asset_lib.asset_dir)
-
-    template_path = osp.join(project.template_path, "asset_chr")
+    template_path = osp.join(project.template_path, template_dir)
 
     resource_tree = {
         "ref -> ref_dir":{},
@@ -75,14 +75,14 @@ class character3d:
 
 class prop3d:
 
-    aliases = ("Prop 3D",)
     prefix = "prp"
+    aliases = (prefix, "Prop 3D",)
     asset_type = prefix
+    template_dir = "asset_vhlPrp"
 
     public_path = osp.join(asset_lib.public_path, asset_lib.asset_dir)
     private_path = osp.join(asset_lib.private_path, asset_lib.asset_dir)
-
-    template_path = osp.join(project.template_path, "asset_vhlPrp")
+    template_path = osp.join(project.template_path, template_dir)
 
     resource_tree = {
         "ref -> ref_dir":{},
@@ -97,20 +97,21 @@ class prop3d:
 
 class vehicle3d(prop3d):
 
-    aliases = ("Vehicle 3D",)
+
     prefix = "vhl"
+    aliases = (prefix, "Vehicle 3D",)
     asset_type = prefix
 
 class set3d:
 
-    aliases = ("Set 3D",)
     prefix = "set"
+    aliases = (prefix, "Set 3D",)
     asset_type = prefix
+    template_dir = "asset_envSet"
 
     public_path = osp.join(asset_lib.public_path, asset_lib.asset_dir)
     private_path = osp.join(asset_lib.private_path, asset_lib.asset_dir)
-
-    template_path = osp.join(project.template_path, "asset_envSet")
+    template_path = osp.join(project.template_path, template_dir)
 
     resource_tree = {
         "ref -> ref_dir":{},
@@ -123,8 +124,8 @@ class set3d:
 
 class environment3d(set3d):
 
-    aliases = ("Env 3D",)
     prefix = "env"
+    aliases = (prefix, "Env 3D",)
     asset_type = prefix
 
 class shot_lib:
