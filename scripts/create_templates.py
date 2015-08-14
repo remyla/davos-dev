@@ -1,11 +1,7 @@
 
 import os
-import sys
-from pytd.util.fsutils import pathJoin, copyFile
 
-sys.path.append(r'C:\Users\sebcourtois\devspace\git\z2k-pipeline-toolkit\launchers\paris')
-import setup_env_tools
-setup_env_tools.loadEnviron()
+from pytd.util.fsutils import pathJoin, copyFile
 
 from davos.core.damproject import DamProject
 #from davos.core.dbtypes import DummyDbCon, DrcDb
