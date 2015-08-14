@@ -368,7 +368,7 @@ class DamProject(object):
 
         print "connecting to shotgun..."
 
-        from zompy.shotgunengine import ShotgunEngine
+        from zombie.shotgunengine import ShotgunEngine
         self._shotgundb = ShotgunEngine(self.name)
 
     def __initDamas(self):
