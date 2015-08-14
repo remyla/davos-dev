@@ -8,7 +8,7 @@ sys.path.append(r'C:\Users\sebcourtois\devspace\git\z2k-pipeline-toolkit\launche
 import setup_env_tools
 setup_env_tools.loadEnviron()
 
-os.environ["DEV_MODE_ENV"] = ""
+#os.environ["DEV_MODE_ENV"] = ""
 
 from davos.gui.assetbrowserwindow import AssetBrowserWindow
 
@@ -24,7 +24,8 @@ def launch(argv):
     mainWin = AssetBrowserWindow(WINDOW_NAME)
     mainWin.show()
 
-    mainWin.setProject("zombtest")
+    if 1:
+        mainWin.setProject("zombtest")
 
     sys.exit(app.exec_())
 

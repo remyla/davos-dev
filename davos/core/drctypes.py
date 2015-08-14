@@ -615,7 +615,7 @@ You have {0} version of '{1}':
            )
                 sConfirm = confirmDialog(title='WARNING !'
                                         , message=sMsg.strip('\n')
-                                        , button=[ 'Keep', 'Overwrite', 'Cancel']
+                                        , button=['Keep', 'Overwrite', 'Cancel']
                                         , icon="warning")
 
                 if sConfirm == 'Cancel':
@@ -769,16 +769,7 @@ You have {0} version of '{1}':
         if not kwargs.pop("autoLock", False):
 
             if not bLockState:
-
                 msg = u'"{0}" is not locked !'.format(self.name)
-
-                confirmDialog(title='SORRY !'
-                            , message=msg
-                            , button=["OK"]
-                            , defaultButton="OK"
-                            , cancelButton="OK"
-                            , dismissString="OK")
-
                 raise RuntimeError, msg
 
         if not self.setLocked(True):
@@ -819,6 +810,9 @@ You have {0} version of '{1}':
             self.setPrpty("checksum", sNewSha1Key, write=False)
 
         self.setPrpty("sourceFile", sSrcFilePath, write=False)
+
+        sLoggedUser = self.library.project.loggedUser(force=True).loginName
+        self.setPrpty("author", sLoggedUser, write=False)
 
         iNextVers = self.currentVersion + 1
         self.setPrpty("currentVersion", iNextVers, write=False)

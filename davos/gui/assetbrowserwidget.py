@@ -1,13 +1,23 @@
 
 from PySide import QtCore
 from PySide import QtGui
+Qt = QtCore.Qt
+
 from pytd.util.sysutils import timer
 from pytd.util.strutils import labelify
-Qt = QtCore.Qt
+from pytd.util.sysutils import inDevMode
 
 from davos.core.damproject import DamProject
 
 from .ui.asset_browser_widget import Ui_AssetBrowserWidget
+
+STYLE = """
+QTreeView{
+    border-style: dashed;
+    border-width: 1px;
+    border-color: red;
+}
+ """
 
 class AssetBrowserWidget(QtGui.QWidget, Ui_AssetBrowserWidget):
 
@@ -18,6 +28,9 @@ class AssetBrowserWidget(QtGui.QWidget, Ui_AssetBrowserWidget):
         self.splitter.splitterMoved.connect(self.autoResizeImage)
 
         self.project = None
+
+        if inDevMode():
+            self.setStyleSheet(STYLE)
 
     def autoResizeImage(self, *args):
         self.propertyEditorView.resizeImageButton(self.splitter.sizes()[1])
@@ -56,7 +69,6 @@ class AssetBrowserWidget(QtGui.QWidget, Ui_AssetBrowserWidget):
         self.project = proj
 
         bSuccess = proj.init(**kwargs)
-
         self.setupModelData(proj)
 
         if not bSuccess:
@@ -70,7 +82,7 @@ class AssetBrowserWidget(QtGui.QWidget, Ui_AssetBrowserWidget):
 
         damUser = proj.loggedUser()
         sUserName = damUser.loginName if damUser else ""
-        sWinTitle = " - ".join((labelify(proj.name), sUserName))
+        sWinTitle = " - ".join(("Davos Browser", labelify(proj.name), sUserName))
 
         view.setWindowTitle(sWinTitle)
 

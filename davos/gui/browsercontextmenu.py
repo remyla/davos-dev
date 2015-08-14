@@ -185,7 +185,7 @@ class BrowserContextMenu(BaseContextMenu):
         item = itemList[-1]
         drcFile = item._metaobj
 
-        if type(drcFile) is not DrcFile:
+        if not isinstance(drcFile, DrcFile):
             raise TypeError, 'A {} cannot be published.'.format(type(drcFile).__name__)
 
         sSrcFilePath = self.__class__.pickupPrivateFileToPublish(drcFile)

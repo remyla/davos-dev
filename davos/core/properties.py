@@ -188,7 +188,7 @@ DrcFileProperties = [
     'default':'',
     'accessor':'_dbnode',
     'reader':'getField(author)',
-    'writer':'',
+    'writer':'setField(author)',
     'lazy':True,
     'copyable':True,
     'uiEditable':Eds.Disabled,
