@@ -244,6 +244,16 @@ class DamProject(object):
     def hasVar(self, sSection, sVarName):
         return self.__confobj.hasVar(sSection, sVarName)
 
+    def entryFromPath(self, sEntryPath, **kwargs):
+
+        drcLib = self.libraryFromPath(sEntryPath)
+        if not drcLib:
+            msg = "Path is NOT from a KNOWN library: '{}'".format(sEntryPath)
+            logMsg(msg, warning=True)
+            return None
+
+        return drcLib.getEntry(sEntryPath, **kwargs)
+
     def libraryFromPath(self, sEntryPath):
 
         sPath = pathNorm(sEntryPath)
@@ -252,12 +262,7 @@ class DamProject(object):
             if drcLib.contains(sPath):
                 return drcLib
 
-    def entryFromPath(self, sEntryPath, **kwargs):
-
-        drcLib = self.libraryFromPath(sEntryPath)
-        assert drcLib is not None, "Path is NOT from a KNOWN library !"
-
-        return drcLib.getEntry(sEntryPath, **kwargs)
+        return None
 
     def publishEditedVersion(self, sSrcFilePath, **kwargs):
 

@@ -7,7 +7,7 @@ from pytd.util.logutils import logMsg
 
 from pytd.util.sysutils import listClassesFromModule, getCaller
 from pytd.util.qtutils import toQFileInfo
-from pytd.util.fsutils import pathNorm
+from pytd.util.fsutils import pathNorm, normCase
 from pytd.util import sysutils
 
 from . import drctypes
@@ -125,8 +125,8 @@ class DrcLibrary(DrcEntry):
         return entry
 
     def contains(self, sAbsPath):
-        sLibPath = self.absPath()
-        return (len(sAbsPath) >= len(sLibPath)) and sAbsPath.startswith(sLibPath)
+        sLibPath = normCase(self.absPath())
+        return normCase(sAbsPath).startswith(sLibPath)
 
     def getHomonym(self, sSpace):
 
@@ -164,7 +164,8 @@ class DrcLibrary(DrcEntry):
         cacheDict = self.project.loadedLibraries
 
         if key in cacheDict:
-            logMsg("<{}> Already loaded : {}.".format(getCaller(depth=4, fo=False), self), log="debug")
+            logMsg("<{}> Already loaded : {}.".format(getCaller(depth=4, fo=False), self)
+                   , log="debug")
         else:
             cacheDict[key] = self
 
