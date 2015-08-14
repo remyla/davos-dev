@@ -1,9 +1,8 @@
 
+import os
 import sys
 
 from PySide import QtGui
-
-import os
 
 sys.path.append(r'C:\Users\sebcourtois\devspace\git\z2k-pipeline-toolkit\launchers\paris')
 import setup_env_tools
@@ -11,30 +10,23 @@ setup_env_tools.loadEnviron()
 
 os.environ["DEV_MODE_ENV"] = ""
 
-from davos.core.damproject import DamProject
-from davos.gui.assetbrowserwidget import AssetBrowserWidget
+from davos.gui.assetbrowserwindow import AssetBrowserWindow
 
-def main(argv):
+WINDOW_NAME = "assetBrowserWin"
+
+def launch(argv):
 
     app = QtGui.QApplication(argv)
 
-    # print QtGui.QStyleFactory.keys()
+    #print QtGui.QStyleFactory.keys()
     app.setStyle("Cleanlooks")
 
-    mainWin = QtGui.QMainWindow()
-    view = AssetBrowserWidget(mainWin)
-    mainWin.setCentralWidget(view)
-    mainWin.resize(1100, 800)
+    mainWin = AssetBrowserWindow(WINDOW_NAME)
     mainWin.show()
 
-    proj = DamProject("zombdev", empty=True)
-    if proj:
-        proj.init()
-        view.setupModelData(proj)
-        proj.loadLibraries(noError=True)
+    mainWin.setProject("zombtest")
 
     sys.exit(app.exec_())
 
-
 if __name__ == "__main__":
-    main(sys.argv)
+    launch(sys.argv)

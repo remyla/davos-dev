@@ -96,7 +96,7 @@ class DamProject(object):
         self.__initShotgun()
         self.__initDamas()
 
-        return self.authenticate(**kwargs)
+        return self.authenticate()
 
     def authenticate(self):
 
@@ -186,30 +186,31 @@ class DamProject(object):
 
     def iterPaths(self, sSpace, sLibName, tokens=None, **kwargs):
 
-        bOptional = (sSpace == "template")
-
         for sPathVar in self.getVar(sLibName, "all_path_vars", ()):
-            try:
-                p = self.getPath(sSpace, sLibName, pathVar=sPathVar,
-                                 tokens=tokens, **kwargs)
-            except AttributeError:
-                if bOptional:
-                    continue
 
-                raise
+            p = self.getPath(sSpace, sLibName, pathVar=sPathVar,
+                             tokens=tokens, **kwargs)
+            if not p:
+                continue
 
             yield p
 
     def getPath(self, sSpace, sLibName, pathVar="", tokens=None, **kwargs):
 
-        sRcPath = self.getVar(sLibName, sSpace + "_path")
+        if sSpace in LIBRARY_SPACES:
+            sRcPath = self.getVar(sLibName, sSpace + "_path")
+        else:
+            sRcPath = self.getVar(sLibName, sSpace + "_path", default="")
+            if not sRcPath:
+                return sRcPath
+
         if pathVar:
             sRcPath = pathJoin(sRcPath, self.getVar(sLibName, pathVar))
 
         if kwargs.get("resEnvs", True):
             sRcPath = pathResolve(sRcPath)
 
-        if kwargs.get("resVars", False):
+        if not kwargs.get("resVars", True):
             return sRcPath
 
         # resolve vars from config
@@ -367,7 +368,7 @@ class DamProject(object):
 
         print "connecting to shotgun..."
 
-        from zombie.shotgunengine import ShotgunEngine
+        from zompy.shotgunengine import ShotgunEngine
         self._shotgundb = ShotgunEngine(self.name)
 
     def __initDamas(self):

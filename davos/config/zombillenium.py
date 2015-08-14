@@ -33,6 +33,7 @@ class asset_lib:
         "vehicle3d",
         "set3d",
         "environment3d",
+        "fx_previz",
         )
 
     child_sections = asset_types
@@ -97,7 +98,6 @@ class prop3d:
 
 class vehicle3d(prop3d):
 
-
     prefix = "vhl"
     aliases = (prefix, "Vehicle 3D",)
     asset_type = prefix
@@ -127,6 +127,15 @@ class environment3d(set3d):
     prefix = "env"
     aliases = (prefix, "Env 3D",)
     asset_type = prefix
+
+class fx_previz:
+
+    prefix = "fxp"
+    aliases = (prefix,)
+    asset_type = prefix
+
+    public_path = osp.join(asset_lib.public_path, asset_lib.asset_dir)
+    private_path = osp.join(asset_lib.private_path, asset_lib.asset_dir)
 
 class shot_lib:
 

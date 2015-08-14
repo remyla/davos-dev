@@ -91,8 +91,10 @@ def createAssetDirectories(proj, sCsvFilePath, **kwargs):
             #sAstVariation = sAstNameParts[2] if len(sAstNameParts) == 3 else ""
 
             sAstTemplateDir = proj.getPath("template", sAstType)
+            if not sAstTemplateDir:
+                continue
 
-            print '\nCreating directory of "{0}":'.format(sAstName)
+            print '\nCreating directories for "{0}":'.format(sAstName)
             sDestAstDir = proj.getPath("public", sAstType, tokens={'asset':sAstName})
 
             if not (bDryRun or osp.isdir(sDestAstDir)):

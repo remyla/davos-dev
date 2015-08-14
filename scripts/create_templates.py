@@ -10,7 +10,7 @@ setup_env_tools.loadEnviron()
 from davos.core.damproject import DamProject
 #from davos.core.dbtypes import DummyDbCon, DrcDb
 
-proj = DamProject("zombdev")
+proj = DamProject("zombtest")
 
 sMaFilePath = pathJoin(proj.getPath("template", "project"), "initial_files", "maya_2016.ma")
 print sMaFilePath, os.path.isfile(sMaFilePath)
