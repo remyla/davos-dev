@@ -26,4 +26,4 @@ def launch(sProject, argv):
 
 if __name__ == "__main__":
 
-    launch("zombdev" if inDevMode() else "zombillenium", sys.argv)
+    launch("zombtest" if inDevMode() else "zombillenium", sys.argv)

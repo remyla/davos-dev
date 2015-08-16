@@ -91,7 +91,7 @@ class DamProject(object):
         if sMissingPathList:
             msg = "Missing template paths:\n\t" + '\n\t'.join(sMissingPathList)
             logMsg(msg , warning=True)
-            return False
+            #return False
 
         self.__initShotgun()
         self.__initDamas()
@@ -304,11 +304,11 @@ class DamProject(object):
         if sMissingPathList:
 
             msgIter = (u"'{}': '{}'".format(n, p) for n, p in sMissingPathList)
-            msg = u"No such libraries:\n\n" + u"\n".join(msgIter)
+            msg = u"No such libraries:\n" + u"\n".join(msgIter)
 
             if isQtApp():
                 sConfirm = confirmDialog(title='WARNING !',
-                                         message=msg,
+                                         message=msg + "\n\n\tShould I create them ?",
                                          button=['OK', 'Cancel'],
                                          defaultButton='Cancel',
                                          cancelButton='Cancel',
