@@ -9,8 +9,10 @@ import argparse
 import os
 os.environ["PYTHONINSPECT"] = "1"
 
-import davos_env
-davos_env.load()
+try:
+    import davos_env
+    davos_env.load()
+except ImportError:pass
 
 from davos.core.damproject import DamProject
 

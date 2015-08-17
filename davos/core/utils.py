@@ -1,5 +1,6 @@
 
 import re
+import os
 
 from pytd.gui.dialogs import promptDialog
 from pytd.util.logutils import logMsg
@@ -11,13 +12,19 @@ _interDashesRgx = re.compile(r'-([a-z][0-9]+)')
 
 def getConfigModule(sProjectName):
 
-    sConfigModule = sProjectName
-
     try:
-        modobj = importModule(sConfigModule)
+        sConfPkg = os.environ.get("DAVOS_CONF_PACKAGE", "")
+        if sConfPkg:
+
+            sConfigModule = sConfPkg + '.' + sProjectName
+            modobj = importModule(sConfigModule)
+
+        else:
+            sConfigModule = 'davos.config.' + sProjectName
+            modobj = importModule(sConfigModule)
+
     except ImportError:
-        sConfigModule = 'davos.config.' + sProjectName
-        modobj = importModule(sConfigModule)
+        raise ImportError("No config module named '{}'".format(sConfigModule))
 
     reload(modobj)
 

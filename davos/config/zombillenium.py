@@ -19,6 +19,7 @@ class project:
 
     child_sections = libraries
 
+    shotgun_engine = "zomblib.shotgunengine.ShotgunEngine"
     authenticator = ".authtypes.ShotgunAuth"
     #no_damas = True
 

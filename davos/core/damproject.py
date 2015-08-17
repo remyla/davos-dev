@@ -14,6 +14,7 @@ from .drclibrary import DrcLibrary
 from .damtypes import DamUser
 from .authtypes import HellAuth
 from .utils import getConfigModule
+from .dbtypes import DrcDb
 
 LIBRARY_SPACES = ("public", "private")
 
@@ -107,7 +108,10 @@ class DamProject(object):
             return False
 
         self.__loggedUser = DamUser(self, userData)
-        os.environ["DAM_USER"] = self.__loggedUser.loginName
+        sLogin = self.__loggedUser.loginName
+        os.environ["DAM_USER"] = sLogin
+
+        self._db = DrcDb(self._damasdb, sLogin)
 
         return True
 
@@ -271,6 +275,16 @@ class DamProject(object):
         pubFile.assertFilePublishable(privFile)
         pubFile.incrementVersion(privFile, **kwargs)
 
+    def findDbNodes(self, sQuery="", **kwargs):
+
+        sBaseQuery = u"file:/^{}/"
+
+        sDamasPath = self.getVar("project", "damas_root_path")
+        sBaseQuery = sBaseQuery.format(sDamasPath)
+        sFullQuery = " ".join((sBaseQuery, sQuery))
+
+        return self._db.findNodes(sFullQuery, **kwargs)
+
     def listUiClasses(self):
         return DrcLibrary.listUiClasses()
 
@@ -368,13 +382,17 @@ class DamProject(object):
 
     def __initShotgun(self):
 
-        if self.getVar("project", "no_shotgun", False):
+        sFullName = self.getVar("project", "shotgun_engine", "")
+        if not sFullName:
             return
+
+        sMod, sClass = sFullName.rsplit(".", 1)
+        exec("from {} import {}".format(sMod, sClass))
 
         print "connecting to shotgun..."
 
-        from zomblib.shotgunengine import ShotgunEngine
-        self._shotgundb = ShotgunEngine(self.name)
+        self._shotgundb = eval(sClass)(self.name)
+
 
     def __initDamas(self):
 
