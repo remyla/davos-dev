@@ -8,6 +8,7 @@ from PySide import QtGui
 
 from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
 from pytd.util.sysutils import toStr
+from davos.core.damtypes import DamAsset
 
 osp = os.path
 
@@ -85,23 +86,20 @@ def createAssetDirectories(proj, sCsvFilePath, **kwargs):
             if count == iMaxCount:
                 break
 
-            sAstNameParts = sAstName.split("_")
-            sAstType = sAstNameParts[0]
-            #sAstBaseName = sAstNameParts[1]
-            #sAstVariation = sAstNameParts[2] if len(sAstNameParts) == 3 else ""
+            damAst = DamAsset(proj, name=sAstName)
 
-            sAstTemplateDir = proj.getPath("template", sAstType)
-            if not sAstTemplateDir:
+            sTemplatePath = damAst.getTemplatePath()
+            if not sTemplatePath:
                 continue
 
             print '\nCreating directories for "{0}":'.format(sAstName)
-            sDestAstDir = proj.getPath("public", sAstType, tokens={'asset':sAstName})
+            sDestAstDir = damAst.getPath("public")
 
             if not (bDryRun or osp.isdir(sDestAstDir)):
                 os.makedirs(sDestAstDir)
 
-            for sSrcPath in iterPaths(sAstTemplateDir, ignoreFiles=ignorePatterns("*.db", ".*")):
-                sDestPath = (sSrcPath.replace(sAstTemplateDir, sDestAstDir)
+            for sSrcPath in iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*")):
+                sDestPath = (sSrcPath.replace(sTemplatePath, sDestAstDir)
                              .replace("{asset}", sAstName))
 
                 if not osp.exists(sDestPath):

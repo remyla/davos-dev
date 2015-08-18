@@ -12,7 +12,7 @@ sMaFilePath = pathJoin(proj.getPath("template", "project"), "initial_files", "ma
 print sMaFilePath, os.path.isfile(sMaFilePath)
 
 for sAstType in proj.getVar("asset_lib", "asset_types"):
-    for sPathVar in proj.getVar(sAstType, "all_path_vars"):
-        p = proj.getPath("template", sAstType, sPathVar)
+    for sPathVar in proj.getVar(sAstType, "all_tree_vars"):
+        p = proj.getTemplatePath(sAstType, sPathVar)
         if p.endswith(".ma"):
             copyFile(sMaFilePath, p, dry_run=False)

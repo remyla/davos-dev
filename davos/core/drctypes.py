@@ -21,8 +21,8 @@ from pytd.gui.itemviews.utils import showPathInExplorer
 
 from pytd.util.external.send2trash import send2trash
 
-from .properties import DrcMetaObject
-from .properties import DrcEntryProperties, DrcFileProperties
+from .drcproperties import DrcMetaObject
+from .drcproperties import DrcEntryProperties, DrcFileProperties
 from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
@@ -697,7 +697,7 @@ You have {0} version of '{1}':
         return self.library.getEntry(sFilePath, dbNode=False)
 
 
-    def assertFilePublishable(self, privFile):
+    def ensureFilePublishable(self, privFile):
 
         assert privFile.isPrivate(), "File must live in a PRIVATE library !"
 
@@ -716,7 +716,7 @@ You have {0} version of '{1}':
 
         if not srcFile.publishAsserted:
             srcFile.publishAsserted = False
-            raise RuntimeError("DrcFile.assertFilePublishable() has not been applied to {} !"
+            raise RuntimeError("DrcFile.ensureFilePublishable() has not been applied to {} !"
                                .format(srcFile))
 
         bAutoUnlock = kwargs.pop("autoUnlock", False)

@@ -1,14 +1,16 @@
 
 import os
 import os.path as osp
+import re
 
 from pytd.util.pyconfparser import PyConfParser
 from pytd.util.logutils import logMsg
-from pytd.util.fsutils import pathJoin, pathResolve, pathNorm
+from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.strutils import findFields
 from pytd.util import sysutils
-from pytd.util.sysutils import argToTuple, isQtApp
+from pytd.util.sysutils import argToTuple, isQtApp, importClass
 from pytd.gui.dialogs import confirmDialog
+from pytd.util.external import parse
 
 from .drclibrary import DrcLibrary
 from .damtypes import DamUser
@@ -79,7 +81,7 @@ class DamProject(object):
         self.reset()
 
         try:
-            self.__confobj = PyConfParser(getConfigModule(self.name))
+            self._confobj = PyConfParser(getConfigModule(self.name))
         except ImportError, msg:
             if kwargs.pop("warn", True):
                 logMsg(msg , warning=True)
@@ -188,17 +190,6 @@ class DamProject(object):
 
         return drcLib
 
-    def iterPaths(self, sSpace, sLibName, tokens=None, **kwargs):
-
-        for sPathVar in self.getVar(sLibName, "all_path_vars", ()):
-
-            p = self.getPath(sSpace, sLibName, pathVar=sPathVar,
-                             tokens=tokens, **kwargs)
-            if not p:
-                continue
-
-            yield p
-
     def getPath(self, sSpace, sLibName, pathVar="", tokens=None, **kwargs):
 
         if sSpace in LIBRARY_SPACES:
@@ -209,7 +200,15 @@ class DamProject(object):
                 return sRcPath
 
         if pathVar:
-            sRcPath = pathJoin(sRcPath, self.getVar(sLibName, pathVar))
+            default = kwargs.get("default", "NoEntry")
+            try:
+                sRcPath = pathJoin(sRcPath,
+                                   self.getVar(sLibName, pathVar))
+            except AttributeError:
+                if default != "NoEntry":
+                    return default
+
+                raise
 
         if kwargs.get("resEnvs", True):
             sRcPath = pathResolve(sRcPath)
@@ -243,10 +242,10 @@ class DamProject(object):
         return sRcPath
 
     def getVar(self, sSection, sVarName, default="NoEntry", **kwargs):
-        return self.__confobj.getVar(sSection, sVarName, default=default, **kwargs)
+        return self._confobj.getVar(sSection, sVarName, default=default, **kwargs)
 
     def hasVar(self, sSection, sVarName):
-        return self.__confobj.hasVar(sSection, sVarName)
+        return self._confobj.hasVar(sSection, sVarName)
 
     def entryFromPath(self, sEntryPath, **kwargs):
 
@@ -268,12 +267,55 @@ class DamProject(object):
 
         return None
 
+    def resourceFromPath(self, sEntryPath):
+
+        damEntity = self.entityFromPath(sEntryPath)
+        res = damEntity.resourceFromPath(sEntryPath)
+        return res[0] if res else ""
+
+    def entityFromPath(self, sEntryPath):
+
+        _, sSection = self.sectionFromPath(sEntryPath)
+        sEntityCls = self.getVar(sSection, "entity_class")
+        cls = importClass(sEntityCls, globals(), locals())
+
+        return cls.fromPath(self, sSection, sEntryPath)
+
+    def sectionFromPath(self, sEntryPath):
+
+        sEntryPath = normCase(sEntryPath)
+
+        sSectionItemsList = sorted(self.iterSectionPaths(), key=lambda x: len(x[2])
+                                   , reverse=True)
+        for sSpace, sSection, sPath in sSectionItemsList:
+
+            sSectionPath = normCase(sPath)
+
+            if sEntryPath.startswith(sSectionPath):
+                return sSpace, sSection
+
+        return None
+
+    def iterSectionPaths(self):
+
+        for sSection, _ in self._confobj.listSections():
+
+            if sSection == "project":
+                continue
+
+            for sSpace in LIBRARY_SPACES:
+                sSectionPath = self.getPath(sSpace, sSection, default="")
+
+                if sSectionPath:
+                    yield sSpace, sSection, sSectionPath
+
     def publishEditedVersion(self, sSrcFilePath, **kwargs):
 
         privFile = self.entryFromPath(sSrcFilePath)
         pubFile = privFile.getPublicFile()
-        pubFile.assertFilePublishable(privFile)
+        pubFile.ensureFilePublishable(privFile)
         pubFile.incrementVersion(privFile, **kwargs)
+
 
     def findDbNodes(self, sQuery="", **kwargs):
 
@@ -295,6 +337,17 @@ class DamProject(object):
 
     def iterChildren(self):
         return self.loadedLibraries.itervalues()
+
+    def iterPaths(self, sSpace, sLibName, tokens=None, **kwargs):
+
+        for sPathVar in self.getVar(sLibName, "all_tree_vars", ()):
+
+            p = self.getPath(sSpace, sLibName, pathVar=sPathVar,
+                             tokens=tokens, **kwargs)
+            if not p:
+                continue
+
+            yield (sPathVar, p)
 
     def _checkLibraryPaths(self, noError=False):
 
@@ -346,14 +399,33 @@ class DamProject(object):
 
         return True
 
+    def getTemplatePath(self, sSection, pathVar="" , **kwargs):
+
+        sTemplateDir = self.getPath("template", sSection, "template_dir", default="", **kwargs)
+        if not sTemplateDir:
+            return ""
+
+        sEntityDir = self.getPath("template", sSection, "entity_dir", **kwargs)
+
+        p = self.getPath("template", sSection, pathVar=pathVar, **kwargs)
+        p = re.sub('^' + re.escape(sEntityDir), sTemplateDir, p)
+        return p
+
     def _checkTemplatePaths(self, out_invalidPaths, sSection="project"):
 
-        for p in self.iterPaths("template", sSection):
+        sTemplateDir = self.getPath("template", sSection, "template_dir", default="")
+        if sTemplateDir:
 
-            if osp.exists(p):
-                continue
+            sEntityDir = self.getPath("template", sSection, "entity_dir")
 
-            out_invalidPaths.append(p)
+            for _, p in self.iterPaths("template", sSection):
+
+                p = re.sub('^' + re.escape(sEntityDir), sTemplateDir, p)
+
+                if osp.exists(p):
+                    continue
+
+                out_invalidPaths.append(p)
 
         for sChildSection in self.getVar(sSection, "child_sections", ()):
             self._checkTemplatePaths(out_invalidPaths, sChildSection)
@@ -386,12 +458,11 @@ class DamProject(object):
         if not sFullName:
             return
 
-        sMod, sClass = sFullName.rsplit(".", 1)
-        exec("from {} import {}".format(sMod, sClass))
+        cls = importClass(sFullName, globals(), locals())
 
         print "connecting to shotgun..."
 
-        self._shotgundb = eval(sClass)(self.name)
+        self._shotgundb = cls(self.name)
 
 
     def __initDamas(self):
