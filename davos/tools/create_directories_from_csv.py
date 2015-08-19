@@ -87,29 +87,7 @@ def createAssetDirectories(proj, sCsvFilePath, **kwargs):
                 break
 
             damAst = DamAsset(proj, name=sAstName)
-
-            sTemplatePath = damAst.getTemplatePath()
-            if not sTemplatePath:
-                continue
-
-            print '\nCreating directories for "{0}":'.format(sAstName)
-            sDestAstDir = damAst.getPath("public")
-
-            if not (bDryRun or osp.isdir(sDestAstDir)):
-                os.makedirs(sDestAstDir)
-
-            for sSrcPath in iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*")):
-                sDestPath = (sSrcPath.replace(sTemplatePath, sDestAstDir)
-                             .replace("{asset}", sAstName))
-
-                if not osp.exists(sDestPath):
-                    print "\t", sDestPath
-
-                    if not bDryRun:
-                        if sDestPath.endswith("/"):
-                            os.mkdir(sDestPath)
-                        else:
-                            copyFile(sSrcPath, sDestPath, **kwargs)
+            damAst.createDirsAndFiles()
 
             count += 1
 

@@ -6,11 +6,12 @@ import re
 from pytd.util.pyconfparser import PyConfParser
 from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
+from pytd.util.fsutils import pathSplitDirs
 from pytd.util.strutils import findFields
 from pytd.util import sysutils
 from pytd.util.sysutils import argToTuple, isQtApp, importClass
 from pytd.gui.dialogs import confirmDialog
-from pytd.util.external import parse
+#from pytd.util.external import parse
 
 from .drclibrary import DrcLibrary
 from .damtypes import DamUser
@@ -202,8 +203,7 @@ class DamProject(object):
         if pathVar:
             default = kwargs.get("default", "NoEntry")
             try:
-                sRcPath = pathJoin(sRcPath,
-                                   self.getVar(sLibName, pathVar))
+                sRcPath = pathJoin(sRcPath, self.getVar(sLibName, pathVar))
             except AttributeError:
                 if default != "NoEntry":
                     return default
@@ -289,9 +289,15 @@ class DamProject(object):
                                    , reverse=True)
         for sSpace, sSection, sPath in sSectionItemsList:
 
-            sSectionPath = normCase(sPath)
+            sSectionDirPath = normCase(sPath)
 
-            if sEntryPath.startswith(sSectionPath):
+            sSectionDirs = pathSplitDirs(sSectionDirPath)
+            numDirs = len(sSectionDirs)
+            sEntryDirs = pathSplitDirs(sEntryPath)
+
+            sEntryDirPath = pathJoin(*sEntryDirs[:numDirs])
+
+            if sEntryDirPath == sSectionDirPath:
                 return sSpace, sSection
 
         return None
@@ -413,7 +419,7 @@ class DamProject(object):
 
     def _checkTemplatePaths(self, out_invalidPaths, sSection="project"):
 
-        sTemplateDir = self.getPath("template", sSection, "template_dir", default="")
+        sTemplateDir = self.getTemplateDir(sSection)
         if sTemplateDir:
 
             sEntityDir = self.getPath("template", sSection, "entity_dir")
@@ -429,6 +435,9 @@ class DamProject(object):
 
         for sChildSection in self.getVar(sSection, "child_sections", ()):
             self._checkTemplatePaths(out_invalidPaths, sChildSection)
+
+    def getTemplateDir(self, sSection):
+        return self.getPath("template", sSection, "template_dir", default="")
 
     def _assertSpaceAndLibName(self, sSpace, sLibName):
 

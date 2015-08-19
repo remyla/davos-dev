@@ -2,7 +2,7 @@
 from PySide import QtGui
 
 from pytd.gui.itemviews.basecontextmenu import BaseContextMenu
-from pytd.gui.dialogs import confirmDialog
+from pytd.gui.dialogs import confirmDialog, promptDialog
 
 # from pytd.util.sysutils import toStr
 from pytd.util.logutils import logMsg
@@ -13,6 +13,7 @@ from pytd.util.fsutils import  pathSuffixed
 from davos.core.drctypes import DrcFile
 from pytd.util.sysutils import toStr
 from pytd.util.qtutils import setWaitCursor
+from davos.core.damtypes import DamAsset
 
 
 class BrowserContextMenu(BaseContextMenu):
@@ -57,6 +58,9 @@ class BrowserContextMenu(BaseContextMenu):
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
         { "label":"Log DbNode"          , "menu": "Advanced", "fnc":self.logDbNodeData      , "dev":True},
+        { "label":"Create New Asset"    , "menu": "Main"    , "fnc":self.createNewAsset     , "dev":True},
+        { "label":"Create Private Dirs" , "menu": "Main"    , "fnc":self.createPrivateAsset , "dev":True},
+
         { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer      , "dev":True},
 
         )
@@ -227,3 +231,51 @@ class BrowserContextMenu(BaseContextMenu):
 
         for item in itemList:
             item._metaobj._dbnode.logData()
+
+    def createNewAsset(self, *itemList):
+
+        item = itemList[-1]
+        drcDir = item._metaobj
+        proj = drcDir.library.project
+
+        sSection = drcDir.fileName()
+
+        if not proj.hasVar(sSection, "template_dir"):
+            raise RuntimeError("No template found for '{}'".format(sSection))
+
+        result = promptDialog(title='Please...',
+                            message='Entity Name: ',
+                            button=['OK', 'Cancel'],
+                            defaultButton='OK',
+                            cancelButton='Cancel',
+                            dismissString='Cancel',
+                            scrollableField=True,
+                            )
+
+        if result == 'Cancel':
+            logMsg("Cancelled !" , warning=True)
+            return
+
+        sEntityName = promptDialog(query=True, text=True)
+        if not sEntityName:
+            return
+
+        damAst = DamAsset(proj, name=sEntityName, assetType=sSection)
+        damAst.createDirsAndFiles()
+
+
+    createNewAsset.auth_types = ("DrcDir" ,)
+
+    def createPrivateAsset(self, *itemList):
+
+        item = itemList[-1]
+        drcDir = item._metaobj
+        proj = drcDir.library.project
+
+        damAst = proj.entityFromPath(drcDir.absPath())
+
+        damAst.createDirsAndFiles("private")
+
+        damAst.getEntry("private").showInExplorer()
+
+    createPrivateAsset.auth_types = ("DrcDir" ,)
