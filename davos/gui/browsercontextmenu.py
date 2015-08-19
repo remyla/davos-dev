@@ -4,14 +4,12 @@ from PySide import QtGui
 from pytd.gui.itemviews.basecontextmenu import BaseContextMenu
 from pytd.gui.dialogs import confirmDialog, promptDialog
 
-# from pytd.util.sysutils import toStr
+
 from pytd.util.logutils import logMsg
 from pytd.util.fsutils import  pathSuffixed
-
-# from pytd.util.fsutils import pathNorm
 # from pytd.util.logutils import forceLog
 from davos.core.drctypes import DrcFile
-from pytd.util.sysutils import toStr
+from pytd.util.sysutils import toStr, hostApp
 from pytd.util.qtutils import setWaitCursor
 from davos.core.damtypes import DamAsset
 
@@ -72,22 +70,9 @@ class BrowserContextMenu(BaseContextMenu):
 
         drcFile = itemList[-1]._metaobj
 
-        sMsg = u'Are you sure you want to EDIT this resource: \n\n    ' + drcFile.relPath()
-
-        sConfirm = confirmDialog(title='WARNING !',
-                                message=sMsg + u' ?',
-                                button=['OK', 'Cancel'],
-                                defaultButton='Cancel',
-                                cancelButton='Cancel',
-                                dismissString='Cancel',
-                                icon="warning")
-
-        if sConfirm == 'Cancel':
-            logMsg("Cancelled !", warning=True)
-            return
-
         privFile = drcFile.edit()
-        privFile.showInExplorer()
+        if privFile and (not hostApp()):
+            privFile.showInExplorer()
 
     editFile.auth_types = ("DrcFile",)
 

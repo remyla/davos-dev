@@ -548,14 +548,14 @@ class DrcFile(DrcEntry):
 
         self.refresh()
 
-        bLockState = self.getPrpty("locked")
+        bLockState = self.savedLockState()
         if not self.setLocked(True):
             return
 
         try:
             privFile = self.makePrivateCopy()
         except:
-            self.setLocked(bLockState)
+            self.restoreLockState()
             raise
 
         return privFile
@@ -620,9 +620,9 @@ You have {0} version of '{1}':
 
                 if sConfirm == 'Cancel':
                     logMsg("Cancelled !", warning=True)
-                    return ""
+                    return None
                 elif sConfirm == 'Keep':
-                    return sPrivFilePath
+                    return privDir.library.getEntry(sPrivFilePath)
 
         if bSameFiles:
             logMsg('\nAlready copied "{0}" \n\t to: "{1}"'.format(sPubFilePath, sPrivFilePath))
