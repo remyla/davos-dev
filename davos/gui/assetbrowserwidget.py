@@ -9,7 +9,7 @@ from pytd.util.sysutils import inDevMode
 
 from davos.core.damproject import DamProject
 
-from .ui.asset_browser_widget import Ui_AssetBrowserWidget
+from .ui.ui_assetbrowserwidget import Ui_AssetBrowserWidget
 
 STYLE = """
 QTreeView{

@@ -1,10 +1,9 @@
 
 from PySide import QtGui
 
-from pytd.util.strutils import labelify
 from pytd.util.sysutils import inDevMode
 
-from .ui.asset_browser_window import Ui_AssetBrowserWin
+from .ui.ui_assetbrowserwindow import Ui_AssetBrowserWin
 from .assetbrowserwidget import AssetBrowserWidget
 
 STYLE = """

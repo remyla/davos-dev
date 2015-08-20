@@ -548,7 +548,7 @@ class DrcFile(DrcEntry):
 
         self.refresh()
 
-        bLockState = self.savedLockState()
+        self.savedLockState()
         if not self.setLocked(True):
             return
 

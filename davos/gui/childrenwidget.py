@@ -9,7 +9,7 @@ from pytd.util.sysutils import toUnicode
 from pytd.gui.itemviews.baseproxymodel import BaseProxyModel
 from pytd.gui.itemviews.baseselectionmodel import BaseSelectionModel
 
-from .ui.children_widget import Ui_ChildrenWidget
+from .ui.ui_childrenwidget import Ui_ChildrenWidget
 
 
 _PATH_BAR_SS = """

@@ -10,8 +10,8 @@ from pytd.util.qtutils import clampPixmapSize
 from pytd.gui.itemviews.utils import ItemUserFlag
 from pytd.util.qtutils import toColorSheet
 
-from .ui.property_widget import Ui_PropertyWidget
-from .ui.property_editor_view import Ui_PropertyEditorView
+from .ui.ui_propertywidget import Ui_PropertyWidget
+from .ui.ui_propertyeditorview import Ui_PropertyEditorView
 
 class PropertyWidget(QtGui.QWidget, Ui_PropertyWidget):
 
