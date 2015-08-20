@@ -9,7 +9,7 @@ from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs
 from pytd.util.strutils import findFields
 from pytd.util import sysutils
-from pytd.util.sysutils import argToTuple, isQtApp, importClass
+from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp
 from pytd.gui.dialogs import confirmDialog
 #from pytd.util.external import parse
 
@@ -52,7 +52,17 @@ class DamProject(object):
 
         proj.reset()
         proj.name = sProjectName
-        proj.__libraryType = kwargs.pop("libraryType", DrcLibrary)
+
+        libClass = DrcLibrary
+        if hostApp() == "maya":
+            try:
+                from davos_maya.core.mrclibrary import MrcLibrary
+            except ImportError:
+                pass
+            else:
+                libClass = MrcLibrary
+
+        proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
 
         if kwargs.pop("empty", False):
             return proj
@@ -184,7 +194,7 @@ class DamProject(object):
         if not drcLib:
             sLibPath = self.getPath(sSpace, sLibName)
             if osp.isdir(sLibPath):
-                drcLib = self.__libraryType(sLibName, sLibPath, sSpace, self)
+                drcLib = self.__libClass(sLibName, sLibPath, sSpace, self)
             else:
                 logMsg("No such '{}': '{}'.".format(sFullLibName, sLibPath),
                        warning=True)

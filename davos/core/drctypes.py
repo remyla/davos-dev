@@ -523,7 +523,7 @@ class DrcFile(DrcEntry):
     def __init__(self, drcLibrary, absPathOrInfo=None, **kwargs):
 
         self.publishAsserted = False
-        self.__savedLockState = None
+        self.__previousLock = "NoLockToRestore"
 
         super(DrcFile, self).__init__(drcLibrary, absPathOrInfo, **kwargs)
 
@@ -549,7 +549,6 @@ class DrcFile(DrcEntry):
     def edit(self):
         logMsg(log='all')
 
-        self.saveLockState()
         if not self.setLocked(True):
             return
 
@@ -558,6 +557,9 @@ class DrcFile(DrcEntry):
         except:
             self.restoreLockState()
             raise
+
+        if not privFile:
+            self.restoreLockState()
 
         return privFile
 
@@ -727,8 +729,6 @@ You have {0} version of '{1}':
         bAutoUnlock = kwargs.pop("autoUnlock", False)
         bSaveSha1Key = kwargs.pop("saveSha1Key", False)
 
-        self.saveLockState()
-
         sSrcFilePath = srcFile.absPath()
 
         bDiffers, sSrcSha1Key = self.differsFrom(sSrcFilePath)
@@ -751,7 +751,7 @@ You have {0} version of '{1}':
             raise
 
         #save the current version that will be incremented in endPublish
-        #in case we need to do a rollback on Exception
+        #in case we need to do a rollback caused by an Exception
         iSavedVers = self.currentVersion
         try:
             self.endPublish(sSrcFilePath, sComment,
@@ -765,29 +765,26 @@ You have {0} version of '{1}':
 
         return True
 
-    def beginPublish(self, **kwargs):
+    def beginPublish(self, comment="", autoLock=False):
+        logMsg(log='all')
 
-        sComment = kwargs.pop("comment", "")
+        sComment = comment
 
-        bLockState = self.savedLockState()
-
-        if not kwargs.pop("autoLock", False):
-
-            if not bLockState:
+        sLockOwner = self.getLockOwner()
+        if not autoLock:
+            if not sLockOwner:
                 msg = u'"{0}" is not locked !'.format(self.name)
-                raise RuntimeError, msg
+                raise RuntimeError(msg)
 
-        if not self.setLocked(True):
+        if not self.setLocked(True, owner=sLockOwner):
             raise RuntimeError, "Could not lock the file !"
-
 
         if not sComment:
             sComment = promptForComment(text=self.getPrpty("comment"))
 
             if not sComment:
-                self.setLocked(bLockState)
+                self.restoreLockState()
                 raise RuntimeError, "Comment has NOT been provided !"
-
 
         backupFile = None
         version = self.latestBackupVersion()
@@ -816,7 +813,7 @@ You have {0} version of '{1}':
 
         self.setPrpty("sourceFile", sSrcFilePath, write=False)
 
-        sLoggedUser = self.library.project.loggedUser(force=True).loginName
+        sLoggedUser = self.library.project.loggedUser().loginName
         self.setPrpty("author", sLoggedUser, write=False)
 
         iNextVers = self.currentVersion + 1
@@ -828,7 +825,8 @@ You have {0} version of '{1}':
         if not backupFile:
             raise RuntimeError, "Could not create backup file !"
 
-        self.restoreLockState(autoUnlock)
+        self.restoreLockState(autoUnlock, refresh=False)
+        self.refresh()
 
     def abortPublish(self, sErrorMsg, backupFile=None, autoUnlock=False):
 
@@ -849,35 +847,32 @@ You have {0} version of '{1}':
 
         return False
 
-    def savedLockState(self):
+    def restoreLockState(self, autoUnlock=False, refresh=True):
+        logMsg(log='all')
 
-        bLockState = self.__savedLockState
-        if bLockState is not None:
-            return bLockState
+        try:
+            sPrevLock = self.__previousLock
+            sLoggedUser = self.library.project.loggedUser().loginName
 
-        return self.saveLockState()
+            print sPrevLock, sLoggedUser
 
-    def saveLockState(self):
+            bRestore = (sPrevLock in ("", sLoggedUser))
 
-        self.refresh()
-        bLockState = self.getPrpty("locked")
+            if autoUnlock:
+                bLock = False
+                print "auto-unlocking"
+            else:
+                bRestore = bRestore and (sPrevLock != "NoLockToRestore")
+                bLock = True if sPrevLock else False
+                print "restoring lock to", bLock
 
-        self.__savedLockState = bLockState
+            if bRestore:
+                self.setLocked(bLock, owner=sLoggedUser, refresh=False)
+                if refresh:
+                    self.refresh()
 
-        return bLockState
-
-    def restoreLockState(self, autoUnlock=False):
-
-        bLockSate = self.__savedLockState
-
-        if autoUnlock:
-            self.setLocked(False)
-        elif bLockSate is not None:
-            self.setLocked(bLockSate)
-
-        self.__savedLockState = None
-
-        self.refresh()
+        finally:
+            self.__previousLock = "NoLockToRestore"
 
     def createBackupFile(self, version):
 
@@ -941,9 +936,14 @@ You have {0} version of '{1}':
     def setLocked(self, bLock, **kwargs):
         logMsg(log='all')
 
+        self.__previousLock = "NoLockToRestore"
+
         if not kwargs.get("force", False):
 
-            sLockOwner = self.getLockOwner()
+            sLockOwner = kwargs.get("owner", "NoEntry")
+            if sLockOwner == "NoEntry":
+                sLockOwner = self.getLockOwner()
+
             sLoggedUser = self.library.project.loggedUser(force=True).loginName
 
             if sLockOwner:
@@ -953,15 +953,21 @@ You have {0} version of '{1}':
                 else:
                     if kwargs.get("warn", True):
                         self.__warnAlreadyLocked(sLockOwner)
-                        return False
+                    return False
+
+            #save the lock state so we can restore it later with restoreLockState()
+            self.__previousLock = sLockOwner
 
         if self.setPrpty('locked', bLock):
-            self.refresh()# must be done to get "lock" property updated
+            if kwargs.get("refresh", True):
+                self.refresh()
             return True
 
         return False
 
     def getLockOwner(self):
+
+        self.refresh()
 
         if self.getPrpty("locked"):
             sLockOwner = self.getPrpty("lockOwner")
