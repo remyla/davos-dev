@@ -57,7 +57,7 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
         { "label":"Log DbNode"          , "menu": "Advanced", "fnc":self.logDbNodeData      , "dev":True},
         { "label":"Create New Asset"    , "menu": "Main"    , "fnc":self.createNewAsset     , "dev":True},
-        { "label":"Create Private Dirs" , "menu": "Main"    , "fnc":self.createPrivateAsset , "dev":True},
+        { "label":"Create Private Dirs" , "menu": "Main"    , "fnc":self.createPrivateDir   , "dev":False},
 
         { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer      , "dev":True},
 
@@ -189,6 +189,7 @@ class BrowserContextMenu(BaseContextMenu):
     publishEditedVersion.auth_types = ("DrcFile" ,)
 
     def showPrivateDirInExplorer(self, *itemList):
+
         item = itemList[-1]
         drcEntry = item._metaobj
 
@@ -251,16 +252,13 @@ class BrowserContextMenu(BaseContextMenu):
 
     createNewAsset.auth_types = ("DrcDir" ,)
 
-    def createPrivateAsset(self, *itemList):
+    def createPrivateDir(self, *itemList):
 
-        item = itemList[-1]
-        drcDir = item._metaobj
-        proj = drcDir.library.project
+        entryList = tuple(item._metaobj for item in itemList)
 
-        damAst = proj.entityFromPath(drcDir.absPath())
+        for drcDir in entryList:
+            drcDir.getHomonym("private", create=True)
 
-        damAst.createDirsAndFiles("private")
+    createPrivateDir.auth_types = ("DrcDir",)
 
-        damAst.getEntry("private").showInExplorer()
 
-    createPrivateAsset.auth_types = ("DrcDir" ,)

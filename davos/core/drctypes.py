@@ -477,13 +477,16 @@ class DrcDir(DrcEntry):
     def __init__(self, drcLibrary, absPathOrInfo=None, **kwargs):
         super(DrcDir, self).__init__(drcLibrary, absPathOrInfo, **kwargs)
 
-    def getHomonym(self, sSpace, create=False):
+    def getHomonym(self, sSpace, weak=False, create=False):
 
         curLib = self.library
         homoLib = curLib.getHomonym(sSpace)
 
         sHomoLibPath = homoLib.absPath()
         sHomoPath = re.sub("^" + curLib.absPath(), sHomoLibPath, self.absPath())
+
+        if weak:
+            return homoLib._weakDir(sHomoPath)
 
         if not osp.exists(sHomoPath) and create:
             os.makedirs(sHomoPath)
@@ -546,45 +549,42 @@ class DrcFile(DrcEntry):
     def edit(self):
         logMsg(log='all')
 
-        self.refresh()
-
-        self.savedLockState()
+        self.saveLockState()
         if not self.setLocked(True):
             return
 
         try:
-            privFile = self.makePrivateCopy()
+            privFile = self.copyToPrivateSpace(suffix=self.getEditSuffix())
         except:
             self.restoreLockState()
             raise
 
         return privFile
 
-    def makePrivateCopy(self, **kwargs):
+    def copyToPrivateSpace(self, suffix="", force=False, **kwargs):
 
         assert self.isFile(), "File does NOT exist !"
         assert self.isPublic(), "File is NOT public !"
         assert versionFromName(self.name) is None, "File is already a version !"
 
-        pubDir = self.parentDir()
-        privDir = pubDir.getHomonym('private', create=True)
+        curDir = self.parentDir()
+        privDir = curDir.getHomonym('private', weak=True)
 
         sPrivDirPath = privDir.absPath()
+        sPrivFileName = self.fileName()
 
-        # adding version suffixes to filename
-        sVersionedName = self.nextVersionName()
-        sPrivFilenameWithExt = pathSuffixed(sVersionedName, '.', padded(0))
+        if suffix:
+            sPrivFileName = pathSuffixed(sPrivFileName, suffix)
 
-        # at this point, file path is fully converted to private space
-        sPrivFilePath = pathJoin(sPrivDirPath, sPrivFilenameWithExt)
+        sPrivFilePath = pathJoin(sPrivDirPath, sPrivFileName)
 
         sPubFilePath = self.absPath()
         # now let's make the private copy of that file
         if sPubFilePath == sPrivFilePath:
-            raise ValueError('Path of source and destination files are identical: "{0}".'
+            raise ValueError('Source and destination files are identical: "{0}".'
                              .format(sPubFilePath))
 
-        bForce = kwargs.pop("force", False)
+        bForce = force
         bDryRun = kwargs.get("dry_run", False)
 
         if not osp.exists(sPrivDirPath):
@@ -609,7 +609,7 @@ You have {0} version of '{1}':
 
     private file: {2}
     public  file: {3}
-""".format(sState, sPrivFilenameWithExt,
+""".format(sState, sPrivFileName,
            privFileTime.strftime("%A, %d-%m-%Y %H:%M"),
            pubFileTime.strftime("%A, %d-%m-%Y %H:%M"),
            )
@@ -625,12 +625,17 @@ You have {0} version of '{1}':
                     return privDir.library.getEntry(sPrivFilePath)
 
         if bSameFiles:
-            logMsg('\nAlready copied "{0}" \n\t to: "{1}"'.format(sPubFilePath, sPrivFilePath))
+            logMsg('\nAlready copied "{0}" \n\t to: "{1}"'.format(sPubFilePath,
+                                                                  sPrivFilePath))
         else:
             # logMsg('\nCoping "{0}" \n\t to: "{1}"'.format(sPubFilePath, sPrivFilePath))
             copyFile(sPubFilePath, sPrivFilePath, **kwargs)
 
         return privDir.library.getEntry(sPrivFilePath)
+
+    def getEditSuffix(self):
+        v = padded(self.latestBackupVersion() + 1)
+        return "".join('-v', v, '.', padded(0))
 
     def differsFrom(self, sOtherFilePath):
 
@@ -967,11 +972,11 @@ You have {0} version of '{1}':
         return ""
 
     def nextVersionName(self):
-        v = padded(self.latestBackupVersion() + 1)
-        return pathSuffixed(self.name, '-v', v)
+        v = self.latestBackupVersion() + 1
+        return self.nameFromVersion(v)
 
-    def nameFromVersion(self, i):
-        return pathSuffixed(self.name, '-v', padded(i))
+    def nameFromVersion(self, v):
+        return pathSuffixed(self.name, '-v', padded(v))
 
     def imagePath(self):
         sRoot, sExt = osp.splitext(self.absPath())
@@ -984,7 +989,6 @@ You have {0} version of '{1}':
 
     def showInExplorer(self):
         return DrcEntry.showInExplorer(self, isFile=True)
-
 
     def absToRelPath(self, sAbsPath):
         raise NotImplementedError('Not applicable to a File')

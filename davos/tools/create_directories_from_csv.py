@@ -6,7 +6,6 @@ import csv
 
 from PySide import QtGui
 
-from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
 from pytd.util.sysutils import toStr
 from davos.core.damtypes import DamAsset
 
@@ -29,7 +28,6 @@ def assertStr(sWord, sRegexp, **kwargs):
 
 def createAssetDirectories(proj, sCsvFilePath, **kwargs):
 
-    bDryRun = kwargs.get("dry_run", False)
     iMaxCount = kwargs.get("maxCount", -1)
 
     with open(sCsvFilePath, 'rb') as csvFile:
