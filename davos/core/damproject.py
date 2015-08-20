@@ -359,20 +359,31 @@ class DamProject(object):
 
         sMissingPathList = []
 
+        sSamePathDct = {}
+
         for sSpace, sLibName in self._iterConfigLibraries():
 
+            sLibFullName = DrcLibrary.makeFullName(sSpace, sLibName)
             sLibPath = self.getPath(sSpace, sLibName)
+
+            sSamePathDct.setdefault(normCase(sLibPath), []).append(sLibFullName)
+
             if not osp.isdir(sLibPath):
 
-                sLibFullName = DrcLibrary.makeFullName(sSpace, sLibName)
                 if sSpace == "public":
-                    msg = "No such '{}': '{}'.".format(sLibFullName, sLibPath)
+                    msg = u"No such '{}': '{}'.".format(sLibFullName, sLibPath)
                     if noError:
                         logMsg(msg, warning=True)
                     else:
-                        raise RuntimeError(msg)
+                        raise EnvironmentError(msg)
                 elif sSpace == "private":
                     sMissingPathList.append((sLibFullName, sLibPath))
+
+        sSamePathList = tuple((p, libs) for p, libs in sSamePathDct.iteritems() if len(libs) > 1)
+        if sSamePathList:
+            msgIter = (u"'{}': {}".format(p, libs) for p, libs in sSamePathList)
+            msg = u"Libraries using the same path:\n\n    " + u"\n    ".join(msgIter)
+            raise EnvironmentError(msg)
 
         if sMissingPathList:
 
@@ -381,7 +392,7 @@ class DamProject(object):
 
             if isQtApp():
                 sConfirm = confirmDialog(title='WARNING !',
-                                         message=msg + "\n\n\tShould I create them ?",
+                                         message=msg + u"\n\n\tShould I create them ?",
                                          button=['OK', 'Cancel'],
                                          defaultButton='Cancel',
                                          cancelButton='Cancel',
@@ -402,6 +413,7 @@ class DamProject(object):
 
             for _, p in sMissingPathList:
                 os.makedirs(p)
+
 
         return True
 

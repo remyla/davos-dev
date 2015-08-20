@@ -1,10 +1,13 @@
 
+import os
+
 from PySide import QtGui
 
-from pytd.util.sysutils import inDevMode
+from pytd.util.sysutils import inDevMode, toStr, hostApp
 
 from .ui.ui_assetbrowserwindow import Ui_AssetBrowserWin
 from .assetbrowserwidget import AssetBrowserWidget
+from pytd.gui.dialogs import confirmDialog
 
 STYLE = """
 QMainWindow{
@@ -36,4 +39,22 @@ class AssetBrowserWindow(QtGui.QMainWindow, Ui_AssetBrowserWin):
             self.setStyleSheet(STYLE)
 
     def setProject(self, *args, **kwargs):
-        self.browserWidget.setProject(*args, **kwargs)
+
+        try:
+            return self.browserWidget.setProject(*args, **kwargs)
+        except Exception, err:
+            confirmDialog(title='SORRY !'
+                        , message=toStr(err)
+                        , button=["OK"]
+                        , defaultButton="OK"
+                        , cancelButton="OK"
+                        , dismissString="OK"
+                        , icon="critical")
+
+            if not hostApp():
+                os.environ["PYTHONINSPECT"] = "1"
+
+            self.close()
+
+            raise
+
