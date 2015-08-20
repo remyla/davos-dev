@@ -635,7 +635,7 @@ You have {0} version of '{1}':
 
     def getEditSuffix(self):
         v = padded(self.latestBackupVersion() + 1)
-        return "".join('-v', v, '.', padded(0))
+        return "".join(('-v', v, '.', padded(0)))
 
     def differsFrom(self, sOtherFilePath):
 

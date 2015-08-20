@@ -112,7 +112,7 @@ class DamProject(object):
 
         self.__loggedUser = DamUser(self, userData)
         sLogin = self.__loggedUser.loginName
-        os.environ["DAM_USER"] = sLogin
+        os.environ["DAVOS_USER"] = sLogin
 
         self._db = DrcDb(self._damasdb, sLogin)
 
