@@ -21,11 +21,11 @@ from pytd.core.metaobject import MetaObject
 #    propertyFactoryClass = PropertyFactory
 
 from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
-from pytd.util.fsutils import pathParsed, normCase
+from pytd.util.fsutils import pathParse, normCase
 from pytd.util.external import parse
 
 
-class DamUser(object):
+class DamUser(MetaObject):
 
     def __init__(self, proj, userData):
 
@@ -35,11 +35,8 @@ class DamUser(object):
 
 class DamEntity(MetaObject):
 
-    def __init__(self, proj, **kwargs):
-        self.project = proj
-        self.name = kwargs["name"]
-
-class DamAsset(DamEntity):
+    parentEntityAttr = "parent"
+    nameFormat = "{baseName}"
 
     @classmethod
     def fromPath(cls, proj, sConfSection, sEntryPath):
@@ -49,53 +46,91 @@ class DamAsset(DamEntity):
         pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile()
         sPublicPath = pubEntry.absPath()
 
-        sTemplatePath = proj.getPath("public", sConfSection, "entity_dir", resVars=False)
-        parseRes = pathParsed(sTemplatePath, sPublicPath)
+        sTemplatePath = proj.getPath("public", sConfSection, "entity_dir",
+                                     resVars=False)
 
-        return cls(proj, **parseRes.named)
+        print sTemplatePath
+        print sPublicPath
+        print ""
+        parseRes = pathParse(sTemplatePath, sPublicPath)
+
+        data = parseRes.named
+        data["section"] = sConfSection
+
+        return cls(proj, **data)
 
     def __init__(self, proj, **kwargs):
-        super(DamAsset, self).__init__(proj, **kwargs)
 
-        fmt = "{assetType}_{baseName}_{variation}"
-        parseRes = parse.parse(fmt, self.name)
-        if not parseRes:
-            raise ValueError("Invalid asset name: '{}'. Must match '{}'."
+        self.project = proj
+        self.name = kwargs["name"]
+        self.confSection = kwargs.get("section", "")
+
+        cls = self.__class__
+
+        fmt = cls.nameFormat
+        nameParse = parse.parse(fmt, self.name)
+        if not nameParse:
+            raise ValueError("Invalid name: '{}'. Must match '{}' format."
                              .format(self.name, fmt))
 
-        sAstType = kwargs.get("assetType", "")
-        if not sAstType:
-            sAstType = parseRes["assetType"]
-        else:
-            if sAstType != parseRes["assetType"]:
-                msg = "Mismatch between name and assetType: {}.assetType = '{}' !"
-                raise ValueError(msg.format(self, sAstType))
+        sParentAttr = cls.parentEntityAttr
+        sParentName = kwargs.get(sParentAttr, "")
+        if sParentAttr in nameParse:
+            if not sParentName:
+                sParentName = nameParse[sParentAttr]
+            else:
+                sParsedName = nameParse[sParentAttr]
+                if sParentName != sParsedName:
+                    msg = "Mismatch of '{}' between name and input arg: '{}' != '{}' !"
+                    raise ValueError(msg.format(sParentAttr, sParsedName, sParentName))
 
-        self.assetType = sAstType
-        self.baseName = parseRes["baseName"]
-        self.variation = parseRes["variation"]
+        for k, v in nameParse.named.iteritems():
+            setattr(self, k, v)
 
     def getEntry(self, sSpace, pathVar="entity_dir", **kwargs):
         p = self.getPath(sSpace, pathVar=pathVar, **kwargs)
         return self.project.entryFromPath(p)
 
     def getPath(self, sSpace, pathVar="entity_dir", **kwargs):
-        return self.project.getPath(sSpace, self.assetType, pathVar, tokens=vars(self), **kwargs)
+        return self.project.getPath(sSpace, self.confSection, pathVar,
+                                    tokens=vars(self), **kwargs)
 
     def getTemplatePath(self, pathVar="entity_dir", **kwargs):
-            return self.project.getTemplatePath(self.assetType, "entity_dir", **kwargs)
+        return self.project.getTemplatePath(self.confSection, "entity_dir", **kwargs)
 
     def resourceFromPath(self, sEntryPath):
 
         proj = self.project
 
         drcEntry = proj.entryFromPath(sEntryPath)
-        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile()
-        sPublicPath = pubEntry.absPath()
+        if not drcEntry:
+            return "", ""
 
-        for sVar, sPath in proj.iterPaths("public", self.assetType, tokens=vars(self)):
-            if normCase(sPath) == normCase(sPublicPath):
+        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile()
+        if not pubEntry:
+            raise RuntimeError("Could not get public version of '{}'"
+                               .format(sEntryPath))
+
+        sPublicPath = normCase(pubEntry.absPath())
+
+        pathIter = proj.iterPaths("public", self.confSection, tokens=vars(self))
+        for sVar, sPath in pathIter:
+            if normCase(sPath) == sPublicPath:
                 return sVar, sPath
+
+    def parentEntity(self):
+        return getattr(self, self.__class__.parentEntityAttr)
+
+
+class DamAsset(DamEntity):
+
+    parentEntityAttr = "assetType"
+    nameFormat = "{assetType}_{baseName}_{variation}"
+
+    def __init__(self, proj, **kwargs):
+        super(DamAsset, self).__init__(proj, **kwargs)
+        if not self.confSection:
+            self.confSection = self.assetType
 
     def createDirsAndFiles(self, sSpace="public", **kwargs):
 
@@ -115,7 +150,8 @@ class DamAsset(DamEntity):
 
         createdList = []
 
-        for sSrcPath in iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*")):
+        srcPathItr = iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*"))
+        for sSrcPath in srcPathItr:
             sDestPath = (sSrcPath.replace(sTemplatePath, sDestAstDir)
                          .replace("{name}", sAstName))
 
@@ -131,3 +167,17 @@ class DamAsset(DamEntity):
                 createdList.append(sDestPath)
 
         return createdList
+
+
+class DamShot(DamEntity):
+
+    parentEntityAttr = "sequence"
+    nameFormat = "{sequence}_{baseName}"
+
+    def __init__(self, proj, **kwargs):
+        print kwargs
+        super(DamShot, self).__init__(proj, **kwargs)
+        if not self.confSection:
+            self.confSection = "shot_lib"
+
+

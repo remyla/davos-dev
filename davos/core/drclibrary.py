@@ -7,7 +7,7 @@ from pytd.util.logutils import logMsg
 
 from pytd.util.sysutils import listClassesFromModule, getCaller
 from pytd.util.qtutils import toQFileInfo
-from pytd.util.fsutils import pathNorm, normCase
+from pytd.util.fsutils import pathNorm, normCase, pathSplitDirs, pathJoin
 from pytd.util import sysutils
 
 from . import drctypes
@@ -124,9 +124,15 @@ class DrcLibrary(DrcEntry):
 
         return entry
 
-    def contains(self, sAbsPath):
+    def contains(self, sPath):
+
         sLibPath = normCase(self.absPath())
-        return normCase(sAbsPath).startswith(sLibPath)
+        sPathDirs = pathSplitDirs(normCase(sPath))
+
+        numDirs = len(pathSplitDirs(sLibPath))
+        sAlignedPath = pathJoin(*sPathDirs[:numDirs])
+
+        return sAlignedPath == sLibPath
 
     def getHomonym(self, sSpace):
 

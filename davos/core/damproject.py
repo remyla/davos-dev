@@ -201,19 +201,19 @@ class DamProject(object):
 
         return drcLib
 
-    def getPath(self, sSpace, sLibName, pathVar="", tokens=None, **kwargs):
+    def getPath(self, sSpace, sSection, pathVar="", tokens=None, **kwargs):
 
         if sSpace in LIBRARY_SPACES:
-            sRcPath = self.getVar(sLibName, sSpace + "_path")
+            sRcPath = self.getVar(sSection, sSpace + "_path")
         else:
-            sRcPath = self.getVar(sLibName, sSpace + "_path", default="")
+            sRcPath = self.getVar(sSection, sSpace + "_path", default="")
             if not sRcPath:
                 return sRcPath
 
         if pathVar:
             default = kwargs.get("default", "NoEntry")
             try:
-                sRcPath = pathJoin(sRcPath, self.getVar(sLibName, pathVar))
+                sRcPath = pathJoin(sRcPath, self.getVar(sSection, pathVar))
             except AttributeError:
                 if default != "NoEntry":
                     return default
@@ -229,23 +229,36 @@ class DamProject(object):
         # resolve vars from config
         sFieldSet = set(findFields(sRcPath))
         if sFieldSet:
-            sVarFields = set(f for f in sFieldSet if self.hasVar(sLibName, f))
-            if sVarFields:
-                confTokens = dict((f, self.getVar(sLibName, f, '{' + f + '}'))
-                                  for f in sFieldSet)
-                if confTokens:
-                    sRcPath = sRcPath.format(**confTokens)
 
-                sFieldSet -= sVarFields
+            confTokens = self.getVar(sSection, pathVar + "_tokens", default={})
+            sConfFieldSet = set(confTokens.iterkeys())
+
+            for sField in sFieldSet:
+
+                if sField in confTokens:
+                    continue
+
+                value = self.getVar(sSection, sField, "")
+                if value:
+                    sConfFieldSet.add(sField)
+                else:
+                    value = '{' + sField + '}'
+
+                confTokens[sField] = value
+
+            if confTokens:
+                sRcPath = sRcPath.format(**confTokens)
+
+            sFieldSet -= sConfFieldSet
 
         # resolve remaining vars from input tokens
         if tokens and isinstance(tokens, dict):
 
-            rest = sFieldSet - set(tokens.iterkeys())
-            if rest:
+            sFieldSet = sFieldSet - set(tokens.iterkeys())
+            if sFieldSet:
                 msg = ("Cannot resolve path: '{}'. \n\tMissing tokens: {}"
-                        .format(sRcPath, list(rest)))
-                raise AssertionError(msg)
+                        .format(sRcPath, list(sFieldSet)))
+                raise RuntimeError(msg)
 
             return sRcPath.format(**tokens)
 
@@ -286,6 +299,9 @@ class DamProject(object):
     def entityFromPath(self, sEntryPath):
 
         _, sSection = self.sectionFromPath(sEntryPath)
+        if not sSection:
+            return None
+
         sEntityCls = self.getVar(sSection, "entity_class")
         cls = importClass(sEntityCls, globals(), locals())
 
@@ -294,23 +310,23 @@ class DamProject(object):
     def sectionFromPath(self, sEntryPath):
 
         sEntryPath = normCase(sEntryPath)
+        sEntryPathDirs = pathSplitDirs(normCase(sEntryPath))
 
-        sSectionItemsList = sorted(self.iterSectionPaths(), key=lambda x: len(x[2])
-                                   , reverse=True)
+        sSectionItemsList = sorted(self.iterSectionPaths(),
+                                   key=lambda x: len(x[2]),
+                                   reverse=True)
+
         for sSpace, sSection, sPath in sSectionItemsList:
 
-            sSectionDirPath = normCase(sPath)
+            sSectionPath = normCase(sPath)
 
-            sSectionDirs = pathSplitDirs(sSectionDirPath)
-            numDirs = len(sSectionDirs)
-            sEntryDirs = pathSplitDirs(sEntryPath)
+            numDirs = len(pathSplitDirs(sSectionPath))
+            sAlignedPath = pathJoin(*sEntryPathDirs[:numDirs])
 
-            sEntryDirPath = pathJoin(*sEntryDirs[:numDirs])
-
-            if sEntryDirPath == sSectionDirPath:
+            if sAlignedPath == sSectionPath:
                 return sSpace, sSection
 
-        return None
+        return "", ""
 
     def iterSectionPaths(self):
 
@@ -354,11 +370,11 @@ class DamProject(object):
     def iterChildren(self):
         return self.loadedLibraries.itervalues()
 
-    def iterPaths(self, sSpace, sLibName, tokens=None, **kwargs):
+    def iterPaths(self, sSpace, sSection, tokens=None, **kwargs):
 
-        for sPathVar in self.getVar(sLibName, "all_tree_vars", ()):
+        for sPathVar in self.getVar(sSection, "all_tree_vars", ()):
 
-            p = self.getPath(sSpace, sLibName, pathVar=sPathVar,
+            p = self.getPath(sSpace, sSection, pathVar=sPathVar,
                              tokens=tokens, **kwargs)
             if not p:
                 continue
