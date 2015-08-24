@@ -390,10 +390,11 @@ class DrcEntry(DrcMetaObject):
 
         sPropertyList = tuple(self.__class__._iterPropertyArg(propertyNames))
 
-        logMsg("sPropertyList", sPropertyList, log='debug')
+        logMsg("sPropertyList", sPropertyList, log='silent')
 
         sDbNodePrptySet = set(self.filterPropertyNames(sPropertyList,
-                                                       accessor="_dbnode"))
+                                                       accessor="_dbnode",
+                                                       stored=True))
 
         sOtherPrptySet = set(sPropertyList) - sDbNodePrptySet
 
@@ -968,6 +969,8 @@ You have {0} version of '{1}':
     def getLockOwner(self):
 
         self.refresh()
+
+        print self, ".locked=", self.locked
 
         if self.getPrpty("locked"):
             sLockOwner = self.getPrpty("lockOwner")

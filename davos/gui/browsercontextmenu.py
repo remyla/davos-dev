@@ -1,4 +1,6 @@
 
+import re
+
 from PySide import QtGui
 
 from pytd.gui.itemviews.basecontextmenu import BaseContextMenu
@@ -55,11 +57,13 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Break"               , "menu": "Set Lock", "fnc":self.breakFilesLock     , "dev":True       },
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
-        { "label":"Log DbNode"          , "menu": "Advanced", "fnc":self.logDbNodeData      , "dev":True},
         { "label":"Create New Asset"    , "menu": "Main"    , "fnc":self.createNewAsset     , "dev":True},
         { "label":"Create Private Dirs" , "menu": "Main"    , "fnc":self.createPrivateDir   , "dev":False},
 
         { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer      , "dev":True},
+
+        { "label":"Log Data"          , "menu": "Db Node", "fnc":self.logDbNodeData      , "dev":True},
+        { "label":"Delete"          , "menu": "Db Node", "fnc":self.deleteDbNode      , "dev":True},
 
         )
 
@@ -217,6 +221,35 @@ class BrowserContextMenu(BaseContextMenu):
 
         for item in itemList:
             item._metaobj._dbnode.logData()
+
+    def deleteDbNode(self, *itemList):
+
+        dbNodeList = []
+        msg = ""
+        for item in itemList:
+            dbNode = item._metaobj._dbnode
+            if dbNode:
+                r = dbNode.dataRepr("file")
+                r = re.sub(r"[\s{}]", "", r)
+                msg += (r + "\n")
+                dbNodeList.append(dbNode)
+
+        sMsg = u'Are you sure you want to DELETE these db nodes:\n\n' + msg
+
+        sConfirm = confirmDialog(title='WARNING !',
+                                 message=sMsg,
+                                 button=['OK', 'Cancel'],
+                                 defaultButton='Cancel',
+                                 cancelButton='Cancel',
+                                 dismissString='Cancel',
+                                 icon="warning")
+
+        if sConfirm == 'Cancel':
+            logMsg("Cancelled !", warning=True)
+            return
+
+        for dbNode in dbNodeList:
+            dbNode.delete()
 
     def createNewAsset(self, *itemList):
 
