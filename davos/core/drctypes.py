@@ -18,7 +18,7 @@ from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
 from pytd.gui.itemviews.utils import showPathInExplorer
-
+from pytd.util.sysutils import timer#, getCaller
 from pytd.util.external.send2trash import send2trash
 
 from .drcproperties import DrcMetaObject
@@ -26,8 +26,7 @@ from .drcproperties import DrcEntryProperties, DrcFileProperties
 from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
-from pytd.util.sysutils import timer#, getCaller
-#from pytd.util.logutils import forceLog
+
 
 
 class DrcEntry(DrcMetaObject):
@@ -401,10 +400,10 @@ class DrcEntry(DrcMetaObject):
         DrcMetaObject._writeAllValues(self, propertyNames=sOtherPrptySet)
 
         logMsg("sDbNodePrptySet", sDbNodePrptySet, log='debug')
-        data = self.getAllValues(sDbNodePrptySet)
+        values = self.getStoredValues(sDbNodePrptySet)
 
-        logMsg("Writing DbNode data:", data, self, log='debug')
-        self.getDbNode(create=True).setData(data)
+        logMsg("Writing DbNode data:", values, self, log='debug')
+        self.getDbNode(create=True).setData(values)
 
     def _remember(self):
 
@@ -538,7 +537,7 @@ class DrcFile(DrcEntry):
         DrcEntry.loadData(self, fileInfo, **kwargs)
 
         dbNode = self._dbnode
-        if not (dbNode and dbNode.hasField("currentVersion")):
+        if not (dbNode and dbNode.hasField("version")):
             self.updateCurrentVersion()
 
     def updateCurrentVersion(self):

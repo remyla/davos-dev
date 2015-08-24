@@ -57,13 +57,15 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Break"               , "menu": "Set Lock", "fnc":self.breakFilesLock     , "dev":True       },
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
+        { "label":"Roll Back"            , "menu": "Advanced", "fnc":self.rollBackToVersion , "dev":True},
+
         { "label":"Create New Asset"    , "menu": "Main"    , "fnc":self.createNewAsset     , "dev":True},
         { "label":"Create Private Dirs" , "menu": "Main"    , "fnc":self.createPrivateDir   , "dev":False},
 
-        { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer      , "dev":True},
+        { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer     , "dev":True},
 
-        { "label":"Log Data"          , "menu": "Db Node", "fnc":self.logDbNodeData      , "dev":True},
-        { "label":"Delete"          , "menu": "Db Node", "fnc":self.deleteDbNode      , "dev":True},
+        { "label":"Log Data"          , "menu": "Db Node", "fnc":self.logDbNodeData         , "dev":True},
+        { "label":"Delete"          , "menu": "Db Node", "fnc":self.deleteDbNode            , "dev":True},
 
         )
 
@@ -189,6 +191,32 @@ class BrowserContextMenu(BaseContextMenu):
         proj = self.model()._metamodel
 
         proj.publishEditedVersion(sSrcFilePath, autoLock=False, autoUnlock=False)
+
+    publishEditedVersion.auth_types = ("DrcFile" ,)
+
+    def rollBackToVersion(self, *itemList):
+
+        item = itemList[-1]
+        drcFile = item._metaobj
+        drcFile.refresh()
+
+        v = drcFile.currentVersion - 1
+
+        sMsg = u"Restore version {} of '{}' ??".format(v, drcFile.name)
+
+        sConfirm = confirmDialog(title='WARNING !',
+                                 message=sMsg,
+                                 button=['OK', 'Cancel'],
+                                 defaultButton='Cancel',
+                                 cancelButton='Cancel',
+                                 dismissString='Cancel',
+                                 icon="warning")
+
+        if sConfirm == 'Cancel':
+            logMsg("Cancelled !", warning=True)
+            return
+
+        drcFile.rollBackToVersion(v)
 
     publishEditedVersion.auth_types = ("DrcFile" ,)
 

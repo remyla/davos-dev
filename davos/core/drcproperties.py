@@ -90,14 +90,13 @@ DrcFileProperties = [
 ),
 ('currentVersion',
     {
-    'type':'db_str',
+    'type':'db_int',
     'isMulti':False,
     'default':0,
     'accessor':'_dbnode',
     'reader':'getField(version)',
     'writer':'setField(version)',
     'lazy':True,
-    'stored':False,
     'copyable':True,
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
@@ -113,7 +112,6 @@ DrcFileProperties = [
     'accessor':'_dbnode',
     'reader':'owner()',
     'lazy':True,
-    'stored':False,
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
     'uiDisplay':'Locked by',
@@ -129,7 +127,6 @@ DrcFileProperties = [
     'reader':'isLocked()',
     'writer':'setLocked()',
     'lazy':True,
-    'stored':False,
     'uiEditable':Eds.Disabled,
     'uiVisible':False,
     'uiDisplay':'',
@@ -230,10 +227,20 @@ class FileSizeProperty(DrcBaseProperty):
 class DbStrProperty(DrcBaseProperty):
 
     def __init__(self, sProperty, metaobj):
-        super(DrcBaseProperty, self).__init__(sProperty, metaobj)
+        super(DbStrProperty, self).__init__(sProperty, metaobj)
 
     def createAccessor(self):
         return self._metaobj.createDbNode()
+
+
+class DbIntProperty(DbStrProperty):
+
+    def __init__(self, sProperty, metaobj):
+        super(DbIntProperty, self).__init__(sProperty, metaobj)
+
+    def read(self):
+        value = DbStrProperty.read(self)
+        return int(value) if value else 0
 
 
 class PropertyFactory(BasePropertyFactory):
@@ -243,6 +250,7 @@ class PropertyFactory(BasePropertyFactory):
     'drc_time' : FileTimeProperty,
     'drc_size' : FileSizeProperty,
     'db_str' : DbStrProperty,
+    'db_int' : DbIntProperty,
     }
 
 
