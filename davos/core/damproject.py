@@ -319,6 +319,8 @@ class DamProject(object):
                                .format(sEntryPath))
 
         sPublicPath = pubEntry.absPath()
+        sPubPathDirs = pathSplitDirs(sPublicPath)
+        numDirs = len(sPubPathDirs)
 
         sConfPathList = sorted(self.iterPaths("public", sConfSection, resVars=False),
                                    key=lambda x: len(x[1]),
@@ -330,10 +332,15 @@ class DamProject(object):
             if parseRes and parseRes.named:
                 break
 
+        if not parseRes:
+            return {}
+
         data = parseRes.named
         data["section"] = sConfSection
-        data["resource"] = sRcName
         data["space"] = sSpace
+
+        if numDirs == len(pathSplitDirs(sConfPath)):
+            data["resource"] = sRcName
 
         return data
 
