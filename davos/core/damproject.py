@@ -6,7 +6,7 @@ import re
 from pytd.util.pyconfparser import PyConfParser
 from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
-from pytd.util.fsutils import pathSplitDirs
+from pytd.util.fsutils import pathSplitDirs, pathParse
 from pytd.util.strutils import findFields
 from pytd.util import sysutils
 from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp
@@ -298,25 +298,55 @@ class DamProject(object):
 
     def entityFromPath(self, sEntryPath):
 
-        _, sSection = self.sectionFromPath(sEntryPath)
-        if not sSection:
-            return None
+        data = self.dataFromPath(sEntryPath)
+        sConfSection = data['section']
 
-        sEntityCls = self.getVar(sSection, "entity_class")
+        sEntityCls = self.getVar(sConfSection, "entity_class")
         cls = importClass(sEntityCls, globals(), locals())
 
-        return cls.fromPath(self, sSection, sEntryPath)
+        return cls(self, **data)
+
+    def dataFromPath(self, sEntryPath):
+
+        sSpace, sConfSection = self.sectionFromPath(sEntryPath)
+        if not sConfSection:
+            return {}
+
+        drcEntry = self.entryFromPath(sEntryPath)
+        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile()
+        if not pubEntry:
+            raise RuntimeError("Could not get public version of '{}'"
+                               .format(sEntryPath))
+
+        sPublicPath = pubEntry.absPath()
+
+        sConfPathList = sorted(self.iterPaths("public", sConfSection, resVars=False),
+                                   key=lambda x: len(x[1]),
+                                   reverse=True)
+
+        for sRcName, sConfPath in sConfPathList:
+
+            parseRes = pathParse(sConfPath, sPublicPath)
+            if parseRes and parseRes.named:
+                break
+
+        data = parseRes.named
+        data["section"] = sConfSection
+        data["resource"] = sRcName
+        data["space"] = sSpace
+
+        return data
 
     def sectionFromPath(self, sEntryPath):
 
         sEntryPath = normCase(sEntryPath)
         sEntryPathDirs = pathSplitDirs(normCase(sEntryPath))
 
-        sSectionItemsList = sorted(self.iterSectionPaths(),
+        sectionDataList = sorted(self.iterSectionPaths(),
                                    key=lambda x: len(x[2]),
                                    reverse=True)
 
-        for sSpace, sSection, sPath in sSectionItemsList:
+        for sSpace, sSection, sPath in sectionDataList:
 
             sSectionPath = normCase(sPath)
 

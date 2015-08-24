@@ -2,30 +2,12 @@
 import os
 import os.path as osp
 
-#from pytd.core.metaproperty import MetaProperty, BasePropertyFactory
-from pytd.core.metaobject import MetaObject
-#
-#class DamBaseProperty(MetaProperty):
-#
-#    def __init__(self, sProperty, metaobj):
-#        super(DamBaseProperty, self).__init__(sProperty, metaobj)
-#
-#class PropertyFactory(BasePropertyFactory):
-#
-#    propertyTypeDct = {
-#    'dam_base' : DamBaseProperty,
-#    }
-#
-#
-#class DamMetaObject(MetaObject):
-#    propertyFactoryClass = PropertyFactory
-
 from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
-from pytd.util.fsutils import pathParse, normCase
+from pytd.util.fsutils import normCase
 from pytd.util.external import parse
 
 
-class DamUser(MetaObject):
+class DamUser(object):
 
     def __init__(self, proj, userData):
 
@@ -33,31 +15,10 @@ class DamUser(MetaObject):
         self.name = userData.get("name", self.loginName)
 
 
-class DamEntity(MetaObject):
+class DamEntity(object):
 
     parentEntityAttr = "parent"
     nameFormat = "{baseName}"
-
-    @classmethod
-    def fromPath(cls, proj, sConfSection, sEntryPath):
-
-        drcEntry = proj.entryFromPath(sEntryPath)
-
-        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile()
-        sPublicPath = pubEntry.absPath()
-
-        sTemplatePath = proj.getPath("public", sConfSection, "entity_dir",
-                                     resVars=False)
-
-        print sTemplatePath
-        print sPublicPath
-        print ""
-        parseRes = pathParse(sTemplatePath, sPublicPath)
-
-        data = parseRes.named
-        data["section"] = sConfSection
-
-        return cls(proj, **data)
 
     def __init__(self, proj, **kwargs):
 
@@ -121,6 +82,18 @@ class DamEntity(MetaObject):
     def parentEntity(self):
         return getattr(self, self.__class__.parentEntityAttr)
 
+    def __repr__(self):
+
+        cls = self.__class__
+
+        try:
+            sClsName = cls.__name__
+            sRepr = "{}('{}')".format(sClsName, self.name)
+        except AttributeError:
+            sRepr = cls.__name__
+
+        return sRepr
+
 
 class DamAsset(DamEntity):
 
@@ -130,7 +103,7 @@ class DamAsset(DamEntity):
     def __init__(self, proj, **kwargs):
         super(DamAsset, self).__init__(proj, **kwargs)
         if not self.confSection:
-            self.confSection = self.assetType
+            self.confSection = proj._confobj.getSection(self.assetType).name
 
     def createDirsAndFiles(self, sSpace="public", **kwargs):
 
@@ -175,9 +148,6 @@ class DamShot(DamEntity):
     nameFormat = "{sequence}_{baseName}"
 
     def __init__(self, proj, **kwargs):
-        print kwargs
         super(DamShot, self).__init__(proj, **kwargs)
-        if not self.confSection:
-            self.confSection = "shot_lib"
 
 
