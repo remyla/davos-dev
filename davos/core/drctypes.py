@@ -311,7 +311,6 @@ class DrcEntry(DrcMetaObject):
                 logMsg(u"loading: {}".format(cacheKey), log='debug')
                 _cachedDbNodes[cacheKey] = dbnode
 
-
     def listChildDbNodes(self, sQuery="", **kwargs):
 
         assert self.isPublic(), "File is NOT public !"
@@ -390,7 +389,7 @@ class DrcEntry(DrcMetaObject):
 
         sPropertyList = tuple(self.__class__._iterPropertyArg(propertyNames))
 
-        logMsg("sPropertyList", sPropertyList, log='silent')
+        logMsg("sPropertyList", sPropertyList, log='debug')
 
         sDbNodePrptySet = set(self.filterPropertyNames(sPropertyList,
                                                        accessor="_dbnode",
@@ -538,14 +537,16 @@ class DrcFile(DrcEntry):
 
         DrcEntry.loadData(self, fileInfo, **kwargs)
 
-        self.updateCurrentVersion()
+        dbNode = self._dbnode
+        if not (dbNode and dbNode.hasField("currentVersion")):
+            self.updateCurrentVersion()
 
     def updateCurrentVersion(self):
 
-        iVers = versionFromName(self.name)
-        if iVers is None:
-            iVers = self.latestBackupVersion()
-        self.currentVersion = iVers
+        v = versionFromName(self.name)
+        if v is None:
+            v = self.latestBackupVersion()
+        self.currentVersion = v
 
     def edit(self):
         logMsg(log='all')
@@ -704,7 +705,6 @@ You have {0} version of '{1}':
         sFilePath = pathJoin(backupDir.absPath(), sEntryList[0])
         return self.library.getEntry(sFilePath, dbNode=False)
 
-
     def ensureFilePublishable(self, privFile):
 
         assert privFile.isPrivate(), "File must live in a PRIVATE library !"
@@ -855,8 +855,6 @@ You have {0} version of '{1}':
             sPrevLock = self.__previousLock
             sLoggedUser = self.library.project.loggedUser().loginName
 
-            print sPrevLock, sLoggedUser
-
             bRestore = (sPrevLock in ("", sLoggedUser))
 
             if autoUnlock:
@@ -969,8 +967,6 @@ You have {0} version of '{1}':
     def getLockOwner(self):
 
         self.refresh()
-
-        print self, ".locked=", self.locked
 
         if self.getPrpty("locked"):
             sLockOwner = self.getPrpty("lockOwner")

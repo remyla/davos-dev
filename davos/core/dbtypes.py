@@ -160,6 +160,9 @@ class DbNode(object):
 
         return True
 
+    def hasField(self, sField):
+        return sField in self._data
+
     def setData(self, data):
 
         recs = self._dbcon.update(self.id_, data)
