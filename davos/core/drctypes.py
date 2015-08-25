@@ -550,6 +550,8 @@ class DrcFile(DrcEntry):
     def edit(self):
         logMsg(log='all')
 
+        #assert self.isEditable(), "File is not editable !"
+
         if not self.setLocked(True):
             return
 
@@ -563,6 +565,20 @@ class DrcFile(DrcEntry):
             self.restoreLockState()
 
         return privFile
+
+    def isEditable(self):
+
+        proj = self.library.project
+        sAbsPath = self.absPath()
+        data = proj.dataFromPath(sAbsPath)
+        sRcName = data.get("resource", "")
+        if not sRcName:
+            raise RuntimeError("{} is not a configured resource: '{}'"
+                               .format(self, sAbsPath))
+
+        sSection = data["section"]
+        rcConfDct = proj.getVar(sSection, "resources_conf", {})
+        return rcConfDct.get(sRcName, {}).get("editable", True)
 
     def copyToPrivateSpace(self, suffix="", force=False, **kwargs):
 
