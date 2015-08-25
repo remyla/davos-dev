@@ -103,7 +103,7 @@ class DamProject(object):
         sMissingPathList = []
         self._checkTemplatePaths(sMissingPathList)
         if sMissingPathList:
-            msg = "Missing template paths:\n\t" + '\n\t'.join(sMissingPathList)
+            msg = "Missing template paths:\n    " + '\n    '.join(sMissingPathList)
             logMsg(msg , warning=True)
             #return False
 
@@ -289,12 +289,6 @@ class DamProject(object):
                 return drcLib
 
         return None
-
-    def resourceFromPath(self, sEntryPath):
-
-        damEntity = self.entityFromPath(sEntryPath)
-        res = damEntity.resourceFromPath(sEntryPath)
-        return res[0] if res else ""
 
     def entityFromPath(self, sEntryPath):
 

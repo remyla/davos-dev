@@ -728,6 +728,7 @@ You have {0} version of '{1}':
 
         bAutoUnlock = kwargs.pop("autoUnlock", False)
         bSaveSha1Key = kwargs.pop("saveSha1Key", False)
+        iIncrement = kwargs.pop("increment", 1)
 
         sSrcFilePath = srcFile.absPath()
 
@@ -757,7 +758,8 @@ You have {0} version of '{1}':
             self.endPublish(sSrcFilePath, sComment,
                             saveSha1Key=bSaveSha1Key,
                             sha1Key=sSrcSha1Key,
-                            autoUnlock=bAutoUnlock)
+                            autoUnlock=bAutoUnlock,
+                            increment=iIncrement)
         except Exception, e:
             self.abortPublish(e, backupFile, bAutoUnlock)
             self.rollBackToVersion(iSavedVers)
@@ -798,8 +800,7 @@ You have {0} version of '{1}':
         return sComment, backupFile
 
     def endPublish(self, sSrcFilePath, sComment, autoUnlock=False,
-                   saveSha1Key=False,
-                   sha1Key=""):
+                   saveSha1Key=False, sha1Key="", increment=1):
 
         self.setPrpty("comment", sComment, write=False)
 
@@ -816,7 +817,7 @@ You have {0} version of '{1}':
         sLoggedUser = self.library.project.loggedUser().loginName
         self.setPrpty("author", sLoggedUser, write=False)
 
-        iNextVers = self.currentVersion + 1
+        iNextVers = self.currentVersion + increment
         self.setPrpty("currentVersion", iNextVers, write=False)
 
         self.writeAllValues()

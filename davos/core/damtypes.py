@@ -82,6 +82,42 @@ class DamEntity(object):
     def parentEntity(self):
         return getattr(self, self.__class__.parentEntityAttr)
 
+    def createDirsAndFiles(self, sSpace="public", **kwargs):
+
+        bDryRun = kwargs.get("dry_run", False)
+
+        sEntityName = self.name
+
+        sTemplatePath = self.getTemplatePath()
+        if not sTemplatePath:
+            return []
+
+        print '\nCreating {} directories for "{}":'.format(sSpace.upper(), sEntityName)
+        sEntityDirPath = self.getPath(sSpace)
+
+        if not (bDryRun or osp.isdir(sEntityDirPath)):
+            os.makedirs(sEntityDirPath)
+
+        createdList = []
+
+        srcPathItr = iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*"))
+        for sSrcPath in srcPathItr:
+            sDestPath = (sSrcPath.replace(sTemplatePath, sEntityDirPath)
+                         .format(**vars(self)))
+
+            if not osp.exists(sDestPath):
+                print "\t", sDestPath
+
+                if not bDryRun:
+                    if sDestPath.endswith("/"):
+                        os.mkdir(sDestPath)
+                    else:
+                        copyFile(sSrcPath, sDestPath, **kwargs)
+
+                createdList.append(sDestPath)
+
+        return createdList
+
     def __repr__(self):
 
         cls = self.__class__
@@ -105,42 +141,6 @@ class DamAsset(DamEntity):
         if not self.confSection:
             self.confSection = proj._confobj.getSection(self.assetType).name
 
-    def createDirsAndFiles(self, sSpace="public", **kwargs):
-
-        bDryRun = kwargs.get("dry_run", False)
-
-        sAstName = self.name
-
-        sTemplatePath = self.getTemplatePath()
-        if not sTemplatePath:
-            return []
-
-        print '\nCreating {} directories for "{}":'.format(sSpace.upper(), sAstName)
-        sDestAstDir = self.getPath(sSpace)
-
-        if not (bDryRun or osp.isdir(sDestAstDir)):
-            os.makedirs(sDestAstDir)
-
-        createdList = []
-
-        srcPathItr = iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*"))
-        for sSrcPath in srcPathItr:
-            sDestPath = (sSrcPath.replace(sTemplatePath, sDestAstDir)
-                         .replace("{name}", sAstName))
-
-            if not osp.exists(sDestPath):
-                print "\t", sDestPath
-
-                if not bDryRun:
-                    if sDestPath.endswith("/"):
-                        os.mkdir(sDestPath)
-                    else:
-                        copyFile(sSrcPath, sDestPath, **kwargs)
-
-                createdList.append(sDestPath)
-
-        return createdList
-
 
 class DamShot(DamEntity):
 
@@ -149,5 +149,6 @@ class DamShot(DamEntity):
 
     def __init__(self, proj, **kwargs):
         super(DamShot, self).__init__(proj, **kwargs)
-
+        if not self.confSection:
+            self.confSection = "shot_lib"
 

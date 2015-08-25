@@ -62,7 +62,7 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Create New Asset"    , "menu": "Main"    , "fnc":self.createNewAsset     , "dev":True},
         { "label":"Create Private Dirs" , "menu": "Main"    , "fnc":self.createPrivateDir   , "dev":False},
 
-        { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer     , "dev":True},
+#        { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer     , "dev":True},
 
         { "label":"Log Data"          , "menu": "Db Node", "fnc":self.logDbNodeData         , "dev":True},
         { "label":"Delete"          , "menu": "Db Node", "fnc":self.deleteDbNode            , "dev":True},
@@ -164,7 +164,7 @@ class BrowserContextMenu(BaseContextMenu):
 
         privDir = drcFile.getPrivateDir()
         if not privDir:
-            raise RuntimeError, 'Could not find the private directory !'
+            raise RuntimeError('Could not find the private directory !')
 
         sNameFilter = pathSuffixed(drcFile.nextVersionName(), '*').replace(' ', '?')
         sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
@@ -189,7 +189,6 @@ class BrowserContextMenu(BaseContextMenu):
             return
 
         proj = self.model()._metamodel
-
         proj.publishEditedVersion(sSrcFilePath, autoLock=False, autoUnlock=False)
 
     publishEditedVersion.auth_types = ("DrcFile" ,)
@@ -309,7 +308,6 @@ class BrowserContextMenu(BaseContextMenu):
 
         damAst = DamAsset(proj, name=sEntityName, assetType=sSection)
         damAst.createDirsAndFiles()
-
 
     createNewAsset.auth_types = ("DrcDir" ,)
 
