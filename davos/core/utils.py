@@ -39,6 +39,8 @@ def findVersionFields(s):
 
 def promptForComment(**kwargs):
 
+    sComment = ""
+
     result = promptDialog(title='Please...',
                         message='Leave a comment: ',
                         button=['OK', 'Cancel'],
@@ -50,10 +52,10 @@ def promptForComment(**kwargs):
 
     if result == 'Cancel':
         logMsg("Cancelled !" , warning=True)
-        return
+    elif result == 'OK':
+        sComment = promptDialog(query=True, text=True)
 
-    sComment = promptDialog(query=True, text=True)
     if not sComment:
-        return
+        raise RuntimeError, "Comment has NOT been provided !"
 
     return sComment

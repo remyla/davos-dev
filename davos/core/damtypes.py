@@ -57,7 +57,7 @@ class DamEntity(object):
                                     tokens=vars(self), **kwargs)
 
     def getTemplatePath(self, pathVar="entity_dir", **kwargs):
-        return self.project.getTemplatePath(self.confSection, "entity_dir", **kwargs)
+        return self.project.getTemplatePath(self.confSection, pathVar=pathVar, **kwargs)
 
     def resourceFromPath(self, sEntryPath):
 

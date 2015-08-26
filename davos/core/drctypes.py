@@ -26,6 +26,7 @@ from .drcproperties import DrcEntryProperties, DrcFileProperties
 from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
+from pytd.util.external import parse
 
 
 
@@ -190,7 +191,6 @@ class DrcEntry(DrcMetaObject):
 
     def relToAbsPath(self, sRelPath):
         return pathJoin(self.absPath(), sRelPath)
-
 
     def damasPath(self):
         lib = self.library
@@ -526,7 +526,6 @@ class DrcFile(DrcEntry):
 
         super(DrcFile, self).__init__(drcLibrary, absPathOrInfo, **kwargs)
 
-
     def loadData(self, fileInfo, **kwargs):
 
         bFileLock = False
@@ -550,13 +549,11 @@ class DrcFile(DrcEntry):
     def edit(self):
         logMsg(log='all')
 
-        #assert self.isEditable(), "File is not editable !"
-
         if not self.setLocked(True):
             return
 
         try:
-            privFile = self.copyToPrivateSpace(suffix=self.getEditSuffix())
+            privFile = self.copyToPrivateSpace(suffix=self.makeEditSuffix())
         except:
             self.restoreLockState()
             raise
@@ -566,7 +563,78 @@ class DrcFile(DrcEntry):
 
         return privFile
 
-    def isEditable(self):
+    def iterEditedOutcomeFiles(self):
+
+        v, w = self.getEditNums()
+
+        for sRcName, pubFile in self.iterOutcomeFiles():
+            privFile = pubFile.getEditFile(v, w, weak=True)
+            yield sRcName, privFile
+
+    def getEditNums(self):
+
+        assert self.isPrivate(), "File is NOT private !"
+
+        editSuffixFmt = "-v{v:03d}.{w:03d}"
+        editNameFmt = "{root}" + editSuffixFmt + "{ext}"
+
+        parseRes = parse.parse(editNameFmt, self.name)
+        if not parseRes:
+            return None, None
+
+        v = parseRes.named.get("v", None)
+        w = parseRes.named.get("w", None)
+
+        return v, w
+
+    def iterOutcomeFiles(self, weak=False):
+
+        pubFile = self if self.isPublic() else self.getPublicFile()
+        if not pubFile:
+            raise RuntimeError("Could not get public version of '{}'"
+                               .format(pubFile.absPath()))
+
+        pubLib = pubFile.library
+
+        sRcList = pubFile.getParam("outcome", [])
+        damEntity = pubFile.getEntity()
+        for sRcName in sRcList:
+            sFilePath = damEntity.getPath("public", sRcName)
+            if weak:
+                drcFile = pubLib._weakFile(sFilePath)
+            else:
+                drcFile = pubLib.getEntry(sFilePath)
+
+            if drcFile:
+                yield sRcName, drcFile
+
+    def getEditFile(self, v=None, w=None, weak=False):
+
+        sSuffix = self.makeEditSuffix(v, w)
+        return self.getPrivateFile(suffix=sSuffix, weak=weak)
+
+    def makeEditSuffix(self, v=None, w=None):
+
+        if v:
+            if not isinstance(v, int):
+                raise TypeError("argument 'v' must be of type <int>. Got {}."
+                                .format(type(v)))
+        else:
+            v = self.currentVersion + 1
+
+        if w:
+            if not isinstance(w, int):
+                raise TypeError("argument 'w' must be of type <int>. Got {}."
+                                .format(type(w)))
+        else:
+            w = 0
+
+        return "".join(('-v', padded(v), '.', padded(w)))
+
+    def getEntity(self):
+        return self.library.project.entityFromPath(self.absPath())
+
+    def getParam(self, sParam, default="NoEntry"):
 
         proj = self.library.project
         sAbsPath = self.absPath()
@@ -577,26 +645,16 @@ class DrcFile(DrcEntry):
                                .format(self, sAbsPath))
 
         sSection = data["section"]
-        rcConfDct = proj.getVar(sSection, "resources_conf", {})
-        return rcConfDct.get(sRcName, {}).get("editable", True)
+        return proj.getRcParam(sSection, sRcName, sParam, default=default)
 
     def copyToPrivateSpace(self, suffix="", force=False, **kwargs):
 
+        privFile = self.getPrivateFile(suffix=suffix, weak=True)
+
         assert self.isFile(), "File does NOT exist !"
-        assert self.isPublic(), "File is NOT public !"
         assert versionFromName(self.name) is None, "File is already a version !"
 
-        curDir = self.parentDir()
-        privDir = curDir.getHomonym('private', weak=True)
-
-        sPrivDirPath = privDir.absPath()
-        sPrivFileName = self.fileName()
-
-        if suffix:
-            sPrivFileName = pathSuffixed(sPrivFileName, suffix)
-
-        sPrivFilePath = pathJoin(sPrivDirPath, sPrivFileName)
-
+        sPrivFilePath = privFile.absPath()
         sPubFilePath = self.absPath()
         # now let's make the private copy of that file
         if sPubFilePath == sPrivFilePath:
@@ -606,9 +664,12 @@ class DrcFile(DrcEntry):
         bForce = force
         bDryRun = kwargs.get("dry_run", False)
 
+        sPrivDirPath, sPrivFileName = osp.split(sPrivFilePath)
         if not osp.exists(sPrivDirPath):
             if not bDryRun:
                 os.makedirs(sPrivDirPath)
+
+        privLib = privFile.library
 
         bSameFiles = False
 
@@ -641,7 +702,7 @@ You have {0} version of '{1}':
                     logMsg("Cancelled !", warning=True)
                     return None
                 elif sConfirm == 'Keep':
-                    return privDir.library.getEntry(sPrivFilePath)
+                    return privLib.getEntry(sPrivFilePath)
 
         if bSameFiles:
             logMsg('\nAlready copied "{0}" \n\t to: "{1}"'.format(sPubFilePath,
@@ -650,11 +711,28 @@ You have {0} version of '{1}':
             # logMsg('\nCoping "{0}" \n\t to: "{1}"'.format(sPubFilePath, sPrivFilePath))
             copyFile(sPubFilePath, sPrivFilePath, **kwargs)
 
-        return privDir.library.getEntry(sPrivFilePath)
+        return privLib.getEntry(sPrivFilePath)
 
-    def getEditSuffix(self):
-        v = padded(self.latestBackupVersion() + 1)
-        return "".join(('-v', v, '.', padded(0)))
+    def getPrivateFile(self, suffix="", weak=False):
+
+        assert self.isPublic(), "File is NOT public !"
+
+        pubDir = self.parentDir()
+        privDir = pubDir.getHomonym('private', weak=weak)
+        if not privDir:
+            return None
+
+        sPrivDirPath = privDir.absPath()
+        sPrivFileName = self.fileName()
+        sPrivFilePath = pathJoin(sPrivDirPath, sPrivFileName)
+
+        if suffix:
+            sPrivFilePath = pathSuffixed(sPrivFilePath, suffix)
+
+        if weak:
+            return privDir.library._weakFile(sPrivFilePath)
+        else:
+            return privDir.library.getEntry(sPrivFilePath)
 
     def differsFrom(self, sOtherFilePath):
 
@@ -674,9 +752,9 @@ You have {0} version of '{1}':
 
         return bDiffers, sOtherSha1Key
 
-    def getPublicFile(self):
+    def getPublicFile(self, fail=False):
 
-        assert self.isFile(), "File does NOT exist !"
+        #assert self.isFile(), "File does NOT exist !"
         assert self.isPrivate(), "File must live in a PRIVATE library !"
 
         privDir = self.parentDir()
@@ -688,7 +766,13 @@ You have {0} version of '{1}':
         sPubFilename = sPrivFilename.split('-v')[0] + sExt
         sPubFilePath = pathJoin(sPubDirPath, sPubFilename)
 
-        return pubDir.library.getEntry(sPubFilePath, dbNode=False)
+        pubFile = pubDir.library.getEntry(sPubFilePath, dbNode=False)
+
+        if not pubFile and fail:
+            raise RuntimeError("Could not get public version of '{}'"
+                               .format(self.relPath()))
+
+        return pubFile
 
     def getPrivateDir(self):
 
@@ -720,12 +804,12 @@ You have {0} version of '{1}':
         sFilePath = pathJoin(backupDir.absPath(), sEntryList[0])
         return self.library.getEntry(sFilePath, dbNode=False)
 
-    def ensureFilePublishable(self, privFile):
+    def ensureFilePublishable(self, privFile, version=None):
 
         assert privFile.isPrivate(), "File must live in a PRIVATE library !"
 
         iSrcVers = versionFromName(privFile.name)
-        iNxtVers = self.latestBackupVersion() + 1
+        iNxtVers = (self.currentVersion + 1) if version is None else version
 
         if iSrcVers < iNxtVers:
             raise AssertionError, "File version is OBSOLETE !"
@@ -742,9 +826,8 @@ You have {0} version of '{1}':
             raise RuntimeError("DrcFile.ensureFilePublishable() has not been applied to {} !"
                                .format(srcFile))
 
-        bAutoUnlock = kwargs.pop("autoUnlock", False)
+        bAutoUnlock = kwargs.pop("autoUnlock", True)
         bSaveSha1Key = kwargs.pop("saveSha1Key", False)
-        iIncrement = kwargs.pop("increment", 1)
 
         sSrcFilePath = srcFile.absPath()
 
@@ -756,7 +839,7 @@ You have {0} version of '{1}':
         backupFile = None
 
         try:
-            sComment, _ = self.beginPublish(**kwargs)
+            sComment, iNextVers, _ = self.beginPublish(**kwargs)
         except RuntimeError, e:
             self.abortPublish(e, backupFile, bAutoUnlock)
             raise
@@ -775,7 +858,7 @@ You have {0} version of '{1}':
                             saveSha1Key=bSaveSha1Key,
                             sha1Key=sSrcSha1Key,
                             autoUnlock=bAutoUnlock,
-                            increment=iIncrement)
+                            version=iNextVers)
         except Exception, e:
             self.abortPublish(e, backupFile, bAutoUnlock)
             self.rollBackToVersion(iSavedVers)
@@ -783,10 +866,35 @@ You have {0} version of '{1}':
 
         return True
 
-    def beginPublish(self, comment="", autoLock=False):
+    def beginPublish(self, comment="", autoLock=False, version=None):
         logMsg(log='all')
 
         sComment = comment
+
+        self.ensureLocked(autoLock=autoLock)
+
+        iNextVers = (self.currentVersion + 1)
+        if version is not None:
+            if version > self.currentVersion:
+                iNextVers = version
+            else:
+                sMsg = ("Argument 'version' must be greater than current version: {}. Got {}."
+                        .format(self.currentVersion, version))
+                raise ValueError(sMsg)
+
+        if not sComment:
+            sComment = promptForComment(text=self.getPrpty("comment"))
+
+        backupFile = None
+        iCurVers = self.currentVersion
+        if iCurVers == 0:
+            backupFile = self._weakBackupFile(0)
+            if not backupFile.exists():
+                backupFile.createFromFile(self)
+
+        return sComment, iNextVers, backupFile
+
+    def ensureLocked(self, autoLock=False):
 
         sLockOwner = self.getLockOwner()
         if not autoLock:
@@ -797,26 +905,8 @@ You have {0} version of '{1}':
         if not self.setLocked(True, owner=sLockOwner):
             raise RuntimeError, "Could not lock the file !"
 
-        if not sComment:
-            sComment = promptForComment(text=self.getPrpty("comment"))
-
-            if not sComment:
-                self.restoreLockState()
-                raise RuntimeError, "Comment has NOT been provided !"
-
-        backupFile = None
-        version = self.latestBackupVersion()
-        if version == 0:
-            backupFile = self._weakBackupFile(version)
-            if not backupFile.exists():
-                backupFile.createFromFile(self)
-
-        self.currentVersion = version
-
-        return sComment, backupFile
-
     def endPublish(self, sSrcFilePath, sComment, autoUnlock=False,
-                   saveSha1Key=False, sha1Key="", increment=1):
+                   saveSha1Key=False, sha1Key="", version=None):
 
         self.setPrpty("comment", sComment, write=False)
 
@@ -833,12 +923,12 @@ You have {0} version of '{1}':
         sLoggedUser = self.library.project.loggedUser().loginName
         self.setPrpty("author", sLoggedUser, write=False)
 
-        iNextVers = self.currentVersion + increment
-        self.setPrpty("currentVersion", iNextVers, write=False)
+        iNxtVers = (self.currentVersion + 1) if version is None else version
+        self.setPrpty("currentVersion", iNxtVers, write=False)
 
         self.writeAllValues()
 
-        backupFile = self.createBackupFile(iNextVers)
+        backupFile = self.createBackupFile(iNxtVers)
         if not backupFile:
             raise RuntimeError, "Could not create backup file !"
 
@@ -874,6 +964,7 @@ You have {0} version of '{1}':
             bRestore = (sPrevLock in ("", sLoggedUser))
 
             if autoUnlock:
+                bRestore = bRestore or (sPrevLock == "NoLockToRestore")
                 bLock = False
                 print "auto-unlocking"
             else:
@@ -993,7 +1084,7 @@ You have {0} version of '{1}':
         return ""
 
     def nextVersionName(self):
-        v = self.latestBackupVersion() + 1
+        v = self.currentVersion + 1
         return self.nameFromVersion(v)
 
     def nameFromVersion(self, v):
@@ -1025,7 +1116,10 @@ You have {0} version of '{1}':
         return self.library._weakFile(sBkupFilePath)
 
     def __warnAlreadyLocked(self, sLockOwner, **kwargs):
-        sMsg = u'{1}\n\n{2:^{0}}\n\n{3:^{0}}'.format(len(self.name) + 2, '"{0}"'.format(self.name), "locked by", (sLockOwner + " !").upper())
+        sMsg = u'{1}\n\n{2:^{0}}\n\n{3:^{0}}'.format(len(self.name) + 2,
+                                                     '"{0}"'.format(self.name),
+                                                     "locked by",
+                                                     (sLockOwner + " !").upper())
         confirmDialog(title="FILE LOCKED !"
                     , message=sMsg
                     , button=["OK"]

@@ -30,8 +30,8 @@ DamProject = damproject.DamProject
 
 proj = DamProject("zombillenium")
 
-sAssetName = "chr_actionnaire1"
-p = proj.getPath("public","asset_lib","master_file", tokens={"assetType":"chr","asset":sAssetName})
+sAssetName = "chr_aton_default"
+p = proj.getPath("public","chr","previz_scene", tokens={"name":sAssetName})
 
 entry = proj.entryFromPath(p)
 privFile = entry.edit()
@@ -252,7 +252,10 @@ class DamProject(object):
             sFieldSet -= sConfFieldSet
 
         # resolve remaining vars from input tokens
-        if tokens and isinstance(tokens, dict):
+        if tokens:
+            if not isinstance(tokens, dict):
+                raise TypeError("argument 'tokens' must be of type <dict>. Got {}"
+                                .format(type(tokens)))
 
             sFieldSet = sFieldSet - set(tokens.iterkeys())
             if sFieldSet:
@@ -269,6 +272,15 @@ class DamProject(object):
 
     def hasVar(self, sSection, sVarName):
         return self._confobj.hasVar(sSection, sVarName)
+
+    def getRcParam(self, sSection, sRcName, sParam, default="NoEntry"):
+
+        rcSettings = self.getVar(sSection, "resources_settings", {})
+
+        if default == "NoEntry":
+            return rcSettings[sRcName][sParam]
+        else:
+            return rcSettings.get(sRcName, {}).get(sParam, default)
 
     def entryFromPath(self, sEntryPath, **kwargs):
 
@@ -375,10 +387,65 @@ class DamProject(object):
     def publishEditedVersion(self, sSrcFilePath, **kwargs):
 
         privFile = self.entryFromPath(sSrcFilePath)
-        pubFile = privFile.getPublicFile()
+
+        privOutcomeList = []
+        missingList = []
+        for sRcName, outFile in privFile.iterEditedOutcomeFiles():
+            if outFile.isFile():
+                privOutcomeList.append(outFile)
+            else:
+                missingList.append((sRcName, outFile))
+
+        if missingList:
+
+            sMissingFiles = u"\n".join((u"'{}'".format(f.relPath())
+                                        for rc, f in missingList))
+
+            sMsg = u"Missing outcome files:\n\n{}\n\n".format(sMissingFiles)
+            sMsg += u"Continue publishing without these outcome files ??"
+            sResult = confirmDialog(title='WARNING !',
+                                    message=sMsg,
+                                    button=["Continue", "Abort"],
+                                    defaultButton="Continue",
+                                    cancelButton="Abort",
+                                    dismissString="Abort",
+                                    icon="warning")
+
+            if sResult == "Abort":
+                logMsg("Cancelled !", warning=True)
+                return
+
+        pubFile = privFile.getPublicFile(fail=True)
         pubFile.ensureFilePublishable(privFile)
+
+        iNxtVers = pubFile.currentVersion + 1
+        pubOutcomeList = self._prepareToPublish(privOutcomeList, version=iNxtVers)
+
         pubFile.incrementVersion(privFile, **kwargs)
 
+        for pubFile, privFile in zip(pubOutcomeList, privOutcomeList):
+            pubFile.incrementVersion(privFile, comment=pubFile.comment,
+                                     version=iNxtVers)
+
+
+        return pubFile, pubOutcomeList
+
+    def _prepareToPublish(self, privFileList, version=None):
+
+        pubFileList = []
+        try:
+            for privFile in privFileList:
+
+                pubFile = privFile.getPublicFile(fail=True)
+                pubFile.ensureFilePublishable(privFile, version=version)
+                pubFile.ensureLocked(autoLock=True)
+                pubFileList.append(pubFile)
+        except:
+            for pubFile in pubFileList:
+                pubFile.restoreLockState()
+            raise
+
+        return pubFileList
 
     def findDbNodes(self, sQuery="", **kwargs):
 

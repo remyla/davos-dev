@@ -66,7 +66,6 @@ class BrowserContextMenu(BaseContextMenu):
 
         { "label":"Log Data"          , "menu": "Db Node", "fnc":self.logDbNodeData         , "dev":True},
         { "label":"Delete"          , "menu": "Db Node", "fnc":self.deleteDbNode            , "dev":True},
-
         )
 
         return actionsCfg
@@ -191,7 +190,7 @@ class BrowserContextMenu(BaseContextMenu):
         proj = self.model()._metamodel
         proj.publishEditedVersion(sSrcFilePath, autoLock=False, autoUnlock=False)
 
-    publishEditedVersion.auth_types = ("DrcFile" ,)
+    publishEditedVersion.auth_types = ("DrcFile",)
 
     def rollBackToVersion(self, *itemList):
 
@@ -217,7 +216,7 @@ class BrowserContextMenu(BaseContextMenu):
 
         drcFile.rollBackToVersion(v)
 
-    publishEditedVersion.auth_types = ("DrcFile" ,)
+    publishEditedVersion.auth_types = ("DrcFile",)
 
     def showPrivateDirInExplorer(self, *itemList):
 
@@ -309,7 +308,7 @@ class BrowserContextMenu(BaseContextMenu):
         damAst = DamAsset(proj, name=sEntityName, assetType=sSection)
         damAst.createDirsAndFiles()
 
-    createNewAsset.auth_types = ("DrcDir" ,)
+    createNewAsset.auth_types = ("DrcDir",)
 
     def createPrivateDir(self, *itemList):
 
