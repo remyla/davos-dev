@@ -27,6 +27,7 @@ from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
 from pytd.util.external import parse
+from pytd.util.sysutils import isQtApp, toStr
 
 
 
@@ -563,6 +564,9 @@ class DrcFile(DrcEntry):
 
         return privFile
 
+    def isEditable(self):
+        return self.getParam("editable", True)
+
     def iterEditedOutcomeFiles(self):
 
         v, w = self.getEditNums()
@@ -596,7 +600,7 @@ class DrcFile(DrcEntry):
 
         pubLib = pubFile.library
 
-        sRcList = pubFile.getParam("outcome", [])
+        sRcList = pubFile.getParam("outcomes", [])
         damEntity = pubFile.getEntity()
         for sRcName in sRcList:
             sFilePath = damEntity.getPath("public", sRcName)
@@ -837,9 +841,10 @@ You have {0} version of '{1}':
             return True
 
         backupFile = None
+        sgVersionInfo = None
 
         try:
-            sComment, iNextVers, _ = self.beginPublish(**kwargs)
+            sComment, iNextVers, _, sgVersionInfo = self.beginPublish(**kwargs)
         except RuntimeError, e:
             self.abortPublish(e, backupFile, bAutoUnlock)
             raise
@@ -847,7 +852,7 @@ You have {0} version of '{1}':
         try:
             copyFile(sSrcFilePath, self.absPath())
         except Exception, e:
-            self.abortPublish(e, backupFile, bAutoUnlock)
+            self.abortPublish(e, backupFile, sgVersionInfo, bAutoUnlock)
             raise
 
         #save the current version that will be incremented in endPublish
@@ -860,7 +865,7 @@ You have {0} version of '{1}':
                             autoUnlock=bAutoUnlock,
                             version=iNextVers)
         except Exception, e:
-            self.abortPublish(e, backupFile, bAutoUnlock)
+            self.abortPublish(e, backupFile, sgVersionInfo, bAutoUnlock)
             self.rollBackToVersion(iSavedVers)
             raise
 
@@ -892,7 +897,49 @@ You have {0} version of '{1}':
             if not backupFile.exists():
                 backupFile.createFromFile(self)
 
-        return sComment, iNextVers, backupFile
+        sgVersionInfo = None
+        bSgVersion = self.getParam('create_sg_version', False)
+        if bSgVersion:
+            sVersionName = osp.splitext(self.nameFromVersion(iNextVers))[0]
+            sgVersionInfo = self.createSgVersion(sVersionName, sComment)
+            if not sgVersionInfo:
+                raise RuntimeError("Could not create shotgun version !")
+
+        return sComment, iNextVers, backupFile, sgVersionInfo
+
+
+    def createSgVersion(self, sVersionName, sComment):
+
+        damEntity = self.getEntity()
+        sTaskList = self.getParam("sg_tasks")
+        if len(sTaskList) == 1:
+            sTaskName = sTaskList[0]
+        else:
+            sMsg = "What was your task ?"
+            if isQtApp():
+                from PySide import QtGui
+                sTaskName, bOk = QtGui.QInputDialog.getItem(None, "Make your choice !",
+                                                            sMsg,
+                                                            sTaskList,
+                                                            current=0,
+                                                            editable=False,
+                                                            )
+
+                if not bOk:
+                    raise RuntimeError("No task selected !")
+            else:
+                sChoiceList = list(sTaskList) + ["Cancel"]
+                sMsg += "({})".format("/".join(sChoiceList))
+                sChoice = ""
+                while sChoice not in sChoiceList:
+                    sChoice = raw_input(sMsg)
+
+                if sChoice == "Cancel":
+                    raise RuntimeError("No task selected !")
+
+                sTaskName = sChoice
+
+        return damEntity.createSgVersion(sVersionName, sTaskName, sComment)
 
     def ensureLocked(self, autoLock=False):
 
@@ -905,7 +952,7 @@ You have {0} version of '{1}':
         if not self.setLocked(True, owner=sLockOwner):
             raise RuntimeError, "Could not lock the file !"
 
-    def endPublish(self, sSrcFilePath, sComment, autoUnlock=False,
+    def endPublish(self, sSrcFilePath, sComment, autoUnlock=True,
                    saveSha1Key=False, sha1Key="", version=None):
 
         self.setPrpty("comment", sComment, write=False)
@@ -935,26 +982,33 @@ You have {0} version of '{1}':
         self.restoreLockState(autoUnlock, refresh=False)
         self.refresh()
 
-    def abortPublish(self, sErrorMsg, backupFile=None, autoUnlock=False):
+    def abortPublish(self, err, backupFile=None, sgVersionInfo=None, autoUnlock=True):
 
-        if backupFile:
+        try:
+            if backupFile:
 
-            sBkupFilePath = backupFile.absPath()
-            sCurFilePath = self.absPath()
-            bSameFiles = filecmp.cmp(sCurFilePath, sBkupFilePath, shallow=True)
-            if not bSameFiles:
-                copyFile(sBkupFilePath, sCurFilePath)
+                sBkupFilePath = backupFile.absPath()
+                sCurFilePath = self.absPath()
+                bSameFiles = filecmp.cmp(sCurFilePath, sBkupFilePath, shallow=True)
+                if not bSameFiles:
+                    copyFile(sBkupFilePath, sCurFilePath)
 
-            backupFile.suppress()
+                backupFile.suppress()
 
-        self.restoreLockState(autoUnlock)
+            if sgVersionInfo:
+                print "delete ", sgVersionInfo
+                self.library.project._shotgundb.sg.delete(sgVersionInfo['type'],
+                                                          sgVersionInfo['id'])
 
-        sMsg = "Publishing aborted: {0}".format(sErrorMsg)
-        logMsg(sMsg , warning=True)
+        finally:
+            self.restoreLockState(autoUnlock)
 
-        return False
+            sMsg = "Publishing aborted: {0}".format(toStr(err))
+            logMsg(sMsg , warning=True)
 
-    def restoreLockState(self, autoUnlock=False, refresh=True):
+        return True
+
+    def restoreLockState(self, autoUnlock=True, refresh=True):
         logMsg(log='all')
 
         try:
@@ -997,21 +1051,40 @@ You have {0} version of '{1}':
         sMsg = "Rolling back to version: {}".format(version)
         logMsg(sMsg , warning=True)
 
-        backupFile = self._weakBackupFile(version)
-        if not backupFile.exists():
-            raise RuntimeError("Backup file does NOT exists: \n\t> '{}'"
-                               .format(backupFile.absPath()))
+        prevBackupFile = self._weakBackupFile(version)
+        if not prevBackupFile.exists():
+            raise RuntimeError("Rollback file does NOT exists: \n\t> '{}'"
+                               .format(prevBackupFile.absPath()))
 
         sCurFilePath = self.absPath()
-        _, bCopied = copyFile(backupFile.absPath(), sCurFilePath)
+        _, bCopied = copyFile(prevBackupFile.absPath(), sCurFilePath)
         if not bCopied:
-            raise RuntimeError("File could not be copied: \n\t> '{}'"
+            raise RuntimeError("Rollback File could not be copied: \n\t> '{}'"
                                .format(sCurFilePath))
 
-        self.copyValuesFrom(backupFile)
+        curBackupFile = self._weakBackupFile(self.currentVersion)
+        if not curBackupFile.exists():
+            raise RuntimeError("Current backup file does NOT exists: \n\t> '{}'"
+                               .format(curBackupFile.absPath()))
 
-        if version == 0:
+        try:
+            self.copyValuesFrom(prevBackupFile)
+        finally:
+
+            if curBackupFile._dbnode:
+                print "delete dbnode of ", self
+                curBackupFile._dbnode.delete()
+
+            sOldPath = curBackupFile.absPath()
+            sNewPath = pathSuffixed(sOldPath, "-canceled")
+            os.rename(sOldPath, sNewPath)
+
+            curBackupFile.refresh(dbNode=False)
+
+        if version == 0 and self._dbnode:
             self._dbnode.delete()
+
+        return True
 
     def createFromFile(self, srcFile):
 
@@ -1097,7 +1170,7 @@ You have {0} version of '{1}':
     def suppress(self):
         parentDir = self.parentDir()
         if parentDir._qdir.remove(self.name):
-            self.refresh(children=True, parent=parentDir)
+            parentDir.refresh(children=True)
 
     def showInExplorer(self):
         return DrcEntry.showInExplorer(self, isFile=True)

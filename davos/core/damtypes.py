@@ -19,6 +19,7 @@ class DamEntity(object):
 
     parentEntityAttr = "parent"
     nameFormat = "{baseName}"
+    sgEntityType = "Entity"
 
     def __init__(self, proj, **kwargs):
 
@@ -118,6 +119,54 @@ class DamEntity(object):
 
         return createdList
 
+    def getSgInfo(self):
+        raise NotImplementedError("Must be implemented in sub-classes")
+
+    def getSgStep(self, sStepCode):
+
+        for sgStep in self.project.iterSgSteps(self.__class__.sgEntityType):
+            if sStepCode and (sgStep['code'] == sStepCode):
+                return sgStep
+
+    def listSgTasks(self, sStepCode, b_inMyTasks=False):
+
+        proj = self.project
+
+        sgEntity = self.getSgInfo()
+        sgStep = self.getSgStep(sStepCode)
+
+        filters = [
+                    ['entity', 'is', sgEntity],
+                    ['step', 'is', sgStep]
+                ]
+
+        if b_inMyTasks:
+            filters.append(['sg_operators', 'contains', proj._shotgundb.currentUser])
+
+        """
+        {
+            "filter_operator": "any",
+            "filters": [
+                [ "sg_status_list", "is", "rdy"],
+                [ "sg_status_list", "is", "ip" ]
+            ]
+        }
+        """
+
+        fields = ['content']#, 'step', 'entity', 'project', 'sg_status_list', 'sg_operators']
+        tasks = proj._shotgundb.sg.find("Task", filters, fields)
+
+        return tasks
+
+    def createSgVersion(self, s_inVersionName, s_inTaskName, s_inComment=""):
+
+        proj = self.project
+        return proj.createSgVersion(self.__class__.sgEntityType,
+                                    self.name,
+                                    s_inVersionName,
+                                    s_inTaskName,
+                                    s_inComment)
+
     def __repr__(self):
 
         cls = self.__class__
@@ -135,20 +184,30 @@ class DamAsset(DamEntity):
 
     parentEntityAttr = "assetType"
     nameFormat = "{assetType}_{baseName}_{variation}"
+    sgEntityType = "Asset"
 
     def __init__(self, proj, **kwargs):
         super(DamAsset, self).__init__(proj, **kwargs)
         if not self.confSection:
             self.confSection = proj._confobj.getSection(self.assetType).name
 
+    def getSgInfo(self):
+        res = self.project._shotgundb.getAssetsInfo(self.name)
+        return res[0] if res else None
+
 
 class DamShot(DamEntity):
 
     parentEntityAttr = "sequence"
     nameFormat = "{sequence}_{baseName}"
+    sgEntityType = "Shot"
 
     def __init__(self, proj, **kwargs):
         super(DamShot, self).__init__(proj, **kwargs)
         if not self.confSection:
             self.confSection = "shot_lib"
+
+    def getSgInfo(self):
+        return self.project._shotgundb.getShotInfo(self.name)
+
 

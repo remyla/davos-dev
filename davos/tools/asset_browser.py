@@ -1,10 +1,10 @@
 
 import sys
+import os
 
 from PySide import QtGui
 
 from davos.gui.assetbrowserwindow import AssetBrowserWindow
-from pytd.util.sysutils import inDevMode
 
 WINDOW_NAME = "assetBrowserWin"
 
@@ -18,7 +18,7 @@ def launch(sProject, argv):
     mainWin = AssetBrowserWindow(WINDOW_NAME)
     mainWin.show()
 
-    if 1:
+    if sProject:
         mainWin.setProject(sProject)
 
     sys.exit(app.exec_())
@@ -26,4 +26,4 @@ def launch(sProject, argv):
 
 if __name__ == "__main__":
 
-    launch("zombtest" if inDevMode() else "zombillenium", sys.argv)
+    launch(os.environ.get("DAVOS_INIT_PROJECT"), sys.argv)

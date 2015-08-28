@@ -427,7 +427,6 @@ class DamProject(object):
             pubFile.incrementVersion(privFile, comment=pubFile.comment,
                                      version=iNxtVers)
 
-
         return pubFile, pubOutcomeList
 
     def _prepareToPublish(self, privFileList, version=None):
@@ -446,6 +445,65 @@ class DamProject(object):
             raise
 
         return pubFileList
+
+    def iterSgSteps(self, sEntityType=""):
+
+        stepList = self._shotgundb.getSteps()
+        for stepInfo in stepList:
+            if sEntityType and (stepInfo['entity_type'] == sEntityType):
+                yield stepInfo
+
+    def createSgVersion(self, sEntityType, s_inEntityName, s_inVersionName,
+                        s_inTaskName, s_inComment=""):
+        keyName = 'code'
+
+        shotgundb = self._shotgundb
+        sg = shotgundb.sg
+        #s_inTaskName must be a task name, we could check prior to Shotgun calls...
+
+        #Find the shot
+        filters = [
+                ['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
+                [keyName, 'is', s_inEntityName]
+                    ]
+        entity = sg.find_one(sEntityType, filters)
+
+        if entity == None:
+            print "Can't get entity ({0}) from {1} '{2}'".format(sEntityType, keyName, s_inEntityName)
+            return None
+
+        #Find the task
+        filters = [
+                ['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
+                ['entity', 'is', entity],
+                ['content', 'is', s_inTaskName]
+                    ]
+        task = sg.find_one('Task', filters)
+        if task == None:
+            print "Can't get task {0} on {1} '{2}'".format(s_inTaskName, sEntityType, s_inEntityName)
+            return None
+
+        # Create the version
+        data = {
+                'project': {'type':'Project', 'id':shotgundb._getProjectId()},
+                'code': s_inVersionName,
+                'description': s_inComment,
+                #'sg_path_to_frames': s_inMediaPath,
+                'sg_status_list': 'rev',
+                'entity': entity,
+                'sg_task': task
+                    }
+
+        if shotgundb.currentUser['sg_user'] != None:
+            data['user'] = shotgundb.currentUser['sg_user']
+
+        return sg.create('Version', data)
+
+    def uploadSgVersion(self, sgId, s_inMediaPath, **kwargs):
+
+        # Use the ID from the previous result to update the newly created version calling sg.upload and specifying 'sg_uploaded_movie'
+        if os.path.isfile(s_inMediaPath):
+            return self.sg.upload('Version', sgId, s_inMediaPath, **kwargs)
 
     def findDbNodes(self, sQuery="", **kwargs):
 

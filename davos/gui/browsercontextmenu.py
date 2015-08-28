@@ -188,7 +188,7 @@ class BrowserContextMenu(BaseContextMenu):
             return
 
         proj = self.model()._metamodel
-        proj.publishEditedVersion(sSrcFilePath, autoLock=False, autoUnlock=False)
+        proj.publishEditedVersion(sSrcFilePath)
 
     publishEditedVersion.auth_types = ("DrcFile",)
 
