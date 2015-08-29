@@ -201,7 +201,7 @@ class DamProject(object):
 
         return drcLib
 
-    def getPath(self, sSpace, sSection, pathVar="", tokens=None, **kwargs):
+    def getPath(self, sSpace, sSection, pathVar="", tokens=None, default="NoEntry", **kwargs):
 
         if sSpace in LIBRARY_SPACES:
             sRcPath = self.getVar(sSection, sSpace + "_path")
@@ -211,7 +211,6 @@ class DamProject(object):
                 return sRcPath
 
         if pathVar:
-            default = kwargs.get("default", "NoEntry")
             try:
                 sRcPath = pathJoin(sRcPath, self.getVar(sSection, pathVar))
             except AttributeError:
@@ -282,6 +281,22 @@ class DamProject(object):
         else:
             return rcSettings.get(sRcName, {}).get(sParam, default)
 
+    def getResource(self, sSpace, sRcSection, sRcName="", tokens=None,
+                    default="NoEntry", fail=False, **kwargs):
+
+        sRcPath = self.getPath(sSpace, sRcSection,
+                               pathVar=sRcName,
+                               tokens=tokens,
+                               default=default,
+                               )
+
+        drcEntry = self.entryFromPath(sRcPath, **kwargs)
+
+        if (not drcEntry) and fail:
+            raise RuntimeError("No such resource path: '{}'".format(sRcPath))
+
+        return drcEntry
+
     def entryFromPath(self, sEntryPath, **kwargs):
 
         drcLib = self.libraryFromPath(sEntryPath)
@@ -319,10 +334,8 @@ class DamProject(object):
             return {}
 
         drcEntry = self.entryFromPath(sEntryPath)
-        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile()
-        if not pubEntry:
-            raise RuntimeError("Could not get public version of '{}'"
-                               .format(sEntryPath))
+        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile(fail=True)
+
 
         sPublicPath = pubEntry.absPath()
         sPubPathDirs = pathSplitDirs(sPublicPath)

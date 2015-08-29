@@ -3,6 +3,8 @@
 	<name>davos-dev</name>
 	<comment></comment>
 	<projects>
+		<project>pypeline-tool-devkit</project>
+		<project>z2k-pipeline-toolkit</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

@@ -210,6 +210,22 @@ class DrcEntry(DrcMetaObject):
     def imagePath(self):
         return ''
 
+    def getEntity(self):
+        return self.library.project.entityFromPath(self.absPath())
+
+    def getParam(self, sParam, default="NoEntry"):
+
+        proj = self.library.project
+        sAbsPath = self.absPath()
+        data = proj.dataFromPath(sAbsPath)
+        sRcName = data.get("resource", "")
+        if not sRcName:
+            raise RuntimeError("{} is not a configured resource: '{}'"
+                               .format(self, sAbsPath))
+
+        sSection = data["section"]
+        return proj.getRcParam(sSection, sRcName, sParam, default=default)
+
     ''
     #=======================================================================
     # Database related methods
@@ -593,15 +609,12 @@ class DrcFile(DrcEntry):
 
     def iterOutcomeFiles(self, weak=False):
 
-        pubFile = self if self.isPublic() else self.getPublicFile()
-        if not pubFile:
-            raise RuntimeError("Could not get public version of '{}'"
-                               .format(pubFile.absPath()))
+        pubFile = self if self.isPublic() else self.getPublicFile(fail=True)
 
         pubLib = pubFile.library
-
         sRcList = pubFile.getParam("outcomes", [])
         damEntity = pubFile.getEntity()
+
         for sRcName in sRcList:
             sFilePath = damEntity.getPath("public", sRcName)
             if weak:
@@ -634,22 +647,6 @@ class DrcFile(DrcEntry):
             w = 0
 
         return "".join(('-v', padded(v), '.', padded(w)))
-
-    def getEntity(self):
-        return self.library.project.entityFromPath(self.absPath())
-
-    def getParam(self, sParam, default="NoEntry"):
-
-        proj = self.library.project
-        sAbsPath = self.absPath()
-        data = proj.dataFromPath(sAbsPath)
-        sRcName = data.get("resource", "")
-        if not sRcName:
-            raise RuntimeError("{} is not a configured resource: '{}'"
-                               .format(self, sAbsPath))
-
-        sSection = data["section"]
-        return proj.getRcParam(sSection, sRcName, sParam, default=default)
 
     def copyToPrivateSpace(self, suffix="", force=False, **kwargs):
 
@@ -982,7 +979,7 @@ You have {0} version of '{1}':
         self.restoreLockState(autoUnlock, refresh=False)
         self.refresh()
 
-    def abortPublish(self, err, backupFile=None, sgVersionInfo=None, autoUnlock=True):
+    def abortPublish(self, err, backupFile=None, sgVersionInfo=None, autoUnlock=False):
 
         try:
             if backupFile:
@@ -1008,7 +1005,7 @@ You have {0} version of '{1}':
 
         return True
 
-    def restoreLockState(self, autoUnlock=True, refresh=True):
+    def restoreLockState(self, autoUnlock=False, refresh=True):
         logMsg(log='all')
 
         try:
