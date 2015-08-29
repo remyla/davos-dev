@@ -49,9 +49,10 @@ class DamEntity(object):
         for k, v in nameParse.named.iteritems():
             setattr(self, k, v)
 
-    def getEntry(self, sSpace, pathVar="entity_dir", **kwargs):
-        p = self.getPath(sSpace, pathVar=pathVar, **kwargs)
-        return self.project.entryFromPath(p)
+    def getResource(self, sSpace, sRcName="entity_dir", default="NoEntry", **kwargs):
+
+        sRcPath = self.getPath(sSpace, pathVar=sRcName, default=default)
+        return self.project.entryFromPath(sRcPath, **kwargs)
 
     def getPath(self, sSpace, pathVar="entity_dir", **kwargs):
         return self.project.getPath(sSpace, self.confSection, pathVar,
@@ -68,10 +69,7 @@ class DamEntity(object):
         if not drcEntry:
             return "", ""
 
-        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile()
-        if not pubEntry:
-            raise RuntimeError("Could not get public version of '{}'"
-                               .format(sEntryPath))
+        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile(fail=True)
 
         sPublicPath = normCase(pubEntry.absPath())
 
