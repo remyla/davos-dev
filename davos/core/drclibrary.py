@@ -94,7 +94,7 @@ class DrcLibrary(DrcEntry):
             sRelPath = self.absToRelPath(sAbsPath) if osp.isabs(sAbsPath) else sAbsPath
 
         # try to get an already loaded entry...
-        drcEntry = self._cachedEntries.get(sRelPath)
+        drcEntry = self._cachedEntries.get(normCase(sRelPath))
         if drcEntry:
             drcEntry.loadData(drcEntry._qfileinfo, dbNode=dbNode)
             if weak:
@@ -166,24 +166,24 @@ class DrcLibrary(DrcEntry):
 
         DrcEntry._remember(self)
 
-        key = self.fullName
+        cacheKey = self.fullName
         cacheDict = self.project.loadedLibraries
 
-        if key in cacheDict:
+        if cacheKey in cacheDict:
             logMsg("<{}> Already loaded : {}.".format(getCaller(depth=4, fo=False), self)
                    , log="debug")
         else:
-            cacheDict[key] = self
+            cacheDict[cacheKey] = self
 
     def _forget(self, parent=None):
 
         DrcEntry._forget(self, parent)
 
-        key = self.fullName
+        cacheKey = self.fullName
         cacheDict = self.project.loadedLibraries
 
-        if key not in cacheDict:
+        if cacheKey not in cacheDict:
             logMsg("<{}> Already dropped : {}.".format(getCaller(depth=4, fo=False), self), log="debug")
         else:
-            return cacheDict.pop(key)
+            return cacheDict.pop(cacheKey)
 

@@ -342,7 +342,8 @@ class DrcEntry(DrcMetaObject):
         return self.library._db.findNodes(sFullQuery, **kwargs)
 
     def getDbCacheKey(self):
-        return normCase(self.relPath())
+        p = self.relPath()
+        return normCase(p)
 
     ''
     #=======================================================================
@@ -424,15 +425,15 @@ class DrcEntry(DrcMetaObject):
 
     def _remember(self):
 
-        key = self.relPath()
+        cacheKey = normCase(self.relPath())
         # print '"{}"'.format(self.relPath())
         _cachedEntries = self.library._cachedEntries
 
-        if key in _cachedEntries:
+        if cacheKey in _cachedEntries:
             logMsg("Already useCache: {0}.".format(self), log="debug")
         else:
             logMsg("Caching: {0}.".format(self), log="debug")
-            _cachedEntries[key] = self
+            _cachedEntries[cacheKey] = self
 
     def _forget(self, parent=None, **kwargs):
         logMsg(self.__class__.__name__, log='all')
@@ -447,10 +448,10 @@ class DrcEntry(DrcMetaObject):
 
     def __forgetOne(self, parent=None):
 
-        key = self.relPath()
+        cacheKey = normCase(self.relPath())
         _cachedEntries = self.library._cachedEntries
 
-        if key not in _cachedEntries:
+        if cacheKey not in _cachedEntries:
             logMsg("Already dropped: {0}.".format(self), log="debug")
         else:
             parentDir = parent if parent else self.parentDir()
@@ -461,7 +462,7 @@ class DrcEntry(DrcMetaObject):
             del self.loadedChildren[:]
             self.delModelRow()
 
-            return _cachedEntries.pop(key)
+            return _cachedEntries.pop(cacheKey)
 
     def __getattr__(self, sAttrName):
 
