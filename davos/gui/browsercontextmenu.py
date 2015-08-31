@@ -42,8 +42,8 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Refresh"             , "menu": "Main"    , "fnc":self.refreshItems               },
 
         { "label":"separator"           , "menu": "Main"    , "dev":False                           },
+        { "label":"Open"                , "menu": "Main"    , "fnc":self.openFile                   },
         { "label":"Edit"                , "menu": "Main"    , "fnc":self.editFile                   },
-        #{ "label":"separator"          , "menu": "Main"},
         { "label":"Publish..."          , "menu": "Main"    , "fnc":self.publishEditedVersion       },
 
         { "label":"separator"           , "menu": "Main"},
@@ -73,13 +73,20 @@ class BrowserContextMenu(BaseContextMenu):
     # @forceLog(log='all')
     def editFile(self, *itemList):
 
-        drcFile = itemList[-1]._metaobj
+        pubFile = itemList[-1]._metaobj
 
-        privFile = drcFile.edit()
-        if privFile and (not hostApp()):
-            privFile.showInExplorer()
+#        privFile = self.getLatestEditedFile()
+#        if privFile:
+
+        pubFile.edit(openFile=True)
 
     editFile.auth_types = ("DrcFile",)
+
+    def openFile(self, *itemList):
+        drcEntry = itemList[-1]._metaobj
+        drcEntry.sysOpen()
+
+    openFile.auth_types = ("DrcFile",)
 
     def setFilesLocked(self, bLock, *itemList):
 

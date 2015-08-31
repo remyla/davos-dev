@@ -27,7 +27,7 @@ from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
 from pytd.util.external import parse
-from pytd.util.sysutils import isQtApp, toStr
+from pytd.util.sysutils import isQtApp, toStr, hostApp
 
 
 
@@ -218,12 +218,17 @@ class DrcEntry(DrcMetaObject):
         proj = self.library.project
         sAbsPath = self.absPath()
         data = proj.dataFromPath(sAbsPath)
-        sRcName = data.get("resource", "")
-        if not sRcName:
-            raise RuntimeError("{} is not a configured resource: '{}'"
-                               .format(self, sAbsPath))
 
-        sSection = data["section"]
+        sSection = data.get("section")
+        sRcName = data.get("resource")
+
+        if not (sSection and sRcName):
+            if default == "NoEntry":
+                raise RuntimeError("{} is not a configured resource: '{}'"
+                                   .format(self, sAbsPath))
+            else:
+                return default
+
         return proj.getRcParam(sSection, sRcName, sParam, default=default)
 
     ''
@@ -564,20 +569,42 @@ class DrcFile(DrcEntry):
             v = self.latestBackupVersion()
         self.currentVersion = v
 
-    def edit(self):
+    def sysOpen(self):
+
+        p = self.absPath()
+        _, sExt = osp.splitext(p)
+        if sExt in (".ma", ".mb"):
+
+            if hostApp() != "maya":
+                raise RuntimeError("Can only be opened from Maya.")
+
+            return self.mayaOpen()
+
+        else:
+            if os.name == "nt":
+                os.system("explorer {}".format(osp.normpath(p)))
+            else:
+                raise NotImplementedError("Sorry, not implemented for your OS yet.")
+
+    def mayaOpen(self):
+        raise NotImplementedError("Sorry, not implemented yet.")
+
+    def edit(self, openFile=False):
         logMsg(log='all')
+
+        privFile = None
 
         if not self.setLocked(True):
             return
 
         try:
             privFile = self.copyToPrivateSpace(suffix=self.makeEditSuffix())
-        except:
-            self.restoreLockState()
-            raise
+        finally:
+            if not privFile:
+                self.restoreLockState()
 
-        if not privFile:
-            self.restoreLockState()
+        if openFile and privFile and (not hostApp()):
+            privFile.showInExplorer()
 
         return privFile
 
@@ -586,6 +613,8 @@ class DrcFile(DrcEntry):
 
     def iterEditedOutcomeFiles(self):
 
+        assert self.isPrivate(), "File is NOT private !"
+
         v, w = self.getEditNums()
 
         for sRcName, pubFile in self.iterOutcomeFiles():
@@ -593,8 +622,6 @@ class DrcFile(DrcEntry):
             yield sRcName, privFile
 
     def getEditNums(self):
-
-        assert self.isPrivate(), "File is NOT private !"
 
         editSuffixFmt = "-v{v:03d}.{w:03d}"
         editNameFmt = "{root}" + editSuffixFmt + "{ext}"
@@ -613,18 +640,20 @@ class DrcFile(DrcEntry):
         pubFile = self if self.isPublic() else self.getPublicFile(fail=True)
 
         pubLib = pubFile.library
-        sRcList = pubFile.getParam("outcomes", [])
         damEntity = pubFile.getEntity()
 
-        for sRcName in sRcList:
-            sFilePath = damEntity.getPath("public", sRcName)
-            if weak:
-                drcFile = pubLib._weakFile(sFilePath)
-            else:
-                drcFile = pubLib.getEntry(sFilePath)
+        if damEntity:
+            sRcList = pubFile.getParam("outcomes", [])
 
-            if drcFile:
-                yield sRcName, drcFile
+            for sRcName in sRcList:
+                sFilePath = damEntity.getPath("public", sRcName)
+                if weak:
+                    drcFile = pubLib._weakFile(sFilePath)
+                else:
+                    drcFile = pubLib.getEntry(sFilePath)
+
+                if drcFile:
+                    yield sRcName, drcFile
 
     def getEditFile(self, v=None, w=None, weak=False):
 
@@ -778,7 +807,7 @@ You have {0} version of '{1}':
 
     def getPrivateDir(self):
 
-        assert self.isFile(), "File does NOT exist !"
+        #assert self.isFile(), "File does NOT exist !"
         assert self.isPublic(), "File is NOT public !"
 
         pubDir = self.parentDir()
@@ -805,6 +834,24 @@ You have {0} version of '{1}':
 
         sFilePath = pathJoin(backupDir.absPath(), sEntryList[0])
         return self.library.getEntry(sFilePath, dbNode=False)
+
+    def getLatestEditedFile(self):
+
+        privDir = self.getPrivateDir()
+        if not privDir:
+            return None
+
+        sNameFilter = pathSuffixed(self.nextVersionName(), '*')
+        sEntryList = privDir._qdir.entryList((sNameFilter,),
+                                               filters=QDir.Files,
+                                               sort=(QDir.Name | QDir.Reversed))
+
+        if not sEntryList:
+            return None
+
+        sFilePath = pathJoin(privDir.absPath(), sEntryList[0])
+        return privDir.library.getEntry(sFilePath, dbNode=False)
+
 
     def ensureFilePublishable(self, privFile, version=None):
 
@@ -844,7 +891,7 @@ You have {0} version of '{1}':
         try:
             sComment, iNextVers, _, sgVersionInfo = self.beginPublish(**kwargs)
         except RuntimeError, e:
-            self.abortPublish(e, backupFile, bAutoUnlock)
+            self.abortPublish(e, backupFile, sgVersionInfo, bAutoUnlock)
             raise
 
         try:

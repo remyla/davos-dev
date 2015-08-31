@@ -130,7 +130,7 @@ class DamProject(object):
 
     def getAuthenticator(self):
 
-        sAuthFullName = self.getVar("project", "authenticator", "")
+        sAuthFullName = self.getVar("project", "authenticator_class", "")
         if not sAuthFullName:
             return HellAuth()
         else:
@@ -320,11 +320,15 @@ class DamProject(object):
     def entityFromPath(self, sEntryPath):
 
         data = self.dataFromPath(sEntryPath)
-        sConfSection = data['section']
+        sSection = data.get('section')
+        if not sSection:
+            return None
 
-        sEntityCls = self.getVar(sConfSection, "entity_class")
+        sEntityCls = self.getVar(sSection, "entity_class", default="")
+        if not sEntityCls:
+            return None
+
         cls = importClass(sEntityCls, globals(), locals())
-
         return cls(self, **data)
 
     def dataFromPath(self, sEntryPath):
@@ -336,7 +340,6 @@ class DamProject(object):
         drcEntry = self.entryFromPath(sEntryPath)
         pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile(fail=True)
 
-
         sPublicPath = pubEntry.absPath()
         sPubPathDirs = pathSplitDirs(sPublicPath)
         numDirs = len(sPubPathDirs)
@@ -345,6 +348,7 @@ class DamProject(object):
                                    key=lambda x: len(x[1]),
                                    reverse=True)
 
+        parseRes = None
         for sRcName, sConfPath in sConfPathList:
 
             parseRes = pathParse(sConfPath, sPublicPath)
@@ -670,7 +674,7 @@ class DamProject(object):
 
     def __initShotgun(self):
 
-        sFullName = self.getVar("project", "shotgun_engine", "")
+        sFullName = self.getVar("project", "shotgun_class", "")
         if not sFullName:
             return
 
