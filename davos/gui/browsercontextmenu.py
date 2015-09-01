@@ -11,7 +11,7 @@ from pytd.util.logutils import logMsg
 from pytd.util.fsutils import  pathSuffixed
 # from pytd.util.logutils import forceLog
 from davos.core.drctypes import DrcFile
-from pytd.util.sysutils import toStr, hostApp
+from pytd.util.sysutils import toStr#, hostApp
 from pytd.util.qtutils import setWaitCursor
 from davos.core.damtypes import DamAsset
 
@@ -74,10 +74,6 @@ class BrowserContextMenu(BaseContextMenu):
     def editFile(self, *itemList):
 
         pubFile = itemList[-1]._metaobj
-
-#        privFile = self.getLatestEditedFile()
-#        if privFile:
-
         pubFile.edit(openFile=True)
 
     editFile.auth_types = ("DrcFile",)
@@ -166,7 +162,7 @@ class BrowserContextMenu(BaseContextMenu):
 
 
     @staticmethod
-    def pickupPrivateFileToPublish(drcFile):
+    def choosePrivateFileToPublish(drcFile):
 
         privDir = drcFile.getPrivateDir()
         if not privDir:
@@ -174,7 +170,7 @@ class BrowserContextMenu(BaseContextMenu):
 
         sNameFilter = pathSuffixed(drcFile.nextVersionName(), '*').replace(' ', '?')
         sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
-                                                            "You know what to do...",
+                                                            "Select a file to publish...",
                                                             privDir.absPath(),
                                                             sNameFilter
                                                             )
@@ -189,7 +185,7 @@ class BrowserContextMenu(BaseContextMenu):
         if not isinstance(drcFile, DrcFile):
             raise TypeError, 'A {} cannot be published.'.format(type(drcFile).__name__)
 
-        sSrcFilePath = self.__class__.pickupPrivateFileToPublish(drcFile)
+        sSrcFilePath = self.__class__.choosePrivateFileToPublish(drcFile)
         if not sSrcFilePath:
             logMsg("Cancelled !", warning=True)
             return

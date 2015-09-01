@@ -7,7 +7,7 @@ try:
     davos_env.load()
 except ImportError:pass
 
-from davos.tools import asset_browser
+from davos.tools import file_browser
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--project", "-p", default=os.environ.get("DAVOS_INIT_PROJECT"))
@@ -17,4 +17,4 @@ sProject = ns.project
 if not sProject:
     sProject = raw_input("project: ")
 
-asset_browser.launch(sProject, args)
+file_browser.launch(sProject, args)

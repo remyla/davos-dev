@@ -5,6 +5,8 @@ import os.path as osp
 from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
 from pytd.util.fsutils import normCase
 from pytd.util.external import parse
+from pytd.util.sysutils import isQtApp
+
 
 
 class DamUser(object):
@@ -151,19 +153,70 @@ class DamEntity(object):
         }
         """
 
-        fields = ['content']#, 'step', 'entity', 'project', 'sg_status_list', 'sg_operators']
+        fields = ['content', 'entity']#, 'step', 'entity', 'project', 'sg_status_list', 'sg_operators']
         tasks = proj._shotgundb.sg.find("Task", filters, fields)
 
         return tasks
 
-    def createSgVersion(self, s_inVersionName, s_inTaskName, s_inComment=""):
+    def createSgVersion(self, drcPubFile, iVersion, sComment, sgTask=None):
 
-        proj = self.project
-        return proj.createSgVersion(self.__class__.sgEntityType,
-                                    self.name,
-                                    s_inVersionName,
-                                    s_inTaskName,
-                                    s_inComment)
+        sVersionName = osp.splitext(drcPubFile.nameFromVersion(iVersion))[0]
+
+        if sgTask is None:
+
+            sSgStep = drcPubFile.getParam('sg_step', "")
+            if not sSgStep:
+                raise RuntimeError("No Shotgun Step defined for {}".format(drcPubFile))
+
+            sgTaskList = self.listSgTasks(sSgStep)
+            if not sgTaskList:
+                raise RuntimeError("No Shotgun Tasks found for {}".format(self))
+
+            if len(sgTaskList) == 1:
+                taskNameOrInfo = sgTaskList[0]
+            else:
+                sgTaskDct = dict((sg['content'], sg) for sg in sgTaskList)
+                sTaskList = sgTaskDct.keys()
+
+                sMsg = "What was your task ?"
+                if isQtApp():
+                    from PySide import QtGui
+                    sTaskName, bOk = QtGui.QInputDialog.getItem(None, "Make your choice !",
+                                                                sMsg,
+                                                                sTaskList,
+                                                                current=0,
+                                                                editable=False,
+                                                                )
+                    if not bOk:
+                        raise RuntimeError("No task selected !")
+                else:
+                    sChoiceList = sTaskList + ["Cancel"]
+                    sMsg += "({})".format("/".join(sChoiceList))
+                    sChoice = ""
+                    while sChoice not in sChoiceList:
+                        sChoice = raw_input(sMsg)
+
+                    if sChoice == "Cancel":
+                        raise RuntimeError("No task selected !")
+
+                    sTaskName = sChoice
+
+                taskNameOrInfo = sgTaskDct[sTaskName]
+
+            entityNameOrInfo = taskNameOrInfo.pop('entity')
+        else:
+            taskNameOrInfo = sgTask
+            if isinstance(sgTask, basestring):
+                entityNameOrInfo = self.name
+            elif isinstance(sgTask, dict):
+                entityNameOrInfo = sgTask.pop('entity')
+            else:
+                raise TypeError("Bad 'sgTask' argument.")
+
+        return self.project.createSgVersion(entityNameOrInfo,
+                                            sVersionName,
+                                            taskNameOrInfo,
+                                            sComment)
 
     def __repr__(self):
 

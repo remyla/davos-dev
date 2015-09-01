@@ -24,7 +24,7 @@ class DrcLibrary(DrcEntry):
     classFile = DrcFile
     classDir = DrcDir
 
-    def __init__(self, sLibName, sLibPath, sSpace="", project=None):
+    def __init__(self, sLibName, sLibPath, sSpace="", project=None, **kwargs):
 
         self._cachedEntries = {}
         self._cachedDbNodes = {}
@@ -36,7 +36,7 @@ class DrcLibrary(DrcEntry):
         self.space = sSpace
         self.project = project
 
-        super(DrcLibrary, self).__init__(self, sLibPath)
+        super(DrcLibrary, self).__init__(self, sLibPath, **kwargs)
 
     def loadData(self, fileInfo, **kwargs):
         logMsg(log="all")

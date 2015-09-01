@@ -27,8 +27,14 @@ from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
 from pytd.util.external import parse
-from pytd.util.sysutils import isQtApp, toStr, hostApp
+from pytd.util.sysutils import toStr, hostApp
 
+_COPY_PRIV_SPACE_MSG = """
+You have {0} version of '{1}':
+
+    private file: {2}
+    public  file: {3}
+"""
 
 
 class DrcEntry(DrcMetaObject):
@@ -198,6 +204,8 @@ class DrcEntry(DrcMetaObject):
         sLibPath = lib.absPath()
         sProjDmsPath = lib.project.getVar("project", "damas_root_path")
         sLibDmsPath = pathJoin(sProjDmsPath, lib.name)
+        if lib.name == "undefined":
+            print "undefined", self
         p = re.sub('^' + sLibPath, sLibDmsPath, self.absPath())
         return normCase(p)
 
@@ -210,8 +218,13 @@ class DrcEntry(DrcMetaObject):
     def imagePath(self):
         return ''
 
-    def getEntity(self):
-        return self.library.project.entityFromPath(self.absPath())
+    def getEntity(self, fail=False):
+        p = self.absPath()
+        damEntity = self.library.project.entityFromPath(p)
+        if (not damEntity) and fail:
+            raise RuntimeError("Could not get an entity from '{}'".format(p))
+
+        return damEntity
 
     def getParam(self, sParam, default="NoEntry"):
 
@@ -593,20 +606,51 @@ class DrcFile(DrcEntry):
         logMsg(log='all')
 
         privFile = None
+        bHosted = (hostApp() != "")
 
         if not self.setLocked(True):
-            return
+            return None
 
         try:
-            privFile = self.copyToPrivateSpace(suffix=self.makeEditSuffix())
+            privFile, bCopied = self.copyToPrivateSpace(suffix=self.makeEditSuffix(),
+                                                        existing='keep')
+            bAlreadyExists = (not bCopied)
+
+            if bAlreadyExists:
+                if not bHosted:
+                    privFile = self.getLatestEditedFile()
+                else:
+                    privFile = self.choosePrivateFileToEdit()
+
         finally:
             if not privFile:
                 self.restoreLockState()
+                return None
 
-        if openFile and privFile and (not hostApp()):
+        if openFile and (not bHosted):
             privFile.showInExplorer()
 
         return privFile
+
+    def choosePrivateFileToEdit(self):
+
+        privDir = self.getPrivateDir()
+        if not privDir:
+            raise RuntimeError('Could not find the private directory !')
+
+        sSuffix = self.makeEditSuffix(w='*')
+        sNameFilter = pathSuffixed(self.name, sSuffix).replace(' ', '?')
+
+        from PySide import QtGui
+        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
+                                                            "Select a file to edit...",
+                                                            privDir.absPath(),
+                                                            sNameFilter
+                                                            )
+        if not sSrcFilePath:
+            return None
+
+        return privDir.library.getEntry(sSrcFilePath)
 
     def isEditable(self):
         return self.getParam("editable", True)
@@ -662,23 +706,37 @@ class DrcFile(DrcEntry):
 
     def makeEditSuffix(self, v=None, w=None):
 
-        if v:
+        sVersion = self.versionSuffix(v)
+
+        if w is not None:
+            if isinstance(w, basestring):
+                pass
+            elif isinstance(w, int):
+                w = padded(w)
+            else:
+                raise TypeError("argument 'w' must be of type <int> or <basestring>. Got {}."
+                                .format(type(w)))
+        else:
+            w = padded(0)
+
+        return "".join((sVersion, '.', w))
+
+    def versionSuffix(self, v=None):
+        if v is not None:
             if not isinstance(v, int):
                 raise TypeError("argument 'v' must be of type <int>. Got {}."
                                 .format(type(v)))
         else:
             v = self.currentVersion + 1
 
-        if w:
-            if not isinstance(w, int):
-                raise TypeError("argument 'w' must be of type <int>. Got {}."
-                                .format(type(w)))
-        else:
-            w = 0
+        return "".join(('-v', padded(v)))
 
-        return "".join(('-v', padded(v), '.', padded(w)))
+    def copyToPrivateSpace(self, suffix="", existing="fail", **kwargs):
 
-    def copyToPrivateSpace(self, suffix="", force=False, **kwargs):
+        exisintValues = ('ask', 'keep', 'abort', 'replace', 'overwrite', 'fail')
+        if existing not in exisintValues:
+            raise ValueError("Bad value for 'existing' kwarg: '{}'. Must be {}"
+                             .format(existing, exisintValues))
 
         privFile = self.getPrivateFile(suffix=suffix, weak=True)
 
@@ -692,7 +750,7 @@ class DrcFile(DrcEntry):
             raise ValueError('Source and destination files are identical: "{0}".'
                              .format(sPubFilePath))
 
-        bForce = force
+
         bDryRun = kwargs.get("dry_run", False)
 
         sPrivDirPath, sPrivFileName = osp.split(sPrivFilePath)
@@ -702,47 +760,57 @@ class DrcFile(DrcEntry):
 
         privLib = privFile.library
 
+        bCopied = False
         bSameFiles = False
 
-        if (not bForce) and osp.exists(sPrivFilePath):
+        if osp.exists(sPrivFilePath):
 
-            bSameFiles = filecmp.cmp(sPubFilePath, sPrivFilePath, shallow=True)
+            if existing == "ask":
 
-            if not bSameFiles:
+                bSameFiles = filecmp.cmp(sPubFilePath, sPrivFilePath, shallow=True)
 
-                privFileTime = datetime.fromtimestamp(osp.getmtime(sPrivFilePath))
-                pubFileTime = datetime.fromtimestamp(osp.getmtime(sPubFilePath))
+                if not bSameFiles:
 
-                sState = "an OLDER" if privFileTime < pubFileTime else "a NEWER"
+                    privFileTime = datetime.fromtimestamp(osp.getmtime(sPrivFilePath))
+                    pubFileTime = datetime.fromtimestamp(osp.getmtime(sPubFilePath))
 
-                sMsg = """
-You have {0} version of '{1}':
+                    sState = "an OLDER" if privFileTime < pubFileTime else "a NEWER"
 
-    private file: {2}
-    public  file: {3}
-""".format(sState, sPrivFileName,
-           privFileTime.strftime("%A, %d-%m-%Y %H:%M"),
-           pubFileTime.strftime("%A, %d-%m-%Y %H:%M"),
-           )
-                sConfirm = confirmDialog(title='WARNING !'
-                                        , message=sMsg.strip('\n')
-                                        , button=['Keep', 'Overwrite', 'Cancel']
-                                        , icon="warning")
+                    sMsg = _COPY_PRIV_SPACE_MSG.format(sState, sPrivFileName,
+                                                       privFileTime.strftime("%A, %d-%m-%Y %H:%M"),
+                                                       pubFileTime.strftime("%A, %d-%m-%Y %H:%M"),
+                                                       )
+                    sConfirm = confirmDialog(title='WARNING !'
+                                            , message=sMsg.strip('\n')
+                                            , button=['Keep', 'Overwrite', 'Cancel']
+                                            , icon="warning")
 
-                if sConfirm == 'Cancel':
-                    logMsg("Cancelled !", warning=True)
-                    return None
-                elif sConfirm == 'Keep':
-                    return privLib.getEntry(sPrivFilePath)
+                    if sConfirm == 'Cancel':
+                        logMsg("Cancelled !", warning=True)
+                        return None, bCopied
+
+                    existing = sConfirm.lower()
+                else:
+                    existing = "keep"
+
+            if existing == 'abort':
+                return None, bCopied
+            elif existing == 'keep':
+                return privLib.getEntry(sPrivFilePath), bCopied
+            elif existing == 'fail':
+                raise RuntimeError("Private file already exists: '{}'"
+                                   .format(sPrivFilePath))
+            else:#existing in ('replace', 'overwrite')
+                pass
 
         if bSameFiles:
             logMsg('\nAlready copied "{0}" \n\t to: "{1}"'.format(sPubFilePath,
                                                                   sPrivFilePath))
         else:
             # logMsg('\nCoping "{0}" \n\t to: "{1}"'.format(sPubFilePath, sPrivFilePath))
-            copyFile(sPubFilePath, sPrivFilePath, **kwargs)
+            _, bCopied = copyFile(sPubFilePath, sPrivFilePath, **kwargs)
 
-        return privLib.getEntry(sPrivFilePath)
+        return privLib.getEntry(sPrivFilePath), bCopied
 
     def getPrivateFile(self, suffix="", weak=False):
 
@@ -841,7 +909,7 @@ You have {0} version of '{1}':
         if not privDir:
             return None
 
-        sNameFilter = pathSuffixed(self.nextVersionName(), '*')
+        sNameFilter = pathSuffixed(self.nextVersionName(), '*').replace(' ', '?')
         sEntryList = privDir._qdir.entryList((sNameFilter,),
                                                filters=QDir.Files,
                                                sort=(QDir.Name | QDir.Reversed))
@@ -851,7 +919,6 @@ You have {0} version of '{1}':
 
         sFilePath = pathJoin(privDir.absPath(), sEntryList[0])
         return privDir.library.getEntry(sFilePath, dbNode=False)
-
 
     def ensureFilePublishable(self, privFile, version=None):
 
@@ -885,38 +952,38 @@ You have {0} version of '{1}':
             logMsg("Skipping {0} increment: Files are identical.".format(self))
             return True
 
-        backupFile = None
         sgVersionInfo = None
 
         try:
             sComment, iNextVers, _, sgVersionInfo = self.beginPublish(**kwargs)
         except RuntimeError, e:
-            self.abortPublish(e, backupFile, sgVersionInfo, bAutoUnlock)
+            self.abortPublish(e, sgVersionInfo)
             raise
 
         try:
             copyFile(sSrcFilePath, self.absPath())
         except Exception, e:
-            self.abortPublish(e, backupFile, sgVersionInfo, bAutoUnlock)
+            self.abortPublish(e, sgVersionInfo)
             raise
 
+        backupFile = None
         #save the current version that will be incremented in endPublish
         #in case we need to do a rollback caused by an Exception
         iSavedVers = self.currentVersion
         try:
-            self.endPublish(sSrcFilePath, sComment,
-                            saveSha1Key=bSaveSha1Key,
-                            sha1Key=sSrcSha1Key,
-                            autoUnlock=bAutoUnlock,
-                            version=iNextVers)
+            backupFile = self.endPublish(sSrcFilePath, sComment,
+                                        saveSha1Key=bSaveSha1Key,
+                                        sha1Key=sSrcSha1Key,
+                                        autoUnlock=bAutoUnlock,
+                                        version=iNextVers)
         except Exception, e:
-            self.abortPublish(e, backupFile, sgVersionInfo, bAutoUnlock)
+            self.abortPublish(e, sgVersionInfo)
             self.rollBackToVersion(iSavedVers)
             raise
 
-        return True
+        return backupFile, sgVersionInfo
 
-    def beginPublish(self, comment="", autoLock=False, version=None):
+    def beginPublish(self, comment="", autoLock=False, version=None, sgTask=None):
         logMsg(log='all')
 
         sComment = comment
@@ -928,13 +995,14 @@ You have {0} version of '{1}':
             if version > self.currentVersion:
                 iNextVers = version
             else:
-                sMsg = ("Argument 'version' must be greater than current version: {}. Got {}."
+                sMsg = ("'version' arg must be greater than current version: {}. Got {}."
                         .format(self.currentVersion, version))
                 raise ValueError(sMsg)
 
         if not sComment:
             sComment = promptForComment(text=self.getPrpty("comment"))
 
+        # create first backup file if no version yet (usually a empty file)
         backupFile = None
         iCurVers = self.currentVersion
         if iCurVers == 0:
@@ -942,49 +1010,18 @@ You have {0} version of '{1}':
             if not backupFile.exists():
                 backupFile.createFromFile(self)
 
+        # create shotgun version
         sgVersionInfo = None
         bSgVersion = self.getParam('create_sg_version', False)
         if bSgVersion:
-            sVersionName = osp.splitext(self.nameFromVersion(iNextVers))[0]
-            sgVersionInfo = self.createSgVersion(sVersionName, sComment)
+            damEntity = self.getEntity(fail=True)
+            sgVersionInfo = damEntity.createSgVersion(self, iNextVers, sComment,
+                                                      sgTask=sgTask)
+            print "sgVersionInfo", sgVersionInfo
             if not sgVersionInfo:
                 raise RuntimeError("Could not create shotgun version !")
 
         return sComment, iNextVers, backupFile, sgVersionInfo
-
-
-    def createSgVersion(self, sVersionName, sComment):
-
-        damEntity = self.getEntity()
-        sTaskList = self.getParam("sg_tasks")
-        if len(sTaskList) == 1:
-            sTaskName = sTaskList[0]
-        else:
-            sMsg = "What was your task ?"
-            if isQtApp():
-                from PySide import QtGui
-                sTaskName, bOk = QtGui.QInputDialog.getItem(None, "Make your choice !",
-                                                            sMsg,
-                                                            sTaskList,
-                                                            current=0,
-                                                            editable=False,
-                                                            )
-
-                if not bOk:
-                    raise RuntimeError("No task selected !")
-            else:
-                sChoiceList = list(sTaskList) + ["Cancel"]
-                sMsg += "({})".format("/".join(sChoiceList))
-                sChoice = ""
-                while sChoice not in sChoiceList:
-                    sChoice = raw_input(sMsg)
-
-                if sChoice == "Cancel":
-                    raise RuntimeError("No task selected !")
-
-                sTaskName = sChoice
-
-        return damEntity.createSgVersion(sVersionName, sTaskName, sComment)
 
     def ensureLocked(self, autoLock=False):
 
@@ -997,7 +1034,7 @@ You have {0} version of '{1}':
         if not self.setLocked(True, owner=sLockOwner):
             raise RuntimeError, "Could not lock the file !"
 
-    def endPublish(self, sSrcFilePath, sComment, autoUnlock=True,
+    def endPublish(self, sSrcFilePath, sComment, autoUnlock=False,
                    saveSha1Key=False, sha1Key="", version=None):
 
         self.setPrpty("comment", sComment, write=False)
@@ -1027,7 +1064,9 @@ You have {0} version of '{1}':
         self.restoreLockState(autoUnlock, refresh=False)
         self.refresh()
 
-    def abortPublish(self, err, backupFile=None, sgVersionInfo=None, autoUnlock=False):
+        return backupFile
+
+    def abortPublish(self, err, backupFile=None, sgVersionInfo=None):
 
         try:
             if backupFile:
@@ -1044,9 +1083,8 @@ You have {0} version of '{1}':
                 print "delete ", sgVersionInfo
                 self.library.project._shotgundb.sg.delete(sgVersionInfo['type'],
                                                           sgVersionInfo['id'])
-
         finally:
-            self.restoreLockState(autoUnlock)
+            self.restoreLockState()
 
             sMsg = "Publishing aborted: {0}".format(toStr(err))
             logMsg(sMsg , warning=True)
@@ -1206,7 +1244,7 @@ You have {0} version of '{1}':
         return self.nameFromVersion(v)
 
     def nameFromVersion(self, v):
-        return pathSuffixed(self.name, '-v', padded(v))
+        return pathSuffixed(self.name, self.versionSuffix(v))
 
     def imagePath(self):
         sRoot, sExt = osp.splitext(self.absPath())

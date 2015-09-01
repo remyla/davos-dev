@@ -194,7 +194,7 @@ class DamProject(object):
         if not drcLib:
             sLibPath = self.getPath(sSpace, sLibName)
             if osp.isdir(sLibPath):
-                drcLib = self.__libClass(sLibName, sLibPath, sSpace, self)
+                drcLib = self.__libClass(sLibName, sLibPath, sSpace, self, dbNode=False)
             else:
                 logMsg("No such '{}': '{}'.".format(sFullLibName, sLibPath),
                        warning=True)
@@ -405,11 +405,11 @@ class DamProject(object):
 
         privFile = self.entryFromPath(sSrcFilePath)
 
-        privOutcomeList = []
+        privOutcomeItemsList = []
         missingList = []
         for sRcName, outFile in privFile.iterEditedOutcomeFiles():
             if outFile.isFile():
-                privOutcomeList.append(outFile)
+                privOutcomeItemsList.append((sRcName, outFile))
             else:
                 missingList.append((sRcName, outFile))
 
@@ -432,19 +432,28 @@ class DamProject(object):
                 logMsg("Cancelled !", warning=True)
                 return
 
-        pubFile = privFile.getPublicFile(fail=True)
-        pubFile.ensureFilePublishable(privFile)
+        privOutcomeDct = dict(privOutcomeItemsList)
+        privOutcomeList = privOutcomeDct.values()
 
-        iNxtVers = pubFile.currentVersion + 1
+        primeFile = privFile.getPublicFile(fail=True)
+        primeFile.ensureFilePublishable(privFile)
+
+        iNxtVers = primeFile.currentVersion + 1
         pubOutcomeList = self._prepareToPublish(privOutcomeList, version=iNxtVers)
 
-        pubFile.incrementVersion(privFile, **kwargs)
+        _, sgVersionInfo = primeFile.incrementVersion(privFile, **kwargs)
 
-        for pubFile, privFile in zip(pubOutcomeList, privOutcomeList):
-            pubFile.incrementVersion(privFile, comment=pubFile.comment,
-                                     version=iNxtVers)
+        for pubOutcomeFile, privOutcomeFile in zip(pubOutcomeList, privOutcomeList):
+            pubOutcomeFile.incrementVersion(privOutcomeFile, comment=primeFile.comment,
+                                            version=iNxtVers)
 
-        return pubFile, pubOutcomeList
+        sRcToUpload = primeFile.getParam("upload_to_sg", "")
+        uploadFile = privOutcomeDct.get(sRcToUpload, None)
+        if uploadFile:
+            logMsg("uploading file to shotgun: '{}'".format(uploadFile))
+            self.uploadSgVersion(sgVersionInfo['id'], uploadFile.absPath())
+
+        return primeFile, privOutcomeDct
 
     def _prepareToPublish(self, privFileList, version=None):
 
@@ -456,6 +465,7 @@ class DamProject(object):
                 pubFile.ensureFilePublishable(privFile, version=version)
                 pubFile.ensureLocked(autoLock=True)
                 pubFileList.append(pubFile)
+
         except:
             for pubFile in pubFileList:
                 pubFile.restoreLockState()
@@ -470,35 +480,14 @@ class DamProject(object):
             if sEntityType and (stepInfo['entity_type'] == sEntityType):
                 yield stepInfo
 
-    def createSgVersion(self, sEntityType, s_inEntityName, s_inVersionName,
-                        s_inTaskName, s_inComment=""):
-        keyName = 'code'
+    def createSgVersion(self, sgEntity, s_inVersionName, sgTask, s_inComment=""):
 
         shotgundb = self._shotgundb
+        if not shotgundb:
+            return None
+
         sg = shotgundb.sg
         #s_inTaskName must be a task name, we could check prior to Shotgun calls...
-
-        #Find the shot
-        filters = [
-                ['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
-                [keyName, 'is', s_inEntityName]
-                    ]
-        entity = sg.find_one(sEntityType, filters)
-
-        if entity == None:
-            print "Can't get entity ({0}) from {1} '{2}'".format(sEntityType, keyName, s_inEntityName)
-            return None
-
-        #Find the task
-        filters = [
-                ['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
-                ['entity', 'is', entity],
-                ['content', 'is', s_inTaskName]
-                    ]
-        task = sg.find_one('Task', filters)
-        if task == None:
-            print "Can't get task {0} on {1} '{2}'".format(s_inTaskName, sEntityType, s_inEntityName)
-            return None
 
         # Create the version
         data = {
@@ -507,20 +496,24 @@ class DamProject(object):
                 'description': s_inComment,
                 #'sg_path_to_frames': s_inMediaPath,
                 'sg_status_list': 'rev',
-                'entity': entity,
-                'sg_task': task
-                    }
+                'entity': sgEntity,
+                'sg_task': sgTask,
+                }
 
         if shotgundb.currentUser['sg_user'] != None:
             data['user'] = shotgundb.currentUser['sg_user']
 
         return sg.create('Version', data)
 
-    def uploadSgVersion(self, sgId, s_inMediaPath, **kwargs):
+    def uploadSgVersion(self, iVersionId, s_inMediaPath):
 
         # Use the ID from the previous result to update the newly created version calling sg.upload and specifying 'sg_uploaded_movie'
         if os.path.isfile(s_inMediaPath):
-            return self.sg.upload('Version', sgId, s_inMediaPath, **kwargs)
+            return self._shotgundb.sg.upload('Version', iVersionId, s_inMediaPath,
+                                             'sg_uploaded_movie')
+        else:
+            logMsg("No such media to upload: \n    '{}'".format(s_inMediaPath),
+                   warning=True)
 
     def findDbNodes(self, sQuery="", **kwargs):
 

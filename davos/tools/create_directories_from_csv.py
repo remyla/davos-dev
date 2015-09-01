@@ -85,7 +85,7 @@ def createAssetDirectories(proj, sCsvFilePath, **kwargs):
                 break
 
             damAst = DamAsset(proj, name=sAstName)
-            damAst.createDirsAndFiles()
+            damAst.createDirsAndFiles(**kwargs)
 
             count += 1
 
