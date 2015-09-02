@@ -74,7 +74,7 @@ class BrowserContextMenu(BaseContextMenu):
     def editFile(self, *itemList):
 
         pubFile = itemList[-1]._metaobj
-        pubFile.edit(openFile=True)
+        pubFile.edit(openFile=True, existing="choose")
 
     editFile.auth_types = ("DrcFile",)
 

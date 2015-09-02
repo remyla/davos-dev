@@ -602,32 +602,23 @@ class DrcFile(DrcEntry):
     def mayaOpen(self):
         raise NotImplementedError("Sorry, not implemented yet.")
 
-    def edit(self, openFile=False):
+    def edit(self, openFile=False, existing=""):
         logMsg(log='all')
 
         privFile = None
-        bHosted = (hostApp() != "")
 
         if not self.setLocked(True):
             return None
 
         try:
-            privFile, bCopied = self.copyToPrivateSpace(suffix=self.makeEditSuffix(),
-                                                        existing='keep')
-            bAlreadyExists = (not bCopied)
-
-            if bAlreadyExists:
-                if not bHosted:
-                    privFile = self.getLatestEditedFile()
-                else:
-                    privFile = self.choosePrivateFileToEdit()
-
+            privFile, _ = self.copyToPrivateSpace(suffix=self.makeEditSuffix(),
+                                                  existing=existing)
         finally:
             if not privFile:
                 self.restoreLockState()
                 return None
 
-        if openFile and (not bHosted):
+        if openFile and (not hostApp()):
             privFile.showInExplorer()
 
         return privFile
@@ -731,9 +722,9 @@ class DrcFile(DrcEntry):
 
         return "".join(('-v', padded(v)))
 
-    def copyToPrivateSpace(self, suffix="", existing="fail", **kwargs):
+    def copyToPrivateSpace(self, suffix="", existing="", **kwargs):
 
-        exisintValues = ('ask', 'keep', 'abort', 'replace', 'overwrite', 'fail')
+        exisintValues = ('', 'keep', 'abort', 'replace', 'overwrite', 'fail', 'choose')
         if existing not in exisintValues:
             raise ValueError("Bad value for 'existing' kwarg: '{}'. Must be {}"
                              .format(existing, exisintValues))
@@ -765,7 +756,7 @@ class DrcFile(DrcEntry):
 
         if osp.exists(sPrivFilePath):
 
-            if existing == "ask":
+            if existing == "":
 
                 bSameFiles = filecmp.cmp(sPubFilePath, sPrivFilePath, shallow=True)
 
@@ -797,6 +788,12 @@ class DrcFile(DrcEntry):
                 return None, bCopied
             elif existing == 'keep':
                 return privLib.getEntry(sPrivFilePath), bCopied
+            elif existing == 'choose':
+                if hostApp():
+                    privFile = self.choosePrivateFileToEdit()
+                else:
+                    privFile = self.getLatestEditFile()
+                return privFile, bCopied
             elif existing == 'fail':
                 raise RuntimeError("Private file already exists: '{}'"
                                    .format(sPrivFilePath))
@@ -903,7 +900,7 @@ class DrcFile(DrcEntry):
         sFilePath = pathJoin(backupDir.absPath(), sEntryList[0])
         return self.library.getEntry(sFilePath, dbNode=False)
 
-    def getLatestEditedFile(self):
+    def getLatestEditFile(self):
 
         privDir = self.getPrivateDir()
         if not privDir:
