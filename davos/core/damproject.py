@@ -439,7 +439,7 @@ class DamProject(object):
         primeFile.ensureFilePublishable(privFile)
 
         iNxtVers = primeFile.currentVersion + 1
-        pubOutcomeList = self._prepareToPublish(privOutcomeList, version=iNxtVers)
+        pubOutcomeList = self._beginPublishFiles(privOutcomeList, version=iNxtVers)
 
         _, sgVersionInfo = primeFile.incrementVersion(privFile, **kwargs)
 
@@ -447,15 +447,16 @@ class DamProject(object):
             pubOutcomeFile.incrementVersion(privOutcomeFile, comment=primeFile.comment,
                                             version=iNxtVers)
 
-        sRcToUpload = primeFile.getParam("upload_to_sg", "")
-        uploadFile = privOutcomeDct.get(sRcToUpload, None)
-        if uploadFile:
-            logMsg("uploading file to shotgun: '{}'".format(uploadFile))
-            self.uploadSgVersion(sgVersionInfo['id'], uploadFile.absPath())
+        if sgVersionInfo:
+            sRcToUpload = primeFile.getParam("upload_to_sg", "")
+            uploadFile = privOutcomeDct.get(sRcToUpload, None)
+            if uploadFile:
+                logMsg("uploading file to shotgun: '{}'".format(uploadFile))
+                self.uploadSgVersion(sgVersionInfo, uploadFile.absPath())
 
         return primeFile, privOutcomeDct
 
-    def _prepareToPublish(self, privFileList, version=None):
+    def _beginPublishFiles(self, privFileList, version=None):
 
         pubFileList = []
         try:
@@ -480,40 +481,16 @@ class DamProject(object):
             if sEntityType and (stepInfo['entity_type'] == sEntityType):
                 yield stepInfo
 
-    def createSgVersion(self, sgEntity, s_inVersionName, sgTask, s_inComment=""):
+    def createSgVersion(self, sgEntity, s_inVersionName, sgTask, sComment):
 
         shotgundb = self._shotgundb
         if not shotgundb:
             return None
 
-        sg = shotgundb.sg
-        #s_inTaskName must be a task name, we could check prior to Shotgun calls...
+        return shotgundb.createVersion("", sgEntity, s_inVersionName, sgTask, sComment)
 
-        # Create the version
-        data = {
-                'project': {'type':'Project', 'id':shotgundb._getProjectId()},
-                'code': s_inVersionName,
-                'description': s_inComment,
-                #'sg_path_to_frames': s_inMediaPath,
-                'sg_status_list': 'rev',
-                'entity': sgEntity,
-                'sg_task': sgTask,
-                }
-
-        if shotgundb.currentUser['sg_user'] != None:
-            data['user'] = shotgundb.currentUser['sg_user']
-
-        return sg.create('Version', data)
-
-    def uploadSgVersion(self, iVersionId, s_inMediaPath):
-
-        # Use the ID from the previous result to update the newly created version calling sg.upload and specifying 'sg_uploaded_movie'
-        if os.path.isfile(s_inMediaPath):
-            return self._shotgundb.sg.upload('Version', iVersionId, s_inMediaPath,
-                                             'sg_uploaded_movie')
-        else:
-            logMsg("No such media to upload: \n    '{}'".format(s_inMediaPath),
-                   warning=True)
+    def uploadSgVersion(self, sgVersion, sMediaPath):
+        return self._shotgundb.uploadVersion(sgVersion, sMediaPath)
 
     def findDbNodes(self, sQuery="", **kwargs):
 
