@@ -665,9 +665,8 @@ class DamProject(object):
 
         print "connecting to damas..."
 
-        from davos.core import damas
+        import damas
         self._damasdb = damas.http_connection("https://62.210.104.42:8443")#"http://62.210.104.42:8090"
-
 
     def __repr__(self):
 
