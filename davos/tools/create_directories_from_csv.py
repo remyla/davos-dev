@@ -64,30 +64,46 @@ def createAssetDirectories(proj, sCsvFilePath, **kwargs):
             reader.next()
 
         sAstNameList = []
+        damAstList = []
         sErrorList = []
         for row in reader:
+
             sAstName = row[iNameColumn]
-            try:
-                assertStr(sAstName, r'[\w]')
-            except AssertionError, e:
-                sErrorList.append(toStr(e))
+            if sAstName in sAstNameList:
                 continue
 
             sAstNameList.append(sAstName)
 
+            try:
+                assertStr(sAstName, r'[\w]')
+            except AssertionError, e1:
+                sErrorList.append(toStr(e1))
+                continue
+
+            try:
+                damAst = DamAsset(proj, name=sAstName)
+            except Exception, e2:
+                sErrorList.append(toStr(e2))
+                continue
+
+            print sAstName
+            damAstList.append(damAst)
+
         if sErrorList:
-            raise AssertionError, "".join(sErrorList)
+            raise AssertionError, "\n".join(sErrorList)
 
-        count = 0
-        for sAstName in sAstNameList:
+    count = 0
+    for damAst in damAstList:
 
-            if count == iMaxCount:
-                break
+        if count == iMaxCount:
+            break
 
-            damAst = DamAsset(proj, name=sAstName)
-            damAst.createDirsAndFiles(**kwargs)
+        damAst.createDirsAndFiles(**kwargs)
 
-            count += 1
+        count += 1
+
+    sCreated = "will be created" if kwargs.get("dry_run") else "created"
+    print "{} asset directories {}.".format(count, sCreated)
 
 def launch(proj, dry_run=False):
 

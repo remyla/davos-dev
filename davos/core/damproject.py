@@ -11,13 +11,14 @@ from pytd.util.strutils import findFields
 from pytd.util import sysutils
 from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp
 from pytd.gui.dialogs import confirmDialog
-#from pytd.util.external import parse
+from pytd.util.qtutils import setWaitCursor
 
 from .drclibrary import DrcLibrary
 from .damtypes import DamUser
 from .authtypes import HellAuth
 from .utils import getConfigModule
 from .dbtypes import DrcDb
+
 
 LIBRARY_SPACES = ("public", "private")
 
@@ -403,18 +404,22 @@ class DamProject(object):
 
     def publishEditedVersion(self, sSrcFilePath, **kwargs):
 
-        privFile = self.entryFromPath(sSrcFilePath)
+        mainPrivFile = self.entryFromPath(sSrcFilePath)
+
+        mainPubFile = mainPrivFile.getPublicFile(fail=True)
+
+        mainPubFile.ensureFilePublishable(mainPrivFile)
+        mainPubFile.ensureLocked()
 
         privOutcomeItemsList = []
         missingList = []
-        for sRcName, outFile in privFile.iterEditedOutcomeFiles():
+        for sRcName, outFile in mainPrivFile.iterEditedOutcomeFiles():
             if outFile.isFile():
                 privOutcomeItemsList.append((sRcName, outFile))
             else:
                 missingList.append((sRcName, outFile))
 
         if missingList:
-
             sMissingFiles = u"\n".join((u"'{}'".format(f.relPath())
                                         for rc, f in missingList))
 
@@ -427,7 +432,6 @@ class DamProject(object):
                                     cancelButton="Abort",
                                     dismissString="Abort",
                                     icon="warning")
-
             if sResult == "Abort":
                 logMsg("Cancelled !", warning=True)
                 return
@@ -435,44 +439,52 @@ class DamProject(object):
         privOutcomeDct = dict(privOutcomeItemsList)
         privOutcomeList = privOutcomeDct.values()
 
-        primeFile = privFile.getPublicFile(fail=True)
-        primeFile.ensureFilePublishable(privFile)
+        pubOutcomeList = tuple(f.getPublicFile(fail=True) for f in privOutcomeList)
+        outcomePairs = zip(pubOutcomeList, privOutcomeList)
 
-        iNxtVers = primeFile.currentVersion + 1
-        pubOutcomeList = self._beginPublishFiles(privOutcomeList, version=iNxtVers)
+        sRcToUpload = mainPubFile.getParam("upload_to_sg", "")
+        if sRcToUpload and privOutcomeDct:
+            if sRcToUpload not in privOutcomeDct:
 
-        _, sgVersionInfo = primeFile.incrementVersion(privFile, **kwargs)
+                sMsg = (u"Resource('{}') to upload to shotgun is NOT in outcomes: {}"
+                        .format(sRcToUpload, privOutcomeDct.keys()))
+                sResult = confirmDialog(title='WARNING !',
+                                        message=sMsg,
+                                        button=["Continue", "Abort"],
+                                        defaultButton="Continue",
+                                        cancelButton="Abort",
+                                        dismissString="Abort",
+                                        icon="warning")
+                if sResult == "Abort":
+                    logMsg("Cancelled !", warning=True)
+                    return
 
-        for pubOutcomeFile, privOutcomeFile in zip(pubOutcomeList, privOutcomeList):
-            pubOutcomeFile.incrementVersion(privOutcomeFile, comment=primeFile.comment,
-                                            version=iNxtVers)
-
-        if sgVersionInfo:
-            sRcToUpload = primeFile.getParam("upload_to_sg", "")
-            uploadFile = privOutcomeDct.get(sRcToUpload, None)
-            if uploadFile:
-                logMsg("uploading file to shotgun: '{}'".format(uploadFile))
-                self.uploadSgVersion(sgVersionInfo, uploadFile.absPath())
-
-        return primeFile, privOutcomeDct
-
-    def _beginPublishFiles(self, privFileList, version=None):
-
-        pubFileList = []
+        sgVersion = None
+        iNxtVers = mainPubFile.currentVersion + 1
         try:
-            for privFile in privFileList:
+            for pubFile, privFile in outcomePairs:
 
-                pubFile = privFile.getPublicFile(fail=True)
-                pubFile.ensureFilePublishable(privFile, version=version)
+                pubFile.ensureFilePublishable(privFile, version=iNxtVers)
                 pubFile.ensureLocked(autoLock=True)
-                pubFileList.append(pubFile)
 
+            _, sgVersion = mainPubFile.publishEditedFile(mainPrivFile, checkLock=False,
+                                                         **kwargs)
         except:
-            for pubFile in pubFileList:
+            for pubFile in pubOutcomeList:
                 pubFile.restoreLockState()
             raise
 
-        return pubFileList
+        for pubFile, privFile in outcomePairs:
+            pubFile.publishEditedFile(privFile, comment=mainPubFile.comment,
+                                      version=iNxtVers, checkLock=False)
+
+        if sgVersion:
+            uploadFile = privOutcomeDct.get(sRcToUpload, None)
+            if uploadFile:
+                logMsg("uploading file to shotgun: '{}'".format(uploadFile))
+                self.uploadSgVersion(sgVersion, uploadFile.absPath())
+
+        return mainPrivFile, privOutcomeDct
 
     def iterSgSteps(self, sEntityType=""):
 
@@ -489,6 +501,7 @@ class DamProject(object):
 
         return shotgundb.createVersion("", sgEntity, s_inVersionName, sgTask, sComment)
 
+    @setWaitCursor
     def uploadSgVersion(self, sgVersion, sMediaPath):
         return self._shotgundb.uploadVersion(sgVersion, sMediaPath)
 

@@ -226,10 +226,14 @@ class BrowserContextMenu(BaseContextMenu):
         item = itemList[-1]
         drcEntry = item._metaobj
 
+        pubDir = drcEntry
         if isinstance(drcEntry, DrcFile):
-            privDir = drcEntry.parentDir().getHomonym("private")
+            pubDir = drcEntry.parentDir()
+
+        if drcEntry.isPrivate():
+            privDir = pubDir
         else:
-            privDir = drcEntry.getHomonym("private")
+            privDir = pubDir.getHomonym("private")
 
         if not privDir:
             confirmDialog(title='SORRY !',
@@ -253,15 +257,16 @@ class BrowserContextMenu(BaseContextMenu):
 
     def deleteDbNode(self, *itemList):
 
-        dbNodeList = []
+        entryList = []
         msg = ""
         for item in itemList:
-            dbNode = item._metaobj._dbnode
+            entry = item._metaobj
+            dbNode = entry._dbnode
             if dbNode:
                 r = dbNode.dataRepr("file")
                 r = re.sub(r"[\s{}]", "", r)
                 msg += (r + "\n")
-                dbNodeList.append(dbNode)
+                entryList.append(entry)
 
         sMsg = u'Are you sure you want to DELETE these db nodes:\n\n' + msg
 
@@ -277,8 +282,8 @@ class BrowserContextMenu(BaseContextMenu):
             logMsg("Cancelled !", warning=True)
             return
 
-        for dbNode in dbNodeList:
-            dbNode.delete()
+        for entry in entryList:
+            entry.deleteDbNode()
 
     def createNewAsset(self, *itemList):
 

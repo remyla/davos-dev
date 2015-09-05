@@ -9,7 +9,7 @@ from PySide.QtCore import QDir
 
 from pytd.gui.dialogs import confirmDialog
 
-from pytd.util.logutils import logMsg
+from pytd.util.logutils import logMsg#, forceLog
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
 from pytd.util.fsutils import pathRel, addEndSlash
@@ -27,7 +27,8 @@ from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
 from pytd.util.external import parse
-from pytd.util.sysutils import toStr, hostApp
+from pytd.util.sysutils import toStr, hostApp, getCaller
+#from davos.core.damtypes import DamEntity
 
 _COPY_PRIV_SPACE_MSG = """
 You have {0} version of '{1}':
@@ -253,7 +254,7 @@ class DrcEntry(DrcMetaObject):
     def getDbNode(self, create=False, fromDb=True):
         logMsg(log='all')
 
-        assert self.isPublic(), "File is NOT public !"
+        assert self.isPublic(), "File is NOT PUBLIC !"
 
         _cachedDbNodes = self.library._cachedDbNodes
 
@@ -282,7 +283,7 @@ class DrcEntry(DrcMetaObject):
     def findDbNode(self, useCache=True):
         logMsg(log='all')
 
-        assert self.isPublic(), "File is NOT public !"
+        assert self.isPublic(), "File is NOT PUBLIC !"
 
         if useCache:
             _cachedDbNodes = self.library._cachedDbNodes
@@ -303,7 +304,7 @@ class DrcEntry(DrcMetaObject):
 
     def createDbNode(self, useCache=True):
 
-        assert self.isPublic(), "File is NOT public !"
+        assert self.isPublic(), "File is NOT PUBLIC !"
 
         if useCache:
             _cachedDbNodes = self.library._cachedDbNodes
@@ -347,7 +348,7 @@ class DrcEntry(DrcMetaObject):
 
     def listChildDbNodes(self, sQuery="", **kwargs):
 
-        assert self.isPublic(), "File is NOT public !"
+        assert self.isPublic(), "File is NOT PUBLIC !"
 
         if kwargs.pop('recursive', False):
             sBaseQuery = u"file:/^{}/"
@@ -362,6 +363,23 @@ class DrcEntry(DrcMetaObject):
     def getDbCacheKey(self):
         p = self.relPath()
         return normCase(p)
+
+    def deleteDbNode(self):
+
+        _cachedDbNodes = self.library._cachedDbNodes
+
+        cacheKey = self.getDbCacheKey()
+        dbNode = _cachedDbNodes.get(cacheKey)
+        if not dbNode:
+            return True
+
+        if not dbNode.delete():
+            return False
+
+        del _cachedDbNodes[cacheKey]
+        self._dbnode = None
+
+        self.refresh()
 
     ''
     #=======================================================================
@@ -420,6 +438,7 @@ class DrcEntry(DrcMetaObject):
 
         return showPathInExplorer(sPath, isFile)
 
+    #@forceLog(log="debug")
     def _writeAllValues(self, propertyNames=None):
 
         sPropertyList = tuple(self.__class__._iterPropertyArg(propertyNames))
@@ -428,14 +447,14 @@ class DrcEntry(DrcMetaObject):
 
         sDbNodePrptySet = set(self.filterPropertyNames(sPropertyList,
                                                        accessor="_dbnode",
-                                                       stored=True))
+                                                       ))
 
+        logMsg("sDbNodePrptySet", sDbNodePrptySet, log='debug')
         sOtherPrptySet = set(sPropertyList) - sDbNodePrptySet
 
         logMsg("sOtherPrptySet", sOtherPrptySet, log='debug')
         DrcMetaObject._writeAllValues(self, propertyNames=sOtherPrptySet)
 
-        logMsg("sDbNodePrptySet", sDbNodePrptySet, log='debug')
         values = self.getStoredValues(sDbNodePrptySet)
 
         logMsg("Writing DbNode data:", values, self, log='debug')
@@ -811,7 +830,7 @@ class DrcFile(DrcEntry):
 
     def getPrivateFile(self, suffix="", weak=False):
 
-        assert self.isPublic(), "File is NOT public !"
+        assert self.isPublic(), "File is NOT PUBLIC !"
 
         pubDir = self.parentDir()
         privDir = pubDir.getHomonym('private', weak=weak)
@@ -873,7 +892,7 @@ class DrcFile(DrcEntry):
     def getPrivateDir(self):
 
         #assert self.isFile(), "File does NOT exist !"
-        assert self.isPublic(), "File is NOT public !"
+        assert self.isPublic(), "File is NOT PUBLIC !"
 
         pubDir = self.parentDir()
         privDir = pubDir.getHomonym("private")
@@ -931,61 +950,95 @@ class DrcFile(DrcEntry):
 
         privFile.publishAsserted = True
 
-    @setWaitCursor
-    def incrementVersion(self, srcFile, **kwargs):
+    def publishEditedFile(self, editFile, **kwargs):
 
-        if not srcFile.publishAsserted:
-            srcFile.publishAsserted = False
+        if not editFile.publishAsserted:
+            editFile.publishAsserted = False
             raise RuntimeError("DrcFile.ensureFilePublishable() has not been applied to {} !"
-                               .format(srcFile))
+                               .format(editFile))
+
+        sSrcFilePath = editFile.absPath()
+        return self.publishVersion(sSrcFilePath, **kwargs)
+
+    @setWaitCursor
+    def publishVersion(self, sSrcFilePath, **kwargs):
 
         bAutoUnlock = kwargs.pop("autoUnlock", True)
         bSaveSha1Key = kwargs.pop("saveSha1Key", False)
-
-        sSrcFilePath = srcFile.absPath()
 
         bDiffers, sSrcSha1Key = self.differsFrom(sSrcFilePath)
         if not bDiffers:
             logMsg("Skipping {0} increment: Files are identical.".format(self))
             return True
 
-        sgVersionInfo = None
+        sgVersion = None
+        newVersFile = None
 
         try:
-            sComment, iNextVers, _, sgVersionInfo = self.beginPublish(**kwargs)
-        except RuntimeError, e:
-            self.abortPublish(e, sgVersionInfo)
+            sComment, iNextVers, bSgVersion, sgTask = self.beginPublish(**kwargs)
+        except Exception, e:
+            self._abortPublish(e, newVersFile, sgVersion)
+            raise
+
+        try:
+            newVersFile = self._createVersionFile(sSrcFilePath, iNextVers, sComment,
+                                                  saveSha1Key=bSaveSha1Key,
+                                                  sha1Key=sSrcSha1Key)
+        except Exception, e:
+            self._abortPublish(e, newVersFile, sgVersion)
+            raise
+
+        if bSgVersion:
+            try:
+                sgVersion = newVersFile.createSgVersion(sgTask, sComment)
+                if not sgVersion:
+                    raise RuntimeError("")
+            except Exception, e:
+                sMsg = "Failed to create Shotgun Version:\n\n" + toStr(e)
+                sResult = confirmDialog(title='WARNING !',
+                                        message=sMsg,
+                                        button=["Continue", "Abort"],
+                                        defaultButton="Continue",
+                                        cancelButton="Abort",
+                                        dismissString="Abort",
+                                        icon="warning")
+                if sResult == "Abort":
+                    logMsg("Cancelled !", warning=True)
+                    return self._abortPublish(e, newVersFile, sgVersion)
+
+                sgVersion = None
+
+        try:
+            copyFile(sSrcFilePath, newVersFile.absPath())
+        except Exception, e:
+            self._abortPublish(e, newVersFile, sgVersion)
+            raise
+
+        prevVersFile = self.getVersionFile(self.currentVersion, weak=False)
+        try:
+            self.copyValuesFrom(newVersFile)
+        except Exception, e:
+            self._abortPublish(e, newVersFile, sgVersion)
             raise
 
         try:
             copyFile(sSrcFilePath, self.absPath())
         except Exception, e:
-            self.abortPublish(e, sgVersionInfo)
+            self.copyValuesFrom(prevVersFile)
+            self._abortPublish(e, newVersFile, sgVersion)
             raise
 
-        backupFile = None
-        #save the current version that will be incremented in endPublish
-        #in case we need to do a rollback caused by an Exception
-        iSavedVers = self.currentVersion
-        try:
-            backupFile = self.endPublish(sSrcFilePath, sComment,
-                                        saveSha1Key=bSaveSha1Key,
-                                        sha1Key=sSrcSha1Key,
-                                        autoUnlock=bAutoUnlock,
-                                        version=iNextVers)
-        except Exception, e:
-            self.abortPublish(e, sgVersionInfo)
-            self.rollBackToVersion(iSavedVers)
-            raise
+        self.restoreLockState(autoUnlock=bAutoUnlock, refresh=False)
+        self.refresh()
 
-        return backupFile, sgVersionInfo
+        return newVersFile, sgVersion
 
-    def beginPublish(self, comment="", autoLock=False, version=None, sgTask=None):
+    def beginPublish(self, comment="", autoLock=False, version=None, sgTask=None,
+                     checkLock=True):
         logMsg(log='all')
 
-        sComment = comment
-
-        self.ensureLocked(autoLock=autoLock)
+        if checkLock:
+            self.ensureLocked(autoLock=autoLock)
 
         iNextVers = (self.currentVersion + 1)
         if version is not None:
@@ -996,31 +1049,122 @@ class DrcFile(DrcEntry):
                         .format(self.currentVersion, version))
                 raise ValueError(sMsg)
 
+        bSgVersion = self.getParam('create_sg_version', False)
+        if bSgVersion:
+            if sgTask is None:
+                damEntity = self.getEntity(fail=True)
+                sSgStep = self.getParam('sg_step', "")
+                if not sSgStep:
+                    raise RuntimeError("No Shotgun Step defined for {}".format(self))
+
+                sgTask = damEntity.chooseSgTask(sSgStep)
+            elif isinstance(sgTask, dict):
+                if "entity" not in sgTask:
+                    raise ValueError("'sgTask' arg must contain an 'entity' key !")
+            else:
+                raise TypeError("'sgTask' arg must be {}. Got {}."
+                                .format(dict, type(sgTask)))
+
+        sComment = comment
         if not sComment:
             sComment = promptForComment(text=self.getPrpty("comment"))
 
-        # create first backup file if no version yet (usually a empty file)
+        # copy a first backup file if no version yet (usually a empty file)
         backupFile = None
         iCurVers = self.currentVersion
         if iCurVers == 0:
-            backupFile = self._weakBackupFile(0)
+            backupFile = self.getVersionFile(0, weak=True)
             if not backupFile.exists():
                 backupFile.createFromFile(self)
 
-        # create shotgun version
-        sgVersionInfo = None
-        bSgVersion = self.getParam('create_sg_version', False)
-        if bSgVersion:
-            damEntity = self.getEntity(fail=True)
-            sgVersionInfo = damEntity.createSgVersion(self, iNextVers, sComment,
-                                                      sgTask=sgTask)
-            print "sgVersionInfo", sgVersionInfo
-            if not sgVersionInfo:
-                raise RuntimeError("Could not create shotgun version !")
+        return sComment, iNextVers, bSgVersion, sgTask
 
-        return sComment, iNextVers, backupFile, sgVersionInfo
+    def _abortPublish(self, err, versionFile=None, sgVersion=None):
+
+        try:
+            if versionFile:
+                if versionFile._dbnode:
+                    print "delete dbnode of ", versionFile
+                    versionFile.deleteDbNode()
+
+                if versionFile.exists():
+                    os.remove(versionFile.absPath())
+
+            if sgVersion:
+                print "delete ", sgVersion
+                self.library.project._shotgundb.sg.delete(sgVersion['type'],
+                                                          sgVersion['id'])
+        finally:
+            self.restoreLockState()
+
+            sMsg = "Publishing aborted: {0}".format(toStr(err))
+            logMsg(sMsg , warning=True)
+
+        return versionFile, sgVersion
+
+    def _createVersionFile(self, sSrcFilePath, iVersion, sComment,
+                          saveSha1Key=False, sha1Key=""):
+
+        versionFile = self.getVersionFile(iVersion, weak=True)
+        sVersionPath = versionFile.absPath()
+        if versionFile.exists():
+            raise RuntimeError("Version file ALREADY exists:\n'{}'."
+                               .format(sVersionPath))
+
+        sLoggedUser = self.library.project.loggedUser().loginName
+
+        if saveSha1Key:
+            if not sha1Key:
+                sNewSha1Key = sha1HashFile(sSrcFilePath)
+            else:
+                sNewSha1Key = sha1Key
+
+            if sNewSha1Key:
+                versionFile.setPrpty("checksum", sNewSha1Key, write=False)
+
+        versionFile.setPrpty("comment", sComment, write=False)
+        versionFile.setPrpty("sourceFile", sSrcFilePath, write=False)
+        versionFile.setPrpty("author", sLoggedUser, write=False)
+        versionFile.setPrpty("currentVersion", iVersion, write=False)
+
+        versionFile.writeAllValues()
+
+        return versionFile
+
+    def getVersionFile(self, iVersion, weak=False):
+
+        sFilename = self.nameFromVersion(iVersion)
+        sFilePath = pathJoin(self.backupDirPath(), sFilename)
+
+        if weak:
+            return self.library._weakFile(sFilePath)
+        else:
+            return self.library.getEntry(sFilePath)
+
+    def createSgVersion(self, sgTask, comment=""):
+
+        assert self.isPublic(), 'File is NOT PUBLIC !'
+        assert versionFromName(self.name) is not None, "File is NOT a VERSION !"
+
+        proj = self.library.project
+
+        taskNameOrInfo = sgTask
+        entityNameOrInfo = sgTask.pop("entity")
+
+        sVersionName = osp.splitext(self.name)[0]
+        sComment = comment
+        if not comment:
+            sComment = self.comment
+
+        sgVersion = proj.createSgVersion(entityNameOrInfo,
+                                         sVersionName,
+                                         taskNameOrInfo,
+                                         sComment)
+        return sgVersion
 
     def ensureLocked(self, autoLock=False):
+
+        print getCaller(), "ensureLocked"
 
         sLockOwner = self.getLockOwner()
         if not autoLock:
@@ -1031,62 +1175,7 @@ class DrcFile(DrcEntry):
         if not self.setLocked(True, owner=sLockOwner):
             raise RuntimeError, "Could not lock the file !"
 
-    def endPublish(self, sSrcFilePath, sComment, autoUnlock=False,
-                   saveSha1Key=False, sha1Key="", version=None):
-
-        self.setPrpty("comment", sComment, write=False)
-
-        if saveSha1Key:
-            if not sha1Key:
-                sNewSha1Key = sha1HashFile(sSrcFilePath)
-            else:
-                sNewSha1Key = sha1Key
-
-            self.setPrpty("checksum", sNewSha1Key, write=False)
-
-        self.setPrpty("sourceFile", sSrcFilePath, write=False)
-
-        sLoggedUser = self.library.project.loggedUser().loginName
-        self.setPrpty("author", sLoggedUser, write=False)
-
-        iNxtVers = (self.currentVersion + 1) if version is None else version
-        self.setPrpty("currentVersion", iNxtVers, write=False)
-
-        self.writeAllValues()
-
-        backupFile = self.createBackupFile(iNxtVers)
-        if not backupFile:
-            raise RuntimeError, "Could not create backup file !"
-
-        self.restoreLockState(autoUnlock, refresh=False)
-        self.refresh()
-
-        return backupFile
-
-    def abortPublish(self, err, backupFile=None, sgVersionInfo=None):
-
-        try:
-            if backupFile:
-
-                sBkupFilePath = backupFile.absPath()
-                sCurFilePath = self.absPath()
-                bSameFiles = filecmp.cmp(sCurFilePath, sBkupFilePath, shallow=True)
-                if not bSameFiles:
-                    copyFile(sBkupFilePath, sCurFilePath)
-
-                backupFile.suppress()
-
-            if sgVersionInfo:
-                print "delete ", sgVersionInfo
-                self.library.project._shotgundb.sg.delete(sgVersionInfo['type'],
-                                                          sgVersionInfo['id'])
-        finally:
-            self.restoreLockState()
-
-            sMsg = "Publishing aborted: {0}".format(toStr(err))
-            logMsg(sMsg , warning=True)
-
-        return True
+        return sLockOwner
 
     def restoreLockState(self, autoUnlock=False, refresh=True):
         logMsg(log='all')
@@ -1113,58 +1202,6 @@ class DrcFile(DrcEntry):
 
         finally:
             self.__previousLock = "NoLockToRestore"
-
-    def createBackupFile(self, version):
-
-        backupFile = self._weakBackupFile(version)
-        if backupFile.exists():
-            raise RuntimeError("Backup file ALREADY exists: \n\t> '{}'"
-                               .format(backupFile.absPath()))
-
-        backupFile.createFromFile(self)
-        backupFile.copyValuesFrom(self)
-
-        return backupFile
-
-    def rollBackToVersion(self, version):
-
-        sMsg = "Rolling back to version: {}".format(version)
-        logMsg(sMsg , warning=True)
-
-        prevBackupFile = self._weakBackupFile(version)
-        if not prevBackupFile.exists():
-            raise RuntimeError("Rollback file does NOT exists: \n\t> '{}'"
-                               .format(prevBackupFile.absPath()))
-
-        sCurFilePath = self.absPath()
-        _, bCopied = copyFile(prevBackupFile.absPath(), sCurFilePath)
-        if not bCopied:
-            raise RuntimeError("Rollback File could not be copied: \n\t> '{}'"
-                               .format(sCurFilePath))
-
-        curBackupFile = self._weakBackupFile(self.currentVersion)
-        if not curBackupFile.exists():
-            raise RuntimeError("Current backup file does NOT exists: \n\t> '{}'"
-                               .format(curBackupFile.absPath()))
-
-        try:
-            self.copyValuesFrom(prevBackupFile)
-        finally:
-
-            if curBackupFile._dbnode:
-                print "delete dbnode of ", self
-                curBackupFile._dbnode.delete()
-
-            sOldPath = curBackupFile.absPath()
-            sNewPath = pathSuffixed(sOldPath, "-canceled")
-            os.rename(sOldPath, sNewPath)
-
-            curBackupFile.refresh(dbNode=False)
-
-        if version == 0 and self._dbnode:
-            self._dbnode.delete()
-
-        return True
 
     def createFromFile(self, srcFile):
 
@@ -1202,6 +1239,9 @@ class DrcFile(DrcEntry):
             sLockOwner = kwargs.get("owner", "NoEntry")
             if sLockOwner == "NoEntry":
                 sLockOwner = self.getLockOwner()
+
+            if (not bLock) and (not sLockOwner):
+                return True
 
             sLoggedUser = self.library.project.loggedUser(force=True).loginName
 
@@ -1260,13 +1300,6 @@ class DrcFile(DrcEntry):
 
     def relToAbsPath(self, sRelPath):
         raise NotImplementedError('Not applicable to a File')
-
-    def _weakBackupFile(self, version):
-
-        sBkupFilename = self.nameFromVersion(version)
-        sBkupFilePath = pathJoin(self.backupDirPath(), sBkupFilename)
-
-        return self.library._weakFile(sBkupFilePath)
 
     def __warnAlreadyLocked(self, sLockOwner, **kwargs):
         sMsg = u'{1}\n\n{2:^{0}}\n\n{3:^{0}}'.format(len(self.name) + 2,
