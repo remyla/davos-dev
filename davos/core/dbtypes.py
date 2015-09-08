@@ -250,7 +250,7 @@ class DbNode(object):
         cls = self.__class__
 
         try:
-            sRepr = ("{}('{}')".format(cls.__name__, getattr(self, "name", self.id_)))
+            sRepr = ("{}({})".format(cls.__name__, getattr(self, "name", self.id_)))
         except AttributeError:
             sRepr = cls.__name__
 

@@ -119,14 +119,15 @@ class DrcEntry(DrcMetaObject):
         logMsg('Refreshing : {0}'.format(self), log='debug')
 
         bDbNode = kwargs.get("dbNode", True)
-        bChildren = kwargs.get("children", False)
-        parent = kwargs.get("parent", None)
-        bNaive = kwargs.get("naive", False)
+        bSimple = kwargs.get("simple", False)
 
         fileInfo = self._qfileinfo
-        if bNaive:
+        if bSimple:
             self.loadData(fileInfo, dbNode=bDbNode)
-            return True
+            return
+
+        bChildren = kwargs.get("children", False)
+        parent = kwargs.get("parent", None)
 
         if not fileInfo.exists():
             self._forget(parent=parent, recursive=True)
@@ -150,7 +151,6 @@ class DrcEntry(DrcMetaObject):
                 for child in oldChildren:
                     child.refresh(children=False, parent=self, dbNode=False)
 
-        return True
 
     def isPublic(self):
         return self.library.space == "public"
@@ -279,11 +279,11 @@ class DrcEntry(DrcMetaObject):
                 self.__cacheDbNode(dbnode)
 
         else:
-            logMsg(u"DbNode already exists: '{}'".format(dbnode.file),
-                   warning=True)
+            msg = u"{} already exists: '{}' !".format(dbnode, dbnode.file)
+            raise RuntimeError(msg)
 
-            if data:
-                dbnode.setData(data)
+#            logMsg(u"DbNode already exists: '{}'".format(dbnode.file),
+#                   warning=True)
 
         return dbnode, bCreated
 
@@ -323,7 +323,7 @@ class DrcEntry(DrcMetaObject):
 
         logMsg(u"loading: '{}'".format(cacheKey), log='debug')
         dbNodesCache[cacheKey] = dbnode
-        self.refresh(naive=True)
+        self.refresh(simple=True)
 
 
     @timer
@@ -367,8 +367,6 @@ class DrcEntry(DrcMetaObject):
 
     def deleteDbNode(self):
 
-        print "deleting dbnode of", self
-
         cachedDbNodes = self.library._cachedDbNodes
 
         cacheKey = self.getDbCacheKey()
@@ -379,10 +377,11 @@ class DrcEntry(DrcMetaObject):
         if not dbNode.delete():
             return False
 
+        print u"delete DbNode of", self
         del cachedDbNodes[cacheKey]
         self._dbnode = None
 
-        self.refresh(naive=True)
+        self.refresh(simple=True)
 
     ''
     #=======================================================================
@@ -1105,7 +1104,6 @@ class DrcFile(DrcEntry):
         try:
             if versionFile:
                 if versionFile._dbnode:
-                    print "delete dbnode of ", versionFile
                     versionFile.deleteDbNode()
 
                 if versionFile.exists():
