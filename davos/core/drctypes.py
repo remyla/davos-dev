@@ -9,7 +9,7 @@ from PySide.QtCore import QDir
 
 from pytd.gui.dialogs import confirmDialog
 
-from pytd.util.logutils import logMsg#, forceLog
+from pytd.util.logutils import logMsg, forceLog
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
 from pytd.util.fsutils import pathRel, addEndSlash
@@ -27,7 +27,8 @@ from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
 from pytd.util.external import parse
-from pytd.util.sysutils import toStr, hostApp, getCaller
+from pytd.util.sysutils import toStr, hostApp#, getCaller
+from pytd.util.sysutils import toTimestamp
 #from davos.core.damtypes import DamEntity
 
 _COPY_PRIV_SPACE_MSG = """
@@ -113,15 +114,20 @@ class DrcEntry(DrcMetaObject):
         logMsg(log="all")
 
         if self._writingValues_:
-            return
+            return True
 
         logMsg('Refreshing : {0}'.format(self), log='debug')
 
         bDbNode = kwargs.get("dbNode", True)
         bChildren = kwargs.get("children", False)
         parent = kwargs.get("parent", None)
+        bNaive = kwargs.get("naive", False)
 
         fileInfo = self._qfileinfo
+        if bNaive:
+            self.loadData(fileInfo, dbNode=bDbNode)
+            return True
+
         if not fileInfo.exists():
             self._forget(parent=parent, recursive=True)
         else:
@@ -143,6 +149,8 @@ class DrcEntry(DrcMetaObject):
 
                 for child in oldChildren:
                     child.refresh(children=False, parent=self, dbNode=False)
+
+        return True
 
     def isPublic(self):
         return self.library.space == "public"
@@ -205,8 +213,6 @@ class DrcEntry(DrcMetaObject):
         sLibPath = lib.absPath()
         sProjDmsPath = lib.project.getVar("project", "damas_root_path")
         sLibDmsPath = pathJoin(sProjDmsPath, lib.name)
-        if lib.name == "undefined":
-            print "undefined", self
         p = re.sub('^' + sLibPath, sLibDmsPath, self.absPath())
         return normCase(p)
 
@@ -250,92 +256,87 @@ class DrcEntry(DrcMetaObject):
     # Database related methods
     #=======================================================================
 
+    def createDbNode(self, data=None, check=True):
+
+        assert self.isPublic(), "File is NOT PUBLIC !"
+
+        bCreated = False
+        dbnode = None
+
+        if check:
+            dbnode = self.getDbNode()
+
+        if not dbnode:
+
+            if data is None:
+                data = {}
+
+            data.update({"file":self.damasPath()})
+
+            dbnode = self.library._db.createNode(data)
+            if dbnode:
+                bCreated = True
+                self.__cacheDbNode(dbnode)
+
+        else:
+            logMsg(u"DbNode already exists: '{}'".format(dbnode.file),
+                   warning=True)
+
+            if data:
+                dbnode.setData(data)
+
+        return dbnode, bCreated
+
     #@timer
-    def getDbNode(self, create=False, fromDb=True):
+    def getDbNode(self, fromDb=True):
         logMsg(log='all')
 
         assert self.isPublic(), "File is NOT PUBLIC !"
 
-        _cachedDbNodes = self.library._cachedDbNodes
-
+        cachedDbNodes = self.library._cachedDbNodes
         cacheKey = self.getDbCacheKey()
-        dbnode = _cachedDbNodes.get(cacheKey)
+
+        dbnode = cachedDbNodes.get(cacheKey)
         if dbnode:
             logMsg(u"got from CACHE: '{}'".format(cacheKey), log='debug')
-            return dbnode
         elif fromDb:
-            dbnode = self.findDbNode(useCache=False)
+            sQuery = u"file:{}".format(self.damasPath())
+    #        print "finding DbNode:", sQuery
+            dbnode = self.library._db.findOne(sQuery)
+    #        print "    - got:", dbnode
             if dbnode:
                 logMsg(u"got from DB: '{}'".format(cacheKey), log='debug')
+                self.__cacheDbNode(dbnode, cachedDbNodes, cacheKey)
 
-        if (not dbnode) and create:
-            dbnode = self.createDbNode(useCache=False)
-            logMsg(u"just created: '{}'".format(cacheKey), log='debug')
-
-        if dbnode:
-            logMsg(u"loading: '{}'".format(cacheKey), log='debug')
-            _cachedDbNodes[cacheKey] = dbnode
-        else:
-            logMsg(u"not such dbnode: '{}'".format(cacheKey), log='debug')
-
-        return dbnode
-
-    def findDbNode(self, useCache=True):
-        logMsg(log='all')
-
-        assert self.isPublic(), "File is NOT PUBLIC !"
-
-        if useCache:
-            _cachedDbNodes = self.library._cachedDbNodes
-            cacheKey = self.getDbCacheKey()
-            if cacheKey in _cachedDbNodes:
-                return _cachedDbNodes[cacheKey]
-
-        sQuery = u"file:{}".format(self.damasPath())
-#        print "finding DbNode:", sQuery
-        dbnode = self.library._db.findOne(sQuery)
-#        print "    - got:", dbnode
-
-        if useCache and dbnode:
-            logMsg(u"loading DbNode: {}".format(cacheKey), log='debug')
-            _cachedDbNodes[cacheKey] = dbnode
-
-        return dbnode
-
-    def createDbNode(self, useCache=True):
-
-        assert self.isPublic(), "File is NOT PUBLIC !"
-
-        if useCache:
-            _cachedDbNodes = self.library._cachedDbNodes
-            cacheKey = self.getDbCacheKey()
-            if cacheKey in _cachedDbNodes:
-                return _cachedDbNodes[cacheKey]
-
-        dbnode = self.findDbNode(useCache=False)
         if not dbnode:
-            data = {"file":self.damasPath()}
-            dbnode = self.library._db.createNode(data)
-        else:
-            print u"DbNode already created: '{}'".format(dbnode.file)
-
-        if useCache and dbnode:
-            logMsg(u"loading DbNode: {}".format(cacheKey), log='debug')
-            _cachedDbNodes[cacheKey] = dbnode
+            logMsg(u"no such dbnode: '{}'".format(cacheKey), log='debug')
 
         return dbnode
+
+    def __cacheDbNode(self, dbnode, dbNodesCache=None, cacheKey=None):
+
+        if dbNodesCache is None:
+            dbNodesCache = self.library._cachedDbNodes
+
+        if cacheKey is None:
+            cacheKey = self.getDbCacheKey()
+
+        logMsg(u"loading: '{}'".format(cacheKey), log='debug')
+        dbNodesCache[cacheKey] = dbnode
+        self.refresh(naive=True)
+
 
     @timer
     def loadChildDbNodes(self):
 
-        _cachedDbNodes = self.library._cachedDbNodes
+        cachedDbNodes = self.library._cachedDbNodes
 
         for dbnode in self.listChildDbNodes():
 
             sDamasPath = dbnode.getField("file")
 
             cacheKey = self.damasToRelPath(sDamasPath)
-            cachedNode = _cachedDbNodes.get(cacheKey)
+            cachedNode = cachedDbNodes.get(cacheKey)
             if cachedNode:
 #                print "-----------------"
 #                print "cachedNode", cacheKey
@@ -344,7 +345,7 @@ class DrcEntry(DrcMetaObject):
                 cachedNode.refresh(dbnode._data)
             else:
                 logMsg(u"loading: {}".format(cacheKey), log='debug')
-                _cachedDbNodes[cacheKey] = dbnode
+                cachedDbNodes[cacheKey] = dbnode
 
     def listChildDbNodes(self, sQuery="", **kwargs):
 
@@ -366,20 +367,22 @@ class DrcEntry(DrcMetaObject):
 
     def deleteDbNode(self):
 
-        _cachedDbNodes = self.library._cachedDbNodes
+        print "deleting dbnode of", self
+
+        cachedDbNodes = self.library._cachedDbNodes
 
         cacheKey = self.getDbCacheKey()
-        dbNode = _cachedDbNodes.get(cacheKey)
+        dbNode = cachedDbNodes.get(cacheKey)
         if not dbNode:
             return True
 
         if not dbNode.delete():
             return False
 
-        del _cachedDbNodes[cacheKey]
+        del cachedDbNodes[cacheKey]
         self._dbnode = None
 
-        self.refresh()
+        self.refresh(naive=True)
 
     ''
     #=======================================================================
@@ -438,7 +441,7 @@ class DrcEntry(DrcMetaObject):
 
         return showPathInExplorer(sPath, isFile)
 
-    #@forceLog(log="debug")
+    '@forceLog(log="debug")'
     def _writeAllValues(self, propertyNames=None):
 
         sPropertyList = tuple(self.__class__._iterPropertyArg(propertyNames))
@@ -455,10 +458,16 @@ class DrcEntry(DrcMetaObject):
         logMsg("sOtherPrptySet", sOtherPrptySet, log='debug')
         DrcMetaObject._writeAllValues(self, propertyNames=sOtherPrptySet)
 
-        values = self.getStoredValues(sDbNodePrptySet)
+        data = self.dataToStore(sDbNodePrptySet)
 
-        logMsg("Writing DbNode data:", values, self, log='debug')
-        self.getDbNode(create=True).setData(values)
+        logMsg("Writing DbNode data:", data, self, log='debug')
+
+        dbnode = self.getDbNode()
+        if not dbnode:
+            self.createDbNode(data, check=False)
+        else:
+            return dbnode.setData(data)
+
 
     def _remember(self):
 
@@ -974,12 +983,14 @@ class DrcFile(DrcEntry):
         sgVersion = None
         newVersFile = None
 
+        # first, get all needed data from user or inputs
         try:
             sComment, iNextVers, bSgVersion, sgTask = self.beginPublish(**kwargs)
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
             raise
 
+        # create version file's DbNode and DrcFile.
         try:
             newVersFile = self._createVersionFile(sSrcFilePath, iNextVers, sComment,
                                                   saveSha1Key=bSaveSha1Key,
@@ -988,6 +999,7 @@ class DrcFile(DrcEntry):
             self._abortPublish(e, newVersFile, sgVersion)
             raise
 
+        # create shotgun version if possible else warn the user.
         if bSgVersion:
             try:
                 sgVersion = newVersFile.createSgVersion(sgTask, sComment)
@@ -1008,12 +1020,18 @@ class DrcFile(DrcEntry):
 
                 sgVersion = None
 
+
+        #iPrevMtime = osp.getmtime(sSrcFilePath)
+        # copy source file as new version file
         try:
+            iUtcStamp = toTimestamp(newVersFile.dbMtime)
+            os.utime(sSrcFilePath, (iUtcStamp, iUtcStamp))
             copyFile(sSrcFilePath, newVersFile.absPath())
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
             raise
 
+        # copy metadata from version file to head file
         prevVersFile = self.getVersionFile(self.currentVersion, weak=False)
         try:
             self.copyValuesFrom(newVersFile)
@@ -1021,12 +1039,15 @@ class DrcFile(DrcEntry):
             self._abortPublish(e, newVersFile, sgVersion)
             raise
 
+        # copy source file over head file
         try:
             copyFile(sSrcFilePath, self.absPath())
         except Exception, e:
             self.copyValuesFrom(prevVersFile)
             self._abortPublish(e, newVersFile, sgVersion)
             raise
+
+        #os.utime(sSrcFilePath, (iPrevMtime, iPrevMtime))
 
         self.restoreLockState(autoUnlock=bAutoUnlock, refresh=False)
         self.refresh()
@@ -1127,7 +1148,10 @@ class DrcFile(DrcEntry):
         versionFile.setPrpty("author", sLoggedUser, write=False)
         versionFile.setPrpty("currentVersion", iVersion, write=False)
 
-        versionFile.writeAllValues()
+        sPropertyList = ("checksum", "comment", "sourceFile", "author",
+                         "currentVersion",)
+        data = versionFile.dataToStore(sPropertyList)
+        versionFile.createDbNode(data)
 
         return versionFile
 
@@ -1164,7 +1188,7 @@ class DrcFile(DrcEntry):
 
     def ensureLocked(self, autoLock=False):
 
-        print getCaller(), "ensureLocked"
+        #print getCaller(), "ensureLocked"
 
         sLockOwner = self.getLockOwner()
         if not autoLock:
