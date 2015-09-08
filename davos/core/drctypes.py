@@ -632,6 +632,8 @@ class DrcFile(DrcEntry):
     def edit(self, openFile=False, existing=""):
         logMsg(log='all')
 
+        self._assertEditable()
+
         privFile = None
 
         if not self.setLocked(True):
@@ -670,8 +672,29 @@ class DrcFile(DrcEntry):
 
         return privDir.library.getEntry(sSrcFilePath)
 
-    def isEditable(self):
-        return self.getParam("editable", True)
+    def _assertEditable(self):
+
+        self.refresh()
+
+        if not self.getParam("editable", True):
+            raise AssertionError("File is NOT EDITABLE !")
+
+        if not self.isUpToDate():
+            raise AssertionError("File is NOT UP-TO-DATE !")
+
+
+    def isUpToDate(self):
+
+        if not self.currentVersion:
+            return True
+
+        if not self.dbMtime:
+            return True
+
+        if self.dbMtime <= self.fsMtime:
+            return True
+
+        return False
 
     def iterEditedOutcomeFiles(self):
 
