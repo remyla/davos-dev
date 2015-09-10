@@ -214,13 +214,7 @@ class DrcEntry(DrcMetaObject):
         sProjDmsPath = lib.project.getVar("project", "damas_root_path")
         sLibDmsPath = pathJoin(sProjDmsPath, lib.name)
         p = re.sub('^' + sLibPath, sLibDmsPath, self.absPath())
-        return normCase(p)
-
-    def damasToRelPath(self, sDamasPath):
-        p = sDamasPath
-        bHasEndSlash = (p.endswith('/') or p.endswith('\\'))
-        sRelPath = pathRel(sDamasPath, self.library.damasPath())
-        return addEndSlash(sRelPath) if bHasEndSlash else sRelPath
+        return p
 
     def imagePath(self):
         return ''
@@ -300,7 +294,7 @@ class DrcEntry(DrcMetaObject):
         if dbnode:
             logMsg(u"got from CACHE: '{}'".format(cacheKey), log='debug')
         elif fromDb:
-            sQuery = u"file:{}".format(self.damasPath())
+            sQuery = u"file:/^{}$/i".format(self.damasPath())
     #        print "finding DbNode:", sQuery
             dbnode = self.library._db.findOne(sQuery)
     #        print "    - got:", dbnode
@@ -325,17 +319,17 @@ class DrcEntry(DrcMetaObject):
         dbNodesCache[cacheKey] = dbnode
         self.refresh(simple=True)
 
-
     @timer
     def loadChildDbNodes(self):
 
-        cachedDbNodes = self.library._cachedDbNodes
+        library = self.library
+        cachedDbNodes = library._cachedDbNodes
 
         for dbnode in self.listChildDbNodes():
 
             sDamasPath = dbnode.getField("file")
 
-            cacheKey = self.damasToRelPath(sDamasPath)
+            cacheKey = normCase(library.damasToRelPath(sDamasPath))
             cachedNode = cachedDbNodes.get(cacheKey)
             if cachedNode:
 #                print "-----------------"
@@ -352,9 +346,9 @@ class DrcEntry(DrcMetaObject):
         assert self.isPublic(), "File is NOT PUBLIC !"
 
         if kwargs.pop('recursive', False):
-            sBaseQuery = u"file:/^{}/"
+            sBaseQuery = u"file:/^{}/i"
         else:
-            sBaseQuery = u"file:/^{}[^/]*$/"
+            sBaseQuery = u"file:/^{}[^/]*$/i"
 
         sBaseQuery = sBaseQuery.format(self.damasPath())
         sFullQuery = " ".join((sBaseQuery, sQuery))

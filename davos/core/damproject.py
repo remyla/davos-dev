@@ -308,12 +308,34 @@ class DamProject(object):
 
         return drcLib.getEntry(sEntryPath, **kwargs)
 
-    def libraryFromPath(self, sEntryPath):
+    def entryFromDbNode(self, dbnode, **kwargs):
 
-        sPath = pathNorm(sEntryPath)
+        sDbPath = dbnode.getField('file')
+        drcLib = self.libraryFromDbPath(sDbPath)
+        return drcLib.entryFromDbPath(sDbPath, **kwargs)
+
+    def libraryFromDbPath(self, sDbPath):
 
         for drcLib in self.loadedLibraries.itervalues():
-            if drcLib.contains(sPath):
+
+            if not drcLib.isPublic():
+                continue
+
+            try:
+                drcLib.damasToAbsPath(sDbPath)
+            except RuntimeError:
+                continue
+
+            return drcLib
+
+        return None
+
+    def libraryFromPath(self, sEntryPath):
+
+        p = pathNorm(sEntryPath)
+
+        for drcLib in self.loadedLibraries.itervalues():
+            if drcLib.contains(p):
                 return drcLib
 
         return None
@@ -507,7 +529,7 @@ class DamProject(object):
 
     def findDbNodes(self, sQuery="", **kwargs):
 
-        sBaseQuery = u"file:/^{}/"
+        sBaseQuery = u"file:/^{}/i"
 
         sDamasPath = self.getVar("project", "damas_root_path")
         sBaseQuery = sBaseQuery.format(sDamasPath)
@@ -666,7 +688,6 @@ class DamProject(object):
         print "connecting to shotgun..."
 
         self._shotgundb = cls(self.name)
-
 
     def __initDamas(self):
 

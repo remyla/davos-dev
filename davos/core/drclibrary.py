@@ -1,5 +1,6 @@
 
 import os.path as osp
+import re
 
 from PySide.QtCore import QFileInfo
 
@@ -8,6 +9,7 @@ from pytd.util.logutils import logMsg
 from pytd.util.sysutils import listClassesFromModule, getCaller
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathNorm, normCase, pathSplitDirs, pathJoin
+from pytd.util.fsutils import pathRel, addEndSlash
 from pytd.util import sysutils
 
 from . import drctypes
@@ -67,6 +69,15 @@ class DrcLibrary(DrcEntry):
     def listUiClasses():
         return sorted((cls for (_, cls) in listClassesFromModule(drctypes.__name__)
                             if hasattr(cls, "classUiPriority")), key=lambda c: c.classUiPriority)
+
+    def entryFromDbPath(self, sDamasPath, **kwargs):
+        bWeak = kwargs.pop("weak", False)
+
+        sEntryPath = self.damasToRelPath(sDamasPath)
+        if bWeak:
+            return self._weakFile(sEntryPath, **kwargs)
+        else:
+            return self.getEntry(sEntryPath, **kwargs)
 
     def getEntry(self, pathOrInfo, weak=False, drcType=None, dbNode=True):
         logMsg(log="all")
@@ -133,6 +144,24 @@ class DrcLibrary(DrcEntry):
         sAlignedPath = pathJoin(*sPathDirs[:numDirs])
 
         return sAlignedPath == sLibPath
+
+    def damasToAbsPath(self, sDamasPath):
+
+        sLibPath = self.absPath()
+        sLibDmsPath = self.damasPath()
+        sAbsPath = re.sub('^' + sLibDmsPath, sLibPath, sDamasPath)
+
+        if sDamasPath == sAbsPath:
+            raise RuntimeError("{} could not convert damas path to absolute: '{}'"
+                               .format(self, sDamasPath))
+
+        return sAbsPath
+
+    def damasToRelPath(self, sDamasPath):
+        p = sDamasPath
+        bHasEndSlash = (p.endswith('/') or p.endswith('\\'))
+        sRelPath = pathRel(sDamasPath, self.damasPath())
+        return addEndSlash(sRelPath) if bHasEndSlash else sRelPath
 
     def getHomonym(self, sSpace):
 

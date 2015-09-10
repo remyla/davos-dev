@@ -1,30 +1,15 @@
 
 import sys
 import os
-import re
+osp = os.path
 import csv
 
 from PySide import QtGui
 
 from pytd.util.sysutils import toStr
 from davos.core.damtypes import DamAsset
+from pytd.util.strutils import assertChars
 
-osp = os.path
-
-def assertStr(sWord, sRegexp, **kwargs):
-
-    sErrorMsg = ""
-
-    sInvalidChars = re.sub(sRegexp, "", sWord)
-    if sInvalidChars:
-
-        sInvalidChars = ", ".join("'{0}'".format(toStr(c)) for c in set(sInvalidChars))
-        sErrorMsg += ('\t- contains invalid characters: {0}\n\n'
-                      .format(sInvalidChars.replace("' '", "'space'")))
-
-    if sErrorMsg:
-        sErrorMsg = 'Invalid string: "{0}"\n'.format(toStr(sWord)) + sErrorMsg
-        raise AssertionError, sErrorMsg
 
 def createAssetDirectories(proj, sCsvFilePath, **kwargs):
 
@@ -75,7 +60,7 @@ def createAssetDirectories(proj, sCsvFilePath, **kwargs):
             sAstNameList.append(sAstName)
 
             try:
-                assertStr(sAstName, r'[\w]')
+                assertChars(sAstName, r'[\w]')
             except AssertionError, e1:
                 sErrorList.append(toStr(e1))
                 continue
@@ -90,7 +75,7 @@ def createAssetDirectories(proj, sCsvFilePath, **kwargs):
             damAstList.append(damAst)
 
         if sErrorList:
-            raise AssertionError, "\n".join(sErrorList)
+            raise RuntimeError("\n".join(sErrorList))
 
     count = 0
     for damAst in damAstList:

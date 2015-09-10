@@ -52,7 +52,9 @@ class DrcDb(object):
             return None
 
         if len(ids) > 1:
-            raise ValueError("Several nodes found: {}".format(ids))
+            for n in self.readNodes(ids):
+                n.logData()
+            raise ValueError("Several nodes found for '{}'.".format(sQuery))
         else:
             nodeId = ids[0]
             recs = self.read(nodeId)

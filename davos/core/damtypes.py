@@ -6,7 +6,7 @@ from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
 from pytd.util.fsutils import normCase
 from pytd.util.external import parse
 from pytd.util.sysutils import isQtApp
-
+from pytd.util.strutils import assertChars
 
 
 class DamUser(object):
@@ -49,6 +49,7 @@ class DamEntity(object):
                     raise ValueError(msg.format(sParentAttr, sParsedName, sParentName))
 
         for k, v in nameParse.named.iteritems():
+            assertChars(v, r"[a-zA-Z0-9]")
             setattr(self, k, v)
 
     def getResource(self, sSpace, sRcName="entity_dir", default="NoEntry", **kwargs):
