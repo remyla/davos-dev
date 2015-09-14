@@ -9,7 +9,7 @@ from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs, pathParse
 from pytd.util.strutils import findFields
 from pytd.util import sysutils
-from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp
+from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp, updEnv
 from pytd.gui.dialogs import confirmDialog
 from pytd.util.qtutils import setWaitCursor
 
@@ -51,9 +51,7 @@ class DamProject(object):
 
         proj = object.__new__(cls)
 
-        proj.reset()
         proj.name = sProjectName
-
         libClass = DrcLibrary
         if hostApp() == "maya":
             try:
@@ -64,6 +62,8 @@ class DamProject(object):
                 libClass = MrcLibrary
 
         proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
+
+        proj.reset()
 
         if kwargs.pop("empty", False):
             return proj
@@ -87,19 +87,20 @@ class DamProject(object):
         self.authenticated = False
         self.loadedLibraries = {}
 
-    def init(self, **kwargs):
-        logMsg(log='all')
-
-        self.reset()
-
         try:
             self._confobj = PyConfParser(getConfigModule(self.name))
         except ImportError, msg:
-            if kwargs.pop("warn", True):
-                logMsg(msg , warning=True)
+            #if kwargs.pop("warn", True):
+            logMsg(msg , warning=True)
             return False
 
         self.__confLibraries = self.getVar("project", "libraries")
+
+    def init(self):
+        logMsg(log='all')
+
+        self.reset()
+        self.loadEnvVars()
 
         sMissingPathList = []
         self._checkTemplatePaths(sMissingPathList)
@@ -184,6 +185,17 @@ class DamProject(object):
 
             drcLib.addModelRow()
 
+    def loadEnvVars(self):
+
+        print "\nLoading davos environment:"
+
+        for sSpace, sLibName in self._iterConfigLibraries():
+
+            sEnvVars = self.getVar(sLibName, sSpace + "_path_envars", default=())
+
+            for sVar in sEnvVars:
+                updEnv(sVar, self.getPath(sSpace, sLibName), conflict="keep")
+
     def getLibrary(self, sSpace, sLibName):
         logMsg(log='all')
 
@@ -217,7 +229,6 @@ class DamProject(object):
             except AttributeError:
                 if default != "NoEntry":
                     return default
-
                 raise
 
         if kwargs.get("resEnvs", True):

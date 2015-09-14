@@ -173,8 +173,6 @@ class DrcLibrary(DrcEntry):
     def getVar(self, sVarName, default="NoEntry", **kwargs):
         return self.project.getVar(self.libName, sVarName, default=default, **kwargs)
 
-    def getConfPath(self, pathVar="", tokens=None):
-        return self.project.getPath(self.space, self.libName, pathVar, tokens)
 
     def hasChildren(self):
         return True
