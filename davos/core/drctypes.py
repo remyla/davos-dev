@@ -9,10 +9,10 @@ from PySide.QtCore import QDir
 
 from pytd.gui.dialogs import confirmDialog
 
-from pytd.util.logutils import logMsg, forceLog
+from pytd.util.logutils import logMsg
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
-from pytd.util.fsutils import pathRelativeTo, addEndSlash
+from pytd.util.fsutils import addEndSlash
 from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
