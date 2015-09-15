@@ -12,7 +12,7 @@ from pytd.gui.dialogs import confirmDialog
 from pytd.util.logutils import logMsg, forceLog
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
-from pytd.util.fsutils import pathRel, addEndSlash
+from pytd.util.fsutils import pathRelativeTo, addEndSlash
 from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
@@ -202,11 +202,8 @@ class DrcEntry(DrcMetaObject):
     def relPath(self):
         return self.library.absToRelPath(self.absPath())
 
-    def absToRelPath(self, sAbsPath):
-        return pathRel(sAbsPath, self.absPath())
-
-    def relToAbsPath(self, sRelPath):
-        return pathJoin(self.absPath(), sRelPath)
+    def envPath(self):
+        return self.library.absToEnvPath(self.absPath())
 
     def damasPath(self):
         lib = self.library

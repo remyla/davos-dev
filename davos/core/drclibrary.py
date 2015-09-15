@@ -1,4 +1,5 @@
 
+import os
 import os.path as osp
 import re
 
@@ -9,7 +10,7 @@ from pytd.util.logutils import logMsg
 from pytd.util.sysutils import listClassesFromModule, getCaller
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathNorm, normCase, pathSplitDirs, pathJoin
-from pytd.util.fsutils import pathRel, addEndSlash
+from pytd.util.fsutils import pathRelativeTo, addEndSlash
 from pytd.util import sysutils
 
 from . import drctypes
@@ -145,6 +146,27 @@ class DrcLibrary(DrcEntry):
 
         return sAlignedPath == sLibPath
 
+    def absToRelPath(self, sAbsPath):
+        return pathRelativeTo(sAbsPath, self.absPath())
+
+    def relToAbsPath(self, sRelPath):
+        return pathJoin(self.absPath(), sRelPath)
+
+    def absToEnvPath(self, sAbsPath, envVar="NoEntry"):
+
+        if envVar == "NoEntry":
+            sEnvVars = self.getVar(self.space + "_path_envars", default=None)
+            if not sEnvVars:
+                raise RuntimeError("No Env. variables configured for {}", self)
+            sEnvVar = sEnvVars[0]
+        else:
+            sEnvVar = envVar
+
+        if sEnvVar not in os.environ:
+            raise EnvironmentError("No such env. variable: '{}'".format(sEnvVar))
+
+        return re.sub('^' + self.absPath(), "$" + sEnvVar, sAbsPath)
+
     def damasToAbsPath(self, sDamasPath):
 
         sLibPath = self.absPath()
@@ -158,9 +180,10 @@ class DrcLibrary(DrcEntry):
         return sAbsPath
 
     def damasToRelPath(self, sDamasPath):
+
         p = sDamasPath
         bHasEndSlash = (p.endswith('/') or p.endswith('\\'))
-        sRelPath = pathRel(sDamasPath, self.damasPath())
+        sRelPath = pathRelativeTo(sDamasPath, self.damasPath())
         return addEndSlash(sRelPath) if bHasEndSlash else sRelPath
 
     def getHomonym(self, sSpace):
@@ -172,7 +195,6 @@ class DrcLibrary(DrcEntry):
 
     def getVar(self, sVarName, default="NoEntry", **kwargs):
         return self.project.getVar(self.libName, sVarName, default=default, **kwargs)
-
 
     def hasChildren(self):
         return True

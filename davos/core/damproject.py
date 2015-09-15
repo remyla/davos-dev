@@ -187,7 +187,7 @@ class DamProject(object):
 
     def loadEnvVars(self):
 
-        print "\nLoading davos environment:"
+        print "\nLoading project environment:"
 
         for sSpace, sLibName in self._iterConfigLibraries():
 
@@ -216,12 +216,9 @@ class DamProject(object):
 
     def getPath(self, sSpace, sSection, pathVar="", tokens=None, default="NoEntry", **kwargs):
 
-        if sSpace in LIBRARY_SPACES:
-            sRcPath = self.getVar(sSection, sSpace + "_path")
-        else:
-            sRcPath = self.getVar(sSection, sSpace + "_path", default="")
-            if not sRcPath:
-                return sRcPath
+        sRcPath = self.getVar(sSection, sSpace + "_path", default=default)
+        if not sRcPath:
+            return sRcPath
 
         if pathVar:
             try:
