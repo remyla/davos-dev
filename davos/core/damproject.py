@@ -9,7 +9,8 @@ from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs, pathParse
 from pytd.util.strutils import findFields
 from pytd.util import sysutils
-from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp, updEnv
+from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp, updEnv, \
+    inDevMode
 from pytd.gui.dialogs import confirmDialog
 from pytd.util.qtutils import setWaitCursor
 
@@ -708,7 +709,9 @@ class DamProject(object):
         print "connecting to damas..."
 
         import damas
-        self._damasdb = damas.http_connection("https://62.210.104.42:8443")#"http://62.210.104.42:8090"
+
+        iPort = 8444 if inDevMode() else 8443#"http://62.210.104.42:8090"
+        self._damasdb = damas.http_connection("https://62.210.104.42:{}".format(iPort))
 
     def __repr__(self):
 
