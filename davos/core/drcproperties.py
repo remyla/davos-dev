@@ -9,6 +9,23 @@ from pytd.core.metaproperty import EditState as Eds
 from pytd.core.metaobject import MetaObject
 from pytd.util.sysutils import toTimestamp
 
+def syncProperty(sDbKey, **kwargs):
+    params = {
+    'type':'db_int',
+    'isMulti':False,
+    'default':0,
+    'accessor':'_dbnode',
+    'reader':'getField({})'.format(sDbKey),
+    'writer':'setField({})'.format(sDbKey),
+    'lazy':True,
+    'copyable':True,
+    'uiEditable':Eds.Disabled,
+    'uiVisible':True,
+    'uiCategory':"06_Sync",
+    }
+    params.update(**kwargs)
+    return params
+
 DrcLibraryProperties = (
 ('label',
     {
@@ -75,6 +92,21 @@ DrcEntryProperties = (
 #     'uiCategory':'01_General',
 #     }
 # ),
+('onlineSync',
+    syncProperty("online", uiDisplay="Online")
+),
+('dmnParisSync',
+    syncProperty("dmn_paris", uiDisplay="Paris")
+),
+('dmnAngoulmSync',
+    syncProperty("dmn_angouleme", uiDisplay="Angouleme")
+),
+('dreamWallSync',
+    syncProperty("dream_wall", uiDisplay="DreamWall")
+),
+('pipangaiSync',
+    syncProperty("pipangai", uiDisplay="Pipangai")
+),
 )
 
 DrcFileProperties = [
@@ -167,6 +199,22 @@ DrcFileProperties = [
     'uiCategory':'04_Version',
     }
 ),
+('author',
+    {
+    'type':'db_str',
+    'isMulti':False,
+    'default':'',
+    'accessor':'_dbnode',
+    'reader':'getField(author)',
+    'writer':'setField(author)',
+    'lazy':True,
+    'copyable':True,
+    'uiEditable':Eds.Disabled,
+    'uiVisible':True,
+    'uiDisplay':'',
+    'uiCategory':'04_Version',
+    }
+),
 ('checksum',
     {
     'type':'db_str',
@@ -197,22 +245,6 @@ DrcFileProperties = [
     'uiVisible':True,
     'uiDisplay':'',
     'uiCategory':None,
-    }
-),
-('author',
-    {
-    'type':'db_str',
-    'isMulti':False,
-    'default':'',
-    'accessor':'_dbnode',
-    'reader':'getField(author)',
-    'writer':'setField(author)',
-    'lazy':True,
-    'copyable':True,
-    'uiEditable':Eds.Disabled,
-    'uiVisible':True,
-    'uiDisplay':'',
-    'uiCategory':'04_Version',
     }
 ),
 ]
@@ -261,6 +293,10 @@ class DbIntProperty(DbStrProperty):
     def read(self):
         value = DbStrProperty.read(self)
         return int(value) if value else 0
+
+#    def castToWrite(self, in_value):
+#        value = DbStrProperty.castToWrite(self, in_value)
+#        return int(value)
 
 class DbTimeProperty(DbIntProperty):
 
