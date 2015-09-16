@@ -710,7 +710,7 @@ class DamProject(object):
 
         import damas
 
-        iPort = 8444 if inDevMode() else 8443#"http://62.210.104.42:8090"
+        iPort = 8443# if not inDevMode() else 8444#"http://62.210.104.42:8090"
         self._damasdb = damas.http_connection("https://62.210.104.42:{}".format(iPort))
 
     def __repr__(self):
