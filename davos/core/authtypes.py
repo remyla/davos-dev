@@ -63,7 +63,7 @@ class DamasAuth(Authenticator):
 
         self.cookieFilePath = pathJoin(os.getenv("USERPROFILE"), "damas_auth.json")
 
-    def loggedUser(self, *args, **kwargs):
+    def loggedUser(self):
 
         userData = None
 
@@ -78,7 +78,6 @@ class DamasAuth(Authenticator):
         if damasdb.verify():
             sLogin = tokenData["username"]
             userData = {"login":sLogin}
-            print u"Damas successfully authenticated user: '{}' !".format(sLogin)
 
         return userData
 
@@ -93,8 +92,6 @@ class DamasAuth(Authenticator):
 
             sLogin = tokenData["username"]
             userData = {"login":sLogin}
-
-            print u"Damas successfully authenticated user: '{}' !".format(sLogin)
 
             if kwargs.get("writeCookie", True):
                 self._writeTokenData()
