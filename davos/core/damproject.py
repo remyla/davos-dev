@@ -9,8 +9,7 @@ from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs, pathParse
 from pytd.util.strutils import findFields
 from pytd.util import sysutils
-from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp, updEnv, \
-    inDevMode
+from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp, updEnv
 from pytd.gui.dialogs import confirmDialog
 from pytd.util.qtutils import setWaitCursor
 
@@ -700,7 +699,8 @@ class DamProject(object):
 
     def __initDamas(self):
 
-        if self.getVar("project", "no_damas", False):
+        sDamasServerAddr = self.getVar("project", "damas_server_addr", "")
+        if not sDamasServerAddr:
 
             from .dbtypes import DummyDbCon
             self._damasdb = DummyDbCon()
@@ -709,9 +709,7 @@ class DamProject(object):
         print "connecting to damas..."
 
         import damas
-
-        iPort = 8443# if not inDevMode() else 8444#"http://62.210.104.42:8090"
-        self._damasdb = damas.http_connection("https://62.210.104.42:{}".format(iPort))
+        self._damasdb = damas.http_connection(sDamasServerAddr)
 
     def __repr__(self):
 
