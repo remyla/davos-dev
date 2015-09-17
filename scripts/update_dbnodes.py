@@ -27,13 +27,13 @@ def launch(bDryRun=True):
                 print "No such", p
                 continue
 
-            sDbPath = entry.damasPath().lower()
+            sDbPath = entry.dbPath().lower()
             dbnode = dbNodeDct.get(sDbPath)
             if not dbnode:
                 continue
 
             print dbnode
-            sNewDbPath = "/" + entry.damasPath()
+            sNewDbPath = "/" + entry.dbPath()
     #        print sNewDbPath
     #        print dbnode.file
 

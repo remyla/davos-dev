@@ -330,7 +330,7 @@ class DamProject(object):
                 continue
 
             try:
-                drcLib.damasToAbsPath(sDbPath)
+                drcLib.dbToAbsPath(sDbPath)
             except RuntimeError:
                 continue
 

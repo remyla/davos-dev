@@ -205,7 +205,7 @@ class DrcEntry(DrcMetaObject):
     def envPath(self):
         return self.library.absToEnvPath(self.absPath())
 
-    def damasPath(self):
+    def dbPath(self):
         lib = self.library
         sLibPath = lib.absPath()
         sProjDmsPath = lib.project.getVar("project", "damas_root_path")
@@ -262,7 +262,7 @@ class DrcEntry(DrcMetaObject):
             if data is None:
                 data = {}
 
-            data.update({"file":self.damasPath()})
+            data.update({"file":self.dbPath()})
 
             dbnode = self.library._db.createNode(data)
             if dbnode:
@@ -291,7 +291,7 @@ class DrcEntry(DrcMetaObject):
         if dbnode:
             logMsg(u"got from CACHE: '{}'".format(cacheKey), log='debug')
         elif fromDb:
-            sQuery = u"file:/^{}$/i".format(self.damasPath())
+            sQuery = u"file:/^{}$/i".format(self.dbPath())
     #        print "finding DbNode:", sQuery
             dbnode = self.library._db.findOne(sQuery)
     #        print "    - got:", dbnode
@@ -324,9 +324,9 @@ class DrcEntry(DrcMetaObject):
 
         for dbnode in self.listChildDbNodes():
 
-            sDamasPath = dbnode.getField("file")
+            sDbPath = dbnode.getField("file")
 
-            cacheKey = normCase(library.damasToRelPath(sDamasPath))
+            cacheKey = normCase(library.dbToRelPath(sDbPath))
             cachedNode = cachedDbNodes.get(cacheKey)
             if cachedNode:
 #                print "-----------------"
@@ -345,12 +345,18 @@ class DrcEntry(DrcMetaObject):
         if kwargs.pop('recursive', False):
             sBaseQuery = u"file:/^{}/i"
         else:
-            sBaseQuery = u"file:/^{}[^/]*$/i"
+            sBaseQuery = u"file:/^{}[^/]*[/]*$/i"
 
-        sBaseQuery = sBaseQuery.format(self.damasPath())
+        sDbPath = self.dbPath()
+
+        sBaseQuery = sBaseQuery.format(sDbPath)#.replace(u"/", u"\/"))
         sFullQuery = " ".join((sBaseQuery, sQuery))
 
-        return self.library._db.findNodes(sFullQuery, **kwargs)
+        nodes = self.library._db.findNodes(sFullQuery, **kwargs)
+#        print sFullQuery
+#        for n in nodes:
+#            n.logData()
+        return nodes
 
     def getDbCacheKey(self):
         p = self.relPath()
@@ -546,8 +552,8 @@ class DrcDir(DrcEntry):
 
         return homoLib.getEntry(sHomoPath)
 
-    def damasPath(self):
-        return addEndSlash(DrcEntry.damasPath(self))
+    def dbPath(self):
+        return addEndSlash(DrcEntry.dbPath(self))
 
     def imagePath(self):
 

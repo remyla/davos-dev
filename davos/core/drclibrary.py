@@ -71,10 +71,10 @@ class DrcLibrary(DrcEntry):
         return sorted((cls for (_, cls) in listClassesFromModule(drctypes.__name__)
                             if hasattr(cls, "classUiPriority")), key=lambda c: c.classUiPriority)
 
-    def entryFromDbPath(self, sDamasPath, **kwargs):
+    def entryFromDbPath(self, sDbPath, **kwargs):
         bWeak = kwargs.pop("weak", False)
 
-        sEntryPath = self.damasToRelPath(sDamasPath)
+        sEntryPath = self.dbToRelPath(sDbPath)
         if bWeak:
             return self._weakFile(sEntryPath, **kwargs)
         else:
@@ -146,6 +146,9 @@ class DrcLibrary(DrcEntry):
 
         return sAlignedPath == sLibPath
 
+    def dbPath(self):
+        return addEndSlash(DrcEntry.dbPath(self))
+
     def absToRelPath(self, sAbsPath):
         return pathRelativeTo(sAbsPath, self.absPath())
 
@@ -167,23 +170,23 @@ class DrcLibrary(DrcEntry):
 
         return re.sub('^' + self.absPath(), "$" + sEnvVar, sAbsPath)
 
-    def damasToAbsPath(self, sDamasPath):
+    def dbToAbsPath(self, sDbPath):
 
         sLibPath = self.absPath()
-        sLibDmsPath = self.damasPath()
-        sAbsPath = re.sub('^' + sLibDmsPath, sLibPath, sDamasPath)
+        sLibDmsPath = self.dbPath()
+        sAbsPath = re.sub('^' + sLibDmsPath, sLibPath, sDbPath)
 
-        if sDamasPath == sAbsPath:
+        if sDbPath == sAbsPath:
             raise RuntimeError("{} could not convert damas path to absolute: '{}'"
-                               .format(self, sDamasPath))
+                               .format(self, sDbPath))
 
         return sAbsPath
 
-    def damasToRelPath(self, sDamasPath):
+    def dbToRelPath(self, sDbPath):
 
-        p = sDamasPath
+        p = sDbPath
         bHasEndSlash = (p.endswith('/') or p.endswith('\\'))
-        sRelPath = pathRelativeTo(sDamasPath, self.damasPath())
+        sRelPath = pathRelativeTo(sDbPath, self.dbPath())
         return addEndSlash(sRelPath) if bHasEndSlash else sRelPath
 
     def getHomonym(self, sSpace):

@@ -182,8 +182,8 @@ class PropertyEditorView(QtGui.QWidget, Ui_PropertyEditorView):
             except RuntimeError: pass
 
         if newDelegate:
-            newDelegate.commitData.connect(self.commitData)
             newDelegate.closeEditor.connect(self.closeEditor)
+            newDelegate.commitData.connect(self.commitData)
 
         self.mapper.setItemDelegate(newDelegate)
 
@@ -258,8 +258,9 @@ class PropertyEditorView(QtGui.QWidget, Ui_PropertyEditorView):
         self.categoryProperties = model.getPrptiesFromUiCategory(categoryKey)
         self.updateReadersVisibility()
 
-
     def closeEditor(self, editor, hint):
+
+#        print "closeEditor", editor.objectName(), hint
 
         if isinstance(editor, QtGui.QLabel):
             return
@@ -270,14 +271,16 @@ class PropertyEditorView(QtGui.QWidget, Ui_PropertyEditorView):
         else:
             return
 
-        self.mapper.removeMapping(editor)
-
+        delegate = self.itemDelegate()
+        editor.removeEventFilter(delegate)
         editor.setAttribute(Qt.WA_DeleteOnClose, True)
         editor.close()
 
         editedReader.setVisible(True)
 
     def commitData(self, editor):
+
+#        print "commitData", editor.objectName()
 
         if isinstance(editor, QtGui.QLabel):
             return
@@ -336,6 +339,7 @@ class PropertyEditorView(QtGui.QWidget, Ui_PropertyEditorView):
 
                         delegate = self.itemDelegate()
                         editor = delegate.createEditor(readerWidget, QtGui.QStyleOptionViewItem(), index)
+                        editor.setObjectName(editedReader.objectName() + "_editor")
 
                         if editor:
 

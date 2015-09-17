@@ -1,4 +1,5 @@
 
+import re
 from datetime import datetime
 
 from pytd.util.utiltypes import MemSize
@@ -7,11 +8,11 @@ from pytd.core.metaproperty import BasePropertyFactory
 from pytd.core.metaproperty import MetaProperty
 from pytd.core.metaproperty import EditState as Eds
 from pytd.core.metaobject import MetaObject
-from pytd.util.sysutils import toTimestamp
+from pytd.util.sysutils import toTimestamp, argToList, inDevMode
 
 def syncProperty(sDbKey, **kwargs):
     params = {
-    'type':'db_int',
+    'type':'db_sync',
     'isMulti':False,
     'default':0,
     'accessor':'_dbnode',
@@ -19,7 +20,7 @@ def syncProperty(sDbKey, **kwargs):
     'writer':'setField({})'.format(sDbKey),
     'lazy':True,
     'copyable':True,
-    'uiEditable':Eds.Disabled,
+    'uiEditable':Eds.Enabled if inDevMode() else Eds.Disabled,
     'uiVisible':True,
     'uiCategory':"06_Sync",
     }
@@ -92,6 +93,22 @@ DrcEntryProperties = (
 #     'uiCategory':'01_General',
 #     }
 # ),
+('syncRules',
+    {
+    'type':'db_str',
+    'isMulti':True,
+    'default':[],
+    'accessor':'_dbnode',
+    'reader':'getField(sync_rules)',
+    'writer':'setField(sync_rules)',
+    'lazy':True,
+    'copyable':True,
+    'uiEditable':Eds.Enabled if inDevMode() else Eds.Disabled,
+    'uiVisible':True,
+    'uiDisplay':'',
+    'uiCategory':"06_Sync",
+    }
+),
 ('onlineSync',
     syncProperty("online", uiDisplay="Online")
 ),
@@ -276,10 +293,32 @@ class DrcTimeProperty(DrcBaseProperty):
         elif value:
             return datetime.fromtimestamp(value)
 
+
 class DbStrProperty(DrcBaseProperty):
+
+    _splitRgx = re.compile(r'[\w\-.]+', re.L)
 
     def __init__(self, sProperty, metaobj):
         super(DbStrProperty, self).__init__(sProperty, metaobj)
+
+    def read(self):
+        value = DrcBaseProperty.read(self)
+        if self.isMulti():
+            return value.split(u',') if value else []
+        return value
+
+    def castToWrite(self, in_value):
+        value = DrcBaseProperty.castToWrite(self, in_value)
+
+        if self.isMulti():
+            if value and isinstance(value, basestring):
+                values = self._splitRgx.findall(value)
+            else:
+                values = argToList(value)
+
+            value = u",".join(values)
+
+        return value
 
     def createAccessor(self):
         dbnode, _ = self._metaobj.createDbNode()
@@ -292,11 +331,34 @@ class DbIntProperty(DbStrProperty):
 
     def read(self):
         value = DbStrProperty.read(self)
+        if isinstance(value, basestring):
+            return eval(value) if value else 0
+        return value
+
+    def castToWrite(self, in_value):
+        value = DbStrProperty.castToWrite(self, in_value)
         return int(value) if value else 0
 
-#    def castToWrite(self, in_value):
-#        value = DbStrProperty.castToWrite(self, in_value)
-#        return int(value)
+class DbBoolProperty(DbIntProperty):
+
+    def __init__(self, sProperty, metaobj):
+        super(DbBoolProperty, self).__init__(sProperty, metaobj)
+
+    def read(self):
+        return bool(DbIntProperty.read(self))
+
+class DbSyncProperty(DbBoolProperty):
+
+    def __init__(self, sProperty, metaobj):
+        super(DbSyncProperty, self).__init__(sProperty, metaobj)
+
+#    def read(self):
+#        value = DbBoolProperty.read(self)
+#        return bool(value) if value else False
+
+    def castToWrite(self, in_value):
+        value = DbBoolProperty.castToWrite(self, in_value)
+        return value if value else None
 
 class DbTimeProperty(DbIntProperty):
 
@@ -351,6 +413,7 @@ class PropertyFactory(BasePropertyFactory):
     'drc_time' : DrcTimeProperty,
     'db_str' : DbStrProperty,
     'db_int' : DbIntProperty,
+    'db_sync': DbSyncProperty,
     'db_time' : DbTimeProperty,
     }
 

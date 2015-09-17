@@ -232,7 +232,7 @@ class DbNode(object):
         for k, v in sorted(self._data.iteritems(), key=lambda x:x[0]):
             if bFilter and k not in fields:
                 continue
-            s += u"\n'{}':'{}'".format(k, v)
+            s += u"\n'{}': {} | {}".format(k, v, type(v))
         return (s + u'\n}')
 
     def __getattr__(self, name):

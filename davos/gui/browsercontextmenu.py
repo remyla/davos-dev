@@ -56,14 +56,13 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"On"                  , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[True]       },
         { "label":"Break"               , "menu": "Set Lock", "fnc":self.breakFilesLock     , "dev":True       },
 
-        { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
-        { "label":"Roll Back"            , "menu": "Advanced", "fnc":self.rollBackToVersion , "dev":True},
-
         { "label":"Create New Asset"    , "menu": "Main"    , "fnc":self.createNewAsset     , "dev":True},
         { "label":"Create Private Dirs" , "menu": "Main"    , "fnc":self.createPrivateDir   , "dev":False},
 
 #        { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer     , "dev":True},
 
+        { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
+        { "label":"Log Data"            , "menu": "Advanced", "fnc":self.logData , "dev":True},
         { "label":"Log Data"          , "menu": "Db Node", "fnc":self.logDbNodeData         , "dev":True},
         { "label":"Delete"          , "menu": "Db Node", "fnc":self.deleteDbNode            , "dev":True},
         )
@@ -328,3 +327,7 @@ class BrowserContextMenu(BaseContextMenu):
     createPrivateDir.auth_types = ("DrcDir",)
 
 
+    def logData(self, *itemList):
+
+        for item in itemList:
+            item._metaobj.logData()
