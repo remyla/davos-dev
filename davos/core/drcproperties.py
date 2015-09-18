@@ -316,7 +316,7 @@ class DbStrProperty(DrcBaseProperty):
             else:
                 values = argToList(value)
 
-            value = u",".join(values)
+            value = u",".join(values) if value else None
 
         return value
 

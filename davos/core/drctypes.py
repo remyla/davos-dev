@@ -17,6 +17,8 @@ from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
+from pytd.util.fsutils import iterPaths, ignorePatterns
+
 from pytd.gui.itemviews.utils import showPathInExplorer
 from pytd.util.sysutils import timer#, getCaller
 from pytd.util.external.send2trash import send2trash
@@ -338,25 +340,30 @@ class DrcEntry(DrcMetaObject):
                 logMsg(u"loading: {}".format(cacheKey), log='debug')
                 cachedDbNodes[cacheKey] = dbnode
 
-    def listChildDbNodes(self, sQuery="", **kwargs):
+    def listChildDbNodes(self, sQuery="", recursive=False, **kwargs):
 
         assert self.isPublic(), "File is NOT PUBLIC !"
 
-        if kwargs.pop('recursive', False):
-            sBaseQuery = u"file:/^{}/i"
+        sFullQuery = self.childDbNodesQuery(sQuery, recursive=recursive)
+        nodes = self.library._db.findNodes(sFullQuery, **kwargs)
+
+#        print sFullQuery
+#        for n in nodes:
+#            n.logData()
+
+        return nodes
+
+    def childDbNodesQuery(self, sQuery="", recursive=False):
+
+        if recursive:
+            sBaseQuery = u"file:/^{}.+/i"
         else:
-            sBaseQuery = u"file:/^{}[^/]*[/]*$/i"
+            sBaseQuery = u"file:/^{}[^/]+[/]*$/i"
 
         sDbPath = self.dbPath()
 
         sBaseQuery = sBaseQuery.format(sDbPath)#.replace(u"/", u"\/"))
-        sFullQuery = " ".join((sBaseQuery, sQuery))
-
-        nodes = self.library._db.findNodes(sFullQuery, **kwargs)
-#        print sFullQuery
-#        for n in nodes:
-#            n.logData()
-        return nodes
+        return " ".join((sBaseQuery, sQuery))
 
     def getDbCacheKey(self):
         p = self.relPath()
@@ -418,6 +425,15 @@ class DrcEntry(DrcMetaObject):
         primePrpty = self.metaProperty(model.primaryProperty)
         for primeItem in primePrpty.viewItems:
             primeItem.updateRow()
+
+    def assertSyncRules(self, sSiteList):
+
+        sValidSites = ("dmn_paris", "dmn_angouleme", "online", "dream_wall", "pipangai")
+        sInputSites = set(sSiteList)
+
+        sBadSites = sInputSites - set(sValidSites)
+        if sBadSites:
+            raise ValueError("Unknown sites: {}".format(sBadSites))
 
     def iconSource(self):
         return self._qfileinfo
@@ -560,6 +576,49 @@ class DrcDir(DrcEntry):
         sRootPath, sDirName = osp.split(self.absPath())
         sFileName = sDirName + "_preview.jpg"
         return pathJoin(sRootPath, sDirName, sFileName)
+
+    def setSyncRules(self, sSiteList, **kwargs):
+
+        self.assertSyncRules(sSiteList)
+
+        db = self.library._db
+        sQuery = self.childDbNodesQuery("sync_rules:/.+/", recursive=True)
+        #print sQuery
+        ruledIds = db.search(sQuery)
+
+        sExcludePaths = []
+        if ruledIds:
+
+            ruledNodes = db.nodeForIds(ruledIds)
+
+            for dbn in ruledNodes:
+
+                ruledEntry = self.library.entryFromDbPath(dbn.file, dbNode=False)
+                if not ruledEntry:
+                    continue
+
+                sExcludePaths.append(normCase(ruledEntry.absPath()))
+
+        def ignorePaths(sDirPath, sNameList):
+            ignoredNames = []
+            for sName in sNameList:
+
+                if sName in ('Thumbs.db'):
+                    ignoredNames.append(sName)
+                    continue
+
+                p = normCase(pathJoin(sDirPath, sName))
+                if p in sExcludePaths:
+                    ignoredNames.append(sName)
+
+            return ignoredNames
+
+        sPathIter = iterPaths(self.absPath(), ignoreFiles=ignorePaths,
+                              ignoreDirs=ignorePaths, dirs=False)
+        for sPath in sPathIter:
+            print sPath
+
+        return self._setPrpty("syncRules", sSiteList)
 
     def getDbCacheKey(self):
         return addEndSlash(DrcEntry.getDbCacheKey(self))
@@ -1317,6 +1376,12 @@ class DrcFile(DrcEntry):
             return sLockOwner
 
         return ""
+
+    def setSyncRules(self, sSiteList, **kwargs):
+
+        self.assertSyncRules(sSiteList)
+
+        return self._setPrpty("syncRules", sSiteList)
 
     def nextVersionName(self):
         v = self.currentVersion + 1

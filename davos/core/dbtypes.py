@@ -52,7 +52,7 @@ class DrcDb(object):
             return None
 
         if len(ids) > 1:
-            for n in self.readNodes(ids):
+            for n in self.nodeForIds(ids):
                 n.logData()
             raise ValueError("Several nodes found for '{}'.".format(sQuery))
         else:
@@ -83,7 +83,7 @@ class DrcDb(object):
 
         return (DbNode(self, r) for r in self.read(ids))
 
-    def readNodes(self, ids):
+    def nodeForIds(self, ids):
         return list(DbNode(self, r) for r in self.read(ids))
 
     def search(self, sQuery):
@@ -139,7 +139,10 @@ class DbNode(object):
         self._data = data.copy()
         self.__dirty = False
 
-        self.name = os.path.basename(data.get('file', ''))
+        p = data.get('file', '')
+        if p.endswith("/"):
+            p = p[:-1]
+        self.name = os.path.basename(p)
 
     def isDirty(self):
         return self.__dirty
