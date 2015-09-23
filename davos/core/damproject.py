@@ -207,7 +207,8 @@ class DamProject(object):
         if not drcLib:
             sLibPath = self.getPath(sSpace, sLibName)
             if osp.isdir(sLibPath):
-                drcLib = self.__libClass(sLibName, sLibPath, sSpace, self, dbNode=False)
+                drcLib = self.__libClass(sLibName, sLibPath, sSpace,
+                                         project=self, dbNode=True)
             else:
                 logMsg("No such '{}': '{}'.".format(sFullLibName, sLibPath),
                        warning=True)

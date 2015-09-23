@@ -1,5 +1,4 @@
 
-import re
 from datetime import datetime
 
 from pytd.util.utiltypes import MemSize
@@ -132,6 +131,7 @@ DrcFileProperties = [
     {
     'type':'drc_size',
     'isMulti':False,
+    'default':0,
     'accessor':'_qfileinfo',
     'reader':'size()',
     'uiEditable':Eds.Disabled,
@@ -174,6 +174,7 @@ DrcFileProperties = [
     {
     'type':'db_time',
     'isMulti':False,
+    'default':0,
     'accessor':'_dbnode',
     'reader':'getField(time)',
     'writer':'setField(time)',
@@ -296,8 +297,6 @@ class DrcTimeProperty(DrcBaseProperty):
 
 class DbStrProperty(DrcBaseProperty):
 
-    _splitRgx = re.compile(r'[\w\-.]+', re.L)
-
     def __init__(self, sProperty, metaobj):
         super(DbStrProperty, self).__init__(sProperty, metaobj)
 
@@ -371,9 +370,9 @@ class DbTimeProperty(DbIntProperty):
 
         # MongoDb timestamps are expressed in milliseconds.
         if self.__class__.timeZone == "utc":
-            dateTime = datetime.utcfromtimestamp(timestamp / 1000)
+            dateTime = datetime.utcfromtimestamp(timestamp * 0.001)
         else:
-            dateTime = datetime.fromtimestamp(timestamp / 1000)
+            dateTime = datetime.fromtimestamp(timestamp * 0.001)
 
         return dateTime
 
@@ -416,7 +415,6 @@ class PropertyFactory(BasePropertyFactory):
     'db_sync': DbSyncProperty,
     'db_time' : DbTimeProperty,
     }
-
 
 class DrcMetaObject(MetaObject):
 

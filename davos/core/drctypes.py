@@ -4,6 +4,7 @@ import os.path as osp
 import re
 from datetime import datetime
 import filecmp
+from fnmatch import fnmatch
 
 from PySide.QtCore import QDir
 
@@ -17,7 +18,7 @@ from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
-from pytd.util.fsutils import iterPaths, ignorePatterns
+from pytd.util.fsutils import iterPaths
 
 from pytd.gui.itemviews.utils import showPathInExplorer
 from pytd.util.sysutils import timer#, getCaller
@@ -31,6 +32,7 @@ from .locktypes import LockFile
 from pytd.util.external import parse
 from pytd.util.sysutils import toStr, hostApp#, getCaller
 from pytd.util.sysutils import toTimestamp
+
 #from davos.core.damtypes import DamEntity
 
 _COPY_PRIV_SPACE_MSG = """
@@ -50,7 +52,6 @@ class DrcEntry(DrcMetaObject):
 
     # defines which property will be displayed as a Tree in UI.
     primaryProperty = propertiesDctItems[0][0]
-
 
     def __init__(self, drcLib, absPathOrInfo=None, **kwargs):
 
@@ -92,11 +93,14 @@ class DrcEntry(DrcMetaObject):
             self._qdir = QDir(sAbsPath)
             self._qdir.setFilter(QDir.NoDotAndDotDot | QDir.Dirs | QDir.Files)
 
+        DrcMetaObject.loadData(self)
+
         #print self._dbnode, sAbsPath
         if (not self._dbnode) and self.isPublic():
             self._dbnode = self.getDbNode(fromDb=kwargs.get('dbNode', True))
 
-        super(DrcEntry, self).loadData()
+            sDbPrptyNames = self.__class__.propertyPerAccessorDct["_dbnode"]
+            DrcMetaObject.loadData(self, propertyNames=sDbPrptyNames)
 
         sEntryName = self.name
         self.baseName, self.suffix = osp.splitext(sEntryName)
@@ -261,15 +265,14 @@ class DrcEntry(DrcMetaObject):
 
         if not dbnode:
 
-            if data is None:
-                data = {}
+            nodeData = {} if data is None else data.copy()
+            nodeData.update({"file":self.dbPath()})
 
-            data.update({"file":self.dbPath()})
-
-            dbnode = self.library._db.createNode(data)
+            #print "creating DbNode:", data
+            dbnode = self.library._db.createNode(nodeData)
             if dbnode:
                 bCreated = True
-                self.__cacheDbNode(dbnode)
+                self._cacheDbNode(dbnode)
 
         else:
             msg = u"{} already exists: '{}' !".format(dbnode, dbnode.file)
@@ -294,19 +297,21 @@ class DrcEntry(DrcMetaObject):
             logMsg(u"got from CACHE: '{}'".format(cacheKey), log='debug')
         elif fromDb:
             sQuery = u"file:/^{}$/i".format(self.dbPath())
-    #        print "finding DbNode:", sQuery
+
+#            print "finding DbNode:", sQuery
             dbnode = self.library._db.findOne(sQuery)
-    #        print "    - got:", dbnode
+#            print "    - got:", dbnode
+
             if dbnode:
                 logMsg(u"got from DB: '{}'".format(cacheKey), log='debug')
-                self.__cacheDbNode(dbnode, cachedDbNodes, cacheKey)
+                self._cacheDbNode(dbnode, cachedDbNodes, cacheKey)
 
         if not dbnode:
             logMsg(u"no such dbnode: '{}'".format(cacheKey), log='debug')
 
         return dbnode
 
-    def __cacheDbNode(self, dbnode, dbNodesCache=None, cacheKey=None):
+    def _cacheDbNode(self, dbnode, dbNodesCache=None, cacheKey=None, refresh=True):
 
         if dbNodesCache is None:
             dbNodesCache = self.library._cachedDbNodes
@@ -316,7 +321,8 @@ class DrcEntry(DrcMetaObject):
 
         logMsg(u"loading: '{}'".format(cacheKey), log='debug')
         dbNodesCache[cacheKey] = dbnode
-        self.refresh(simple=True)
+        if refresh:
+            self.refresh(simple=True)
 
     @timer
     def loadChildDbNodes(self):
@@ -426,14 +432,150 @@ class DrcEntry(DrcMetaObject):
         for primeItem in primePrpty.viewItems:
             primeItem.updateRow()
 
-    def assertSyncRules(self, sSiteList):
+    def setSyncRules(self, in_sRuleList, applyRules=True, **kwargs):
 
-        sValidSites = ("dmn_paris", "dmn_angouleme", "online", "dream_wall", "pipangai")
-        sInputSites = set(sSiteList)
+        drcEntry = None
+        if not in_sRuleList:
+            sRuleList, drcEntry = self.inheritedSyncRules()
+        else:
+            sRuleList = in_sRuleList
 
-        sBadSites = sInputSites - set(sValidSites)
+        syncData = self._evalSyncRules(sRuleList)
+        print self, "applies", syncData, 'inherited from', drcEntry
+
+        if applyRules:
+            sPathIter, dbNodeDct = self.__beginApplySyncData()
+
+        # set sync rules before actually applying sync data on each child nodes
+        if not self._setPrpty("syncRules", in_sRuleList):
+            return False
+
+        if applyRules:
+            self.__applySyncData(syncData, sPathIter, dbNodeDct)
+
+        return True
+
+    def __applySyncData(self, syncData, sPathIter, dbNodeDct):
+
+        cachedDbNodes = self.library._cachedDbNodes
+        proj = self.library.project
+
+        dbNodeIds = []
+        for sPath in sPathIter:
+            drcFile = proj.entryFromPath(sPath, dbNode=False)
+
+            bCached = True
+            dbNode = drcFile.getDbNode(fromDb=False)
+
+            if not dbNode:
+                dbNode = dbNodeDct.get(drcFile.dbPath())
+                bCached = False
+
+            if not dbNode:
+                data = dict((k, v) for k, v in syncData.iteritems() if v is not None)
+                dbNode, _ = drcFile.createDbNode(data=data, check=False)
+            else:
+                dbNode.setData(syncData)
+                dbNodeIds.append(dbNode.id_)
+
+            if not bCached:
+                drcFile._cacheDbNode(dbNode, cachedDbNodes, refresh=False)
+            drcFile.refresh(simple=True)
+            #print dbNode.dataRepr()
+
+    def __beginApplySyncData(self):
+
+        sExcludePaths = []
+
+        ruledNodes = self.listChildDbNodes("sync_rules:/.+/", recursive=True)
+        if ruledNodes:
+
+            for n in ruledNodes:
+                ruledEntry = self.library.entryFromDbPath(n.file, dbNode=False)
+                if not ruledEntry:
+                    continue
+
+                sExcludePaths.append(normCase(ruledEntry.absPath()))
+
+        def ignorePaths(sDirPath, sNameList):
+
+            ignoredNames = []
+            for sName in sNameList:
+
+                bFnMatched = False
+                for sPat in ("*.db", ".*"):
+                    if fnmatch(sName, sPat):
+                        ignoredNames.append(sName)
+                        bFnMatched = True
+                        break
+
+                if bFnMatched:
+                    continue
+
+                p = normCase(pathJoin(sDirPath, sName))
+                if p in sExcludePaths:
+                    ignoredNames.append(sName)
+
+            return ignoredNames
+
+        sPathIter = iterPaths(self.absPath(), ignoreFiles=ignorePaths,
+                              ignoreDirs=ignorePaths, dirs=False)
+
+        dbNodeDct = self.listChildDbNodes(recursive=True, asDict=True, keyField="file")
+
+        return sPathIter, dbNodeDct
+
+    def _evalSyncRules(self, in_sRuleList):
+
+        sAllSites = set(("dmn_paris", "dmn_angouleme", "online", "dream_wall", "pipangai"))
+
+        sRuleList = in_sRuleList
+        if len(sRuleList) == 1:
+            sRule = sRuleList[0]
+            if sRule == "all_sites":
+                sRuleList = sAllSites
+
+        sSiteList = set(sRuleList)
+        sBadSites = sSiteList - sAllSites
         if sBadSites:
-            raise ValueError("Unknown sites: {}".format(sBadSites))
+            raise ValueError("Unknown sites: {}".format(tuple(sBadSites)))
+
+        syncData = dict((s, 1 if s in sSiteList else None) for s in sAllSites)
+
+        return syncData
+
+    def inheritedSyncRules(self):
+
+        library = self.library
+
+        ruleNodeDct = library.listChildDbNodes("sync_rules:/.+/", recursive=True,
+                                               asDict=True, keyField="file")
+        libNode = library.getDbNode()
+        ruleNodeDct[libNode.file] = libNode
+
+        sRuleList = []
+        drcEntry = None
+        sDbPath = self.dbPath()
+        #sLibDbPath = library.dbPath()
+        while (sDbPath != '/'):
+
+            if sDbPath.endswith("/"):
+                sDbPath = sDbPath[:-1]
+            sDbPath = addEndSlash(osp.dirname(sDbPath))
+
+            dbNode = ruleNodeDct.get(sDbPath)
+            if dbNode:
+                sRuleList = dbNode.getField("sync_rules")
+                if sRuleList:
+                    self._cacheDbNode(dbNode, refresh=False)
+                    drcEntry = library.entryFromDbPath(sDbPath)
+                    if drcEntry:
+                        drcEntry.refresh(simple=True)
+                        sRuleList = drcEntry.syncRules
+                        break
+
+            #print sDbPath, sRuleList, sLibDbPath
+        return sRuleList, drcEntry
 
     def iconSource(self):
         return self._qfileinfo
@@ -456,11 +598,12 @@ class DrcEntry(DrcMetaObject):
     '@forceLog(log="debug")'
     def _writeAllValues(self, propertyNames=None):
 
-        sPropertyList = tuple(self.__class__._iterPropertyArg(propertyNames))
+        cls = self.__class__
+        sPropertyList = tuple(cls._iterPropertyArg(propertyNames))
 
         logMsg("sPropertyList", sPropertyList, log='debug')
 
-        sDbNodePrptySet = set(self.filterPropertyNames(sPropertyList,
+        sDbNodePrptySet = set(cls.filterPropertyNames(sPropertyList,
                                                        accessor="_dbnode",
                                                        ))
 
@@ -576,49 +719,6 @@ class DrcDir(DrcEntry):
         sRootPath, sDirName = osp.split(self.absPath())
         sFileName = sDirName + "_preview.jpg"
         return pathJoin(sRootPath, sDirName, sFileName)
-
-    def setSyncRules(self, sSiteList, **kwargs):
-
-        self.assertSyncRules(sSiteList)
-
-        db = self.library._db
-        sQuery = self.childDbNodesQuery("sync_rules:/.+/", recursive=True)
-        #print sQuery
-        ruledIds = db.search(sQuery)
-
-        sExcludePaths = []
-        if ruledIds:
-
-            ruledNodes = db.nodeForIds(ruledIds)
-
-            for dbn in ruledNodes:
-
-                ruledEntry = self.library.entryFromDbPath(dbn.file, dbNode=False)
-                if not ruledEntry:
-                    continue
-
-                sExcludePaths.append(normCase(ruledEntry.absPath()))
-
-        def ignorePaths(sDirPath, sNameList):
-            ignoredNames = []
-            for sName in sNameList:
-
-                if sName in ('Thumbs.db'):
-                    ignoredNames.append(sName)
-                    continue
-
-                p = normCase(pathJoin(sDirPath, sName))
-                if p in sExcludePaths:
-                    ignoredNames.append(sName)
-
-            return ignoredNames
-
-        sPathIter = iterPaths(self.absPath(), ignoreFiles=ignorePaths,
-                              ignoreDirs=ignorePaths, dirs=False)
-        for sPath in sPathIter:
-            print sPath
-
-        return self._setPrpty("syncRules", sSiteList)
 
     def getDbCacheKey(self):
         return addEndSlash(DrcEntry.getDbCacheKey(self))
@@ -1377,11 +1477,8 @@ class DrcFile(DrcEntry):
 
         return ""
 
-    def setSyncRules(self, sSiteList, **kwargs):
-
-        self.assertSyncRules(sSiteList)
-
-        return self._setPrpty("syncRules", sSiteList)
+    def setSyncRules(self, sRuleList, **kwargs):
+        return DrcEntry.setSyncRules(self, sRuleList, applyRules=False, **kwargs)
 
     def nextVersionName(self):
         v = self.currentVersion + 1

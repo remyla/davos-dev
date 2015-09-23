@@ -81,10 +81,10 @@ class DrcDb(object):
         if not ids:
             return None
 
-        return (DbNode(self, r) for r in self.read(ids))
+        return (DbNode(self, r) for r in self.read(ids) if r is not None)
 
     def nodeForIds(self, ids):
-        return list(DbNode(self, r) for r in self.read(ids))
+        return list(DbNode(self, r) for r in self.read(ids) if r is not None)
 
     def search(self, sQuery):
         logMsg(sQuery, log='all')
@@ -109,6 +109,18 @@ class DrcDb(object):
 
         return recs
 
+    def update(self, ids, data):
+
+        if isinstance(ids, basestring):
+            sIds = ids
+        else:
+            sIds = ",".join(ids)
+
+        recs = self._dbcon.update(sIds, data)
+        if recs is None:
+            raise DbReadError('Failed to update ids: \n\n{}'.format(sIds))
+
+        return recs
 
 class DbNode(object):
 
@@ -235,7 +247,7 @@ class DbNode(object):
         for k, v in sorted(self._data.iteritems(), key=lambda x:x[0]):
             if bFilter and k not in fields:
                 continue
-            s += u"\n'{}': {} | {}".format(k, v, type(v))
+            s += u"\n{}: {} | {}".format(k, v, type(v))
         return (s + u'\n}')
 
     def __getattr__(self, name):

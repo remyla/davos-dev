@@ -142,6 +142,7 @@ class DamasAuth(Authenticator):
 class DualAuth(Authenticator):
 
     def __init__(self, project):
+        super(DualAuth, self).__init__()
         self._shotgunAuth = ShotgunAuth(project)
         self._damasAuth = DamasAuth(project)
 

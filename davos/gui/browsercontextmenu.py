@@ -42,7 +42,7 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Refresh"             , "menu": "Main"    , "fnc":self.refreshItems               },
 
         { "label":"separator"           , "menu": "Main"    , "dev":False                           },
-        { "label":"Open"                , "menu": "Main"    , "fnc":self.openFile                   },
+        { "label":"View (Read-only)"    , "menu": "Main"    , "fnc":self.openFile                   },
         { "label":"Edit"                , "menu": "Main"    , "fnc":self.editFile                   },
         { "label":"Publish..."          , "menu": "Main"    , "fnc":self.publishEditedVersion       },
 
@@ -63,8 +63,8 @@ class BrowserContextMenu(BaseContextMenu):
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
         { "label":"Log Data"            , "menu": "Advanced", "fnc":self.logData , "dev":True},
-        { "label":"Log Data"          , "menu": "Db Node", "fnc":self.logDbNodeData         , "dev":True},
-        { "label":"Delete"          , "menu": "Db Node", "fnc":self.deleteDbNode            , "dev":True},
+        { "label":"Log Data"            , "menu": "Db Node", "fnc":self.logDbNodeData         , "dev":True},
+        { "label":"Delete"              , "menu": "Db Node", "fnc":self.deleteDbNode            , "dev":True},
         )
 
         return actionsCfg
