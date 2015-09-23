@@ -62,7 +62,8 @@ class BrowserContextMenu(BaseContextMenu):
 #        { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer     , "dev":True},
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
-        { "label":"Log Data"            , "menu": "Advanced", "fnc":self.logData , "dev":True},
+        { "label":"Log Data"            , "menu": "Advanced", "fnc":self.logData            , "dev":True},
+
         { "label":"Log Data"            , "menu": "Db Node", "fnc":self.logDbNodeData         , "dev":True},
         { "label":"Delete"              , "menu": "Db Node", "fnc":self.deleteDbNode            , "dev":True},
         )

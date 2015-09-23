@@ -432,6 +432,11 @@ class DrcEntry(DrcMetaObject):
         for primeItem in primePrpty.viewItems:
             primeItem.updateRow()
 
+    ''
+    #=======================================================================
+    # Sync rules methods
+    #=======================================================================
+
     def setSyncRules(self, in_sRuleList, applyRules=True, **kwargs):
 
         drcEntry = None
@@ -460,28 +465,45 @@ class DrcEntry(DrcMetaObject):
         cachedDbNodes = self.library._cachedDbNodes
         proj = self.library.project
 
-        dbNodeIds = []
+        prunedData = dict((k, v) for k, v in syncData.iteritems() if v is not None)
+
+        print "Applying sync data:", syncData
+
+        numCreated = 0
+        toUpdateNodes = []
+        #drcFileList = []
         for sPath in sPathIter:
+
             drcFile = proj.entryFromPath(sPath, dbNode=False)
+            sDbPath = drcFile.dbPath()
 
             bCached = True
             dbNode = drcFile.getDbNode(fromDb=False)
-
             if not dbNode:
-                dbNode = dbNodeDct.get(drcFile.dbPath())
+                dbNode = dbNodeDct.get(sDbPath)
                 bCached = False
 
             if not dbNode:
-                data = dict((k, v) for k, v in syncData.iteritems() if v is not None)
-                dbNode, _ = drcFile.createDbNode(data=data, check=False)
+                dbNode, _ = drcFile.createDbNode(data=prunedData, check=False)
+                bCached = False
+                numCreated += 1
+                "create    ", sDbPath
             else:
-                dbNode.setData(syncData)
-                dbNodeIds.append(dbNode.id_)
+                toUpdateNodes.append(dbNode)
+                print "update    ", sDbPath
 
             if not bCached:
                 drcFile._cacheDbNode(dbNode, cachedDbNodes, refresh=False)
-            drcFile.refresh(simple=True)
+
+            #drcFileList.append(drcFile)
             #print dbNode.dataRepr()
+
+        proj._db.updateNodes(toUpdateNodes, syncData)
+
+#        for drcFile in drcFileList:
+#            drcFile.refresh(simple=True)
+
+        print "- created: {} - updated: {} -".format(numCreated, len(toUpdateNodes))
 
     def __beginApplySyncData(self):
 
@@ -576,6 +598,11 @@ class DrcEntry(DrcMetaObject):
 
             #print sDbPath, sRuleList, sLibDbPath
         return sRuleList, drcEntry
+
+    ''
+    #=======================================================================
+    # Misc. methods
+    #=======================================================================
 
     def iconSource(self):
         return self._qfileinfo
@@ -1318,12 +1345,12 @@ class DrcFile(DrcEntry):
                 sNewSha1Key = sha1Key
 
             if sNewSha1Key:
-                versionFile.setPrpty("checksum", sNewSha1Key, write=False)
+                versionFile._setPrpty("checksum", sNewSha1Key, write=False)
 
-        versionFile.setPrpty("comment", sComment, write=False)
-        versionFile.setPrpty("sourceFile", sSrcFilePath, write=False)
-        versionFile.setPrpty("author", sLoggedUser, write=False)
-        versionFile.setPrpty("currentVersion", iVersion, write=False)
+        versionFile._setPrpty("comment", sComment, write=False)
+        versionFile._setPrpty("sourceFile", sSrcFilePath, write=False)
+        versionFile._setPrpty("author", sLoggedUser, write=False)
+        versionFile._setPrpty("currentVersion", iVersion, write=False)
 
         sPropertyList = ("checksum", "comment", "sourceFile", "author",
                          "currentVersion",)
@@ -1458,7 +1485,7 @@ class DrcFile(DrcEntry):
             #save the lock state so we can restore it later with restoreLockState()
             self.__previousLock = sLockOwner
 
-        if self.setPrpty('locked', bLock):
+        if self._setPrpty('locked', bLock):
             if kwargs.get("refresh", True):
                 self.refresh()
             return True

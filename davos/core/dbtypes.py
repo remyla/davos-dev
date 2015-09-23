@@ -72,7 +72,8 @@ class DrcDb(object):
 
             return dict((n.getField(keyField), n) for n in nodesIter) if nodesIter else {}
 
-        return list(nodesIter) if nodesIter else []
+        nodes = list(nodesIter) if nodesIter else []
+        return nodes
 
     def _iterNodes(self, sQuery):
         logMsg(sQuery, log='all')
@@ -86,6 +87,25 @@ class DrcDb(object):
     def nodeForIds(self, ids):
         return list(DbNode(self, r) for r in self.read(ids) if r is not None)
 
+    def updateNodes(self, nodes, data):
+
+        ids = tuple(n.id_ for n in nodes)
+        recs = self.update(ids, data)
+
+#        print len(nodes), len(recs)
+#        for node, rec in zip(nodes, recs):
+#            print node.id_, rec["_id"]
+#        print "------", set(n.id_ for n in nodes) - set(r["_id"] for r in recs)
+
+        for node, rec in zip(nodes, recs):
+
+            if node.id_ != rec["_id"]:
+                msg = (" Ids mismatch between {} and update record id: {} != {} !"
+                        .format(node, node.id_, rec["_id"]))
+                raise ValueError(msg)
+
+            node.loadData(rec)
+
     def search(self, sQuery):
         logMsg(sQuery, log='all')
 
@@ -98,27 +118,17 @@ class DrcDb(object):
 
     def read(self, ids):
 
-        if isinstance(ids, basestring):
-            sIds = ids
-        else:
-            sIds = ",".join(ids)
-
-        recs = self._dbcon.read(sIds)
+        recs = self._dbcon.read(ids)
         if recs is None:
-            raise DbReadError('Failed to read ids: \n\n{}'.format(sIds))
+            raise DbReadError('Failed to read ids: \n\n{}'.format(ids))
 
         return recs
 
     def update(self, ids, data):
 
-        if isinstance(ids, basestring):
-            sIds = ids
-        else:
-            sIds = ",".join(ids)
-
-        recs = self._dbcon.update(sIds, data)
+        recs = self._dbcon.update(ids, data)
         if recs is None:
-            raise DbReadError('Failed to update ids: \n\n{}'.format(sIds))
+            raise DbReadError('Failed to update ids: \n\n{}'.format(ids))
 
         return recs
 
