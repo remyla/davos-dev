@@ -13,7 +13,7 @@ from pytd.gui.dialogs import confirmDialog
 from pytd.util.logutils import logMsg
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
-from pytd.util.fsutils import addEndSlash, delEndSlash
+from pytd.util.fsutils import addEndSlash, pathNorm
 from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
@@ -338,7 +338,7 @@ class DrcEntry(DrcMetaObject):
 
             sDbPath = dbnode.getField("file")
 
-            cacheKey = normCase(library.dbToRelPath(sDbPath))
+            cacheKey = normCase(sDbPath)
             cachedNode = cachedDbNodes.get(cacheKey)
             if cachedNode:
 #                print "-----------------"
@@ -376,8 +376,7 @@ class DrcEntry(DrcMetaObject):
         return " ".join((sBaseQuery, sQuery))
 
     def getDbCacheKey(self):
-        p = self.relPath()
-        return normCase(p)
+        return normCase(self.dbPath())
 
     def deleteDbNode(self):
 
@@ -490,7 +489,7 @@ class DrcEntry(DrcMetaObject):
             if not dbNode:
                 dbNode, _ = drcFile.createDbNode(data=prunedData, check=False)
                 numCreated += 1
-                "create    ", sDbPath
+                print "create    ", sDbPath
             else:
                 toUpdateNodes.append(dbNode)
                 print "update    ", sDbPath
@@ -559,11 +558,14 @@ class DrcEntry(DrcMetaObject):
             sRule = sRuleList[0]
             if sRule == "all_sites":
                 sRuleList = sAllSites
+            elif sRule == "no_sync":
+                sRuleList = []
 
         sSiteList = set(sRuleList)
-        sBadSites = sSiteList - sAllSites
-        if sBadSites:
-            raise ValueError("Unknown sites: {}".format(tuple(sBadSites)))
+        if sSiteList:
+            sBadSites = sSiteList - sAllSites
+            if sBadSites:
+                raise ValueError("Unknown sites: {}".format(tuple(sBadSites)))
 
         syncData = dict((s, 1 if s in sSiteList else None) for s in sAllSites)
 
@@ -584,7 +586,7 @@ class DrcEntry(DrcMetaObject):
         #sLibDbPath = library.dbPath()
         while (sDbPath != '/'):
 
-            sDbPath = addEndSlash(osp.dirname(delEndSlash(sDbPath)))
+            sDbPath = addEndSlash(osp.dirname(pathNorm(sDbPath)))
 
             dbNode = ruleNodeDct.get(sDbPath)
             if dbNode:

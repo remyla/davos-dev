@@ -320,7 +320,9 @@ class DbStrProperty(DrcBaseProperty):
         return value
 
     def createAccessor(self):
-        dbnode, _ = self._metaobj.createDbNode()
+        dbnode = self._metaobj.getDbNode()
+        if not dbnode:
+            dbnode, _ = self._metaobj.createDbNode(check=False)
         return dbnode
 
 class DbIntProperty(DbStrProperty):
