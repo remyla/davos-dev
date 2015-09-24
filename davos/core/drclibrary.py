@@ -177,7 +177,7 @@ class DrcLibrary(DrcEntry):
         sAbsPath = re.sub('^' + sLibDmsPath, sLibPath, sDbPath)
 
         if sDbPath == sAbsPath:
-            raise RuntimeError("{} could not convert damas path to absolute: '{}'"
+            raise ValueError("{} could not convert damas path to absolute: '{}'"
                                .format(self, sDbPath))
 
         return sAbsPath
