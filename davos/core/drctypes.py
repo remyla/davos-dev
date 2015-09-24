@@ -13,7 +13,7 @@ from pytd.gui.dialogs import confirmDialog
 from pytd.util.logutils import logMsg
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
-from pytd.util.fsutils import addEndSlash
+from pytd.util.fsutils import addEndSlash, delEndSlash
 from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
 from pytd.util.qtutils import setWaitCursor
@@ -186,7 +186,11 @@ class DrcEntry(DrcMetaObject):
             self.loadChildDbNodes()
 
         getEntry = self.library.getEntry
-        return (getEntry(info, dbNode=False) for info in self._qdir.entryInfoList(nameFilters, **kwargs))
+
+        for fileInfo in self._qdir.entryInfoList(nameFilters, **kwargs):
+            entry = getEntry(fileInfo, dbNode=False)
+            if entry:
+                yield entry
 
     def hasChildren(self):
         return False
@@ -580,9 +584,7 @@ class DrcEntry(DrcMetaObject):
         #sLibDbPath = library.dbPath()
         while (sDbPath != '/'):
 
-            if sDbPath.endswith("/"):
-                sDbPath = sDbPath[:-1]
-            sDbPath = addEndSlash(osp.dirname(sDbPath))
+            sDbPath = addEndSlash(osp.dirname(delEndSlash(sDbPath)))
 
             dbNode = ruleNodeDct.get(sDbPath)
             if dbNode:

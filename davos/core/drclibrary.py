@@ -10,12 +10,13 @@ from pytd.util.logutils import logMsg
 from pytd.util.sysutils import listClassesFromModule, getCaller
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathNorm, normCase, pathSplitDirs, pathJoin
-from pytd.util.fsutils import pathRelativeTo, addEndSlash
+from pytd.util.fsutils import pathRelativeTo, addEndSlash, delEndSlash
 from pytd.util import sysutils
 
 from . import drctypes
 from .drctypes import DrcEntry, DrcDir, DrcFile
 from .dbtypes import DrcDb
+from fnmatch import fnmatch
 
 
 class DrcLibrary(DrcEntry):
@@ -97,13 +98,21 @@ class DrcLibrary(DrcEntry):
             if not osp.isabs(sAbsPath):
                 sRelPath = sAbsPath
                 sAbsPath = self.relToAbsPath(sRelPath)
+            sAbsPath = delEndSlash(sAbsPath)
         else:
             raise TypeError("argument 'pathOrInfo' must be of type <QFileInfo> \
-                            or <basestring>. Got {0}.".format(type(pathOrInfo)))
+                            or <basestring>. Got {}.".format(type(pathOrInfo)))
 
         # entries are cached using their relative path the the library they belong to.
         if not sRelPath:
             sRelPath = self.absToRelPath(sAbsPath) if osp.isabs(sAbsPath) else sAbsPath
+
+        if not weak:
+            sIgnorePatterns = ("*.db", ".*")
+            sName = osp.basename(sAbsPath)
+            for sPattern in sIgnorePatterns:
+                if fnmatch(sName, sPattern):
+                    return None
 
         # try to get an already loaded entry...
         drcEntry = self._cachedEntries.get(normCase(sRelPath))
@@ -172,8 +181,11 @@ class DrcLibrary(DrcEntry):
 
     def dbToAbsPath(self, sDbPath):
 
+        sDbPath = delEndSlash(sDbPath)
+
         sLibPath = self.absPath()
-        sLibDmsPath = self.dbPath()
+        sLibDmsPath = delEndSlash(self.dbPath())
+        #print '^' + sLibDmsPath, sLibPath, sDbPath
         sAbsPath = re.sub('^' + sLibDmsPath, sLibPath, sDbPath)
 
         if sDbPath == sAbsPath:
@@ -184,10 +196,9 @@ class DrcLibrary(DrcEntry):
 
     def dbToRelPath(self, sDbPath):
 
-        p = sDbPath
-        bHasEndSlash = (p.endswith('/') or p.endswith('\\'))
+        sDbPath = delEndSlash(sDbPath)
         sRelPath = pathRelativeTo(sDbPath, self.dbPath())
-        return addEndSlash(sRelPath) if bHasEndSlash else sRelPath
+        return sRelPath
 
     def getHomonym(self, sSpace):
 

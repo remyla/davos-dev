@@ -82,7 +82,7 @@ class AssetBrowserWidget(QtGui.QWidget, Ui_AssetBrowserWidget):
 
         damUser = proj.loggedUser()
         sUserName = damUser.loginName if damUser else ""
-        sWinTitle = " - ".join(("Davos Browser", labelify(proj.name), sUserName))
+        sWinTitle = " - ".join((labelify(proj.name), sUserName))
 
         view.setWindowTitle(sWinTitle)
 
