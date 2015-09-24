@@ -560,12 +560,14 @@ class DrcEntry(DrcMetaObject):
                 sRuleList = sAllSites
             elif sRule == "no_sync":
                 sRuleList = []
+            elif sRule not in sAllSites:
+                raise ValueError("Invalid rule: '{}'".format(sRule))
 
         sSiteList = set(sRuleList)
         if sSiteList:
             sBadSites = sSiteList - sAllSites
             if sBadSites:
-                raise ValueError("Unknown sites: {}".format(tuple(sBadSites)))
+                raise ValueError("Unknown sites: {}".format(u",".join(sBadSites)))
 
         syncData = dict((s, 1 if s in sSiteList else None) for s in sAllSites)
 
