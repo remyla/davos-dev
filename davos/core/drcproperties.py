@@ -77,7 +77,7 @@ DrcEntryProperties = (
     'uiEditable':Eds.Disabled,
     'uiVisible':True,
     'uiDisplay':'Modif. Date',
-    'uiCategory':'05_File',
+    'uiCategory':None,
     }
 ),
 # ('creationTime',

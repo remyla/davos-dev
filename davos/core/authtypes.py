@@ -39,7 +39,7 @@ class ShotgunAuth(Authenticator):
         super(ShotgunAuth, self).__init__()
 
         self._shotgundb = project._shotgundb
-        assert self._shotgundb is not None, "No Shotgun instance found in {}".format(project)
+        assert self._shotgundb is not None, u"No Shotgun instance found in {}".format(project)
 
     def loggedUser(self):
         userData = self._shotgundb.getLoggedUser()

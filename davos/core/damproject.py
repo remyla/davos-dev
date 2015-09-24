@@ -187,7 +187,7 @@ class DamProject(object):
 
     def loadEnvVars(self):
 
-        print "\nLoading project environment:"
+        print "\nLoading '{}' environment:".format(self.name)
 
         for sSpace, sLibName in self._iterConfigLibraries():
 
@@ -307,13 +307,20 @@ class DamProject(object):
 
         return drcEntry
 
-    def entryFromPath(self, sEntryPath, **kwargs):
+    def entryFromPath(self, sEntryPath, space="", **kwargs):
 
-        drcLib = self.libraryFromPath(sEntryPath)
+        bFail = kwargs.pop('fail', False)
+
+        drcLib = self.libraryFromPath(sEntryPath, space=space)
         if not drcLib:
-            msg = "Path is NOT from a KNOWN library: '{}'".format(sEntryPath)
-            logMsg(msg, warning=True)
-            return None
+            sLibType = space.upper() if space else "KNOWN"
+            msg = "Path NOT from {} library: '{}'".format(sLibType, sEntryPath)
+
+            if bFail:
+                raise ValueError(msg)
+            else:
+                logMsg(msg, warning=True)
+                return None
 
         return drcLib.getEntry(sEntryPath, **kwargs)
 
@@ -332,18 +339,22 @@ class DamProject(object):
 
             try:
                 drcLib.dbToAbsPath(sDbPath)
-            except RuntimeError:
+            except ValueError:
                 continue
 
             return drcLib
 
         return None
 
-    def libraryFromPath(self, sEntryPath):
+    def libraryFromPath(self, sEntryPath, space=""):
 
         p = pathNorm(sEntryPath)
 
         for drcLib in self.loadedLibraries.itervalues():
+
+            if space and (drcLib.space != space):
+                continue
+
             if drcLib.contains(p):
                 return drcLib
 
@@ -435,7 +446,7 @@ class DamProject(object):
 
     def publishEditedVersion(self, sSrcFilePath, **kwargs):
 
-        mainPrivFile = self.entryFromPath(sSrcFilePath)
+        mainPrivFile = self.entryFromPath(sSrcFilePath, space="private", fail=True)
 
         mainPubFile = mainPrivFile.getPublicFile(fail=True)
 

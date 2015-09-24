@@ -1,6 +1,7 @@
 
 from PySide import QtGui
 from PySide import QtCore
+from pytd.util.sysutils import inDevMode
 Qt = QtCore.Qt
 
 from pytd.gui.widgets import ImageButton
@@ -227,10 +228,9 @@ class PropertyEditorView(QtGui.QWidget, Ui_PropertyEditorView):
             newModel = model
 
         self.mapper.setModel(newModel)
-
         self.buildWidgetMapping()
 
-        self.setUiCategory("ZZ_Dev" if 0 else "XX_All")
+        self.setUiCategory("YY_AllnDev" if inDevMode() else "XX_All")
 
 
     def setCurrentModelIndex(self, curntIndex):
