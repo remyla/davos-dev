@@ -190,6 +190,15 @@ class DbNode(object):
     def hasField(self, sField):
         return sField in self._data
 
+    def getData(self, *fields):
+
+        if fields:
+            data = dict((f, v) for f, v in self._data.iteritems() if f in fields)
+        else:
+            data = self._data.copy()
+
+        return data
+
     def setData(self, data):
 
         recs = self._dbcon.update(self.id_, data)
@@ -255,7 +264,7 @@ class DbNode(object):
         bFilter = True if fields else False
         s = u'{'
         for k, v in sorted(self._data.iteritems(), key=lambda x:x[0]):
-            if bFilter and k not in fields:
+            if bFilter and (k not in fields):
                 continue
             s += u"\n{}: {} | {}".format(k, v, type(v))
         return (s + u'\n}')

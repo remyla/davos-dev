@@ -331,7 +331,7 @@ class DbIntProperty(DbStrProperty):
     def read(self):
         value = DbStrProperty.read(self)
         if isinstance(value, basestring):
-            return eval(value) if value else 0
+            return int(value) if value else 0
         return value
 
     def castToWrite(self, in_value):

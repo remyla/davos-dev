@@ -546,6 +546,9 @@ class DamProject(object):
 
         return self._db.findNodes(sFullQuery, **kwargs)
 
+    def listAllSites(self):
+        return ("dmn_paris", "dmn_angouleme", "online", "dream_wall", "pipangai")
+
     def listUiClasses(self):
         return DrcLibrary.listUiClasses()
 

@@ -253,14 +253,14 @@ class DrcEntry(DrcMetaObject):
     # Database related methods
     #=======================================================================
 
-    def createDbNode(self, data=None, check=True):
+    def createDbNode(self, data=None, **kwargs):
 
         assert self.isPublic(), "File is NOT PUBLIC !"
 
         bCreated = False
         dbnode = None
 
-        if check:
+        if kwargs.get("check", True):
             dbnode = self.getDbNode()
 
         if not dbnode:
@@ -485,7 +485,6 @@ class DrcEntry(DrcMetaObject):
 
             if not dbNode:
                 dbNode, _ = drcFile.createDbNode(data=prunedData, check=False)
-                bCached = False
                 numCreated += 1
                 "create    ", sDbPath
             else:
@@ -549,7 +548,7 @@ class DrcEntry(DrcMetaObject):
 
     def _evalSyncRules(self, in_sRuleList):
 
-        sAllSites = set(("dmn_paris", "dmn_angouleme", "online", "dream_wall", "pipangai"))
+        sAllSites = set(self.library.project.listAllSites())
 
         sRuleList = in_sRuleList
         if len(sRuleList) == 1:
@@ -598,6 +597,12 @@ class DrcEntry(DrcMetaObject):
 
             #print sDbPath, sRuleList, sLibDbPath
         return sRuleList, drcEntry
+
+    def getSyncData(self):
+
+        dbNode = self.getDbNode()
+        sAllSites = self.library.project.listAllSites()
+        return dbNode.getData(*sAllSites)
 
     ''
     #=======================================================================
@@ -1153,6 +1158,7 @@ class DrcFile(DrcEntry):
     def ensureFilePublishable(self, privFile, version=None):
 
         assert privFile.isPrivate(), "File must live in a PRIVATE library !"
+        assert not privFile.isReadOnly(), "File is READ-ONLY !"
 
         iSrcVers = versionFromName(privFile.name)
         iNxtVers = (self.currentVersion + 1) if version is None else version
@@ -1163,6 +1169,9 @@ class DrcFile(DrcEntry):
             raise AssertionError, "File version is WHAT THE FUCK !"
 
         privFile.publishAsserted = True
+
+    def isReadOnly(self):
+        return "readonly" in self.name
 
     def publishEditedFile(self, editFile, **kwargs):
 
@@ -1354,8 +1363,15 @@ class DrcFile(DrcEntry):
 
         sPropertyList = ("checksum", "comment", "sourceFile", "author",
                          "currentVersion",)
+
         data = versionFile.dataToStore(sPropertyList)
-        versionFile.createDbNode(data)
+        syncData = self.getSyncData()
+        data.update(syncData)
+
+        logMsg("Creating version node: {}".format(data))
+        dbNode, _ = versionFile.createDbNode(data)
+        if not dbNode:
+            raise RuntimeError("Could not create DbNode for {} !".format(versionFile))
 
         return versionFile
 

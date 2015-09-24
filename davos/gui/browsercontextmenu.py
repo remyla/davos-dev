@@ -64,8 +64,10 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
         { "label":"Log Data"            , "menu": "Advanced", "fnc":self.logData            , "dev":True},
 
-        { "label":"Log Data"            , "menu": "Db Node", "fnc":self.logDbNodeData         , "dev":True},
-        { "label":"Delete"              , "menu": "Db Node", "fnc":self.deleteDbNode            , "dev":True},
+        { "label":"Fix Not Up-to-date"  , "menu": "Advanced", "fnc":self.fixNotUpToDate     , "dev":True},
+
+        { "label":"Log Data"            , "menu": "Db Node", "fnc":self.logDbNodeData       , "dev":True},
+        { "label":"Delete"              , "menu": "Db Node", "fnc":self.deleteDbNode        , "dev":True},
         )
 
         return actionsCfg
@@ -327,8 +329,22 @@ class BrowserContextMenu(BaseContextMenu):
 
     createPrivateDir.auth_types = ("DrcDir",)
 
-
     def logData(self, *itemList):
 
         for item in itemList:
             item._metaobj.logData()
+
+    def fixNotUpToDate(self, *itemList):
+
+        proj = self.model()._metamodel
+
+        if proj.name != "zombtest":
+            raise EnvironmentError("No allowed in project: '{}'".format(proj.name))
+
+        for item in itemList:
+
+            drcFile = item._metaobj
+            fsMTime = drcFile.getPrpty("fsMtime")
+            drcFile._setPrpty("dbMtime", fsMTime)
+            drcFile.refresh()
+
