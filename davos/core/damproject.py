@@ -96,11 +96,12 @@ class DamProject(object):
 
         self.__confLibraries = self.getVar("project", "libraries")
 
+        self.loadEnvVars()
+
     def init(self):
         logMsg(log='all')
 
         self.reset()
-        self.loadEnvVars()
 
         sMissingPathList = []
         self._checkTemplatePaths(sMissingPathList)
