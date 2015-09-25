@@ -56,11 +56,18 @@ class PropertyWidgetDelegate(QtGui.QStyledItemDelegate):
 
         elif isinstance(editor, ImageButton):
 
-            value = index.data(ItemUserRole.ImageRole)
-            if isinstance(value, QtGui.QPixmap):
-                editor.setIcon(QtGui.QIcon(clampPixmapSize(value, 256)))
-            elif isinstance(value, QtGui.QIcon):
-                editor.setIcon(value)
+            image = index.data(ItemUserRole.ImageRole)
+            if not image:
+                model = index.model()
+                prptyItem = model.itemFromIndex(index)
+                if prptyItem and prptyItem.isValid():
+                    prptyItem.loadImage()
+                    image = index.data(ItemUserRole.ImageRole)
+
+            if isinstance(image, QtGui.QPixmap):
+                editor.setIcon(QtGui.QIcon(clampPixmapSize(image, 256)))
+            elif isinstance(image, QtGui.QIcon):
+                editor.setIcon(image)
 
         QtGui.QStyledItemDelegate.setEditorData(self, editor, index)
 
