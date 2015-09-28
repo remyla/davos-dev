@@ -1351,7 +1351,7 @@ class DrcFile(DrcEntry):
             raise RuntimeError("Version file ALREADY exists:\n'{}'."
                                .format(sVersionPath))
 
-        sLoggedUser = self.library.project.loggedUser().loginName
+        #sLoggedUser = self.library.project.loggedUser().loginName
 
         if saveSha1Key:
             if not sha1Key:
@@ -1364,20 +1364,26 @@ class DrcFile(DrcEntry):
 
         versionFile._setPrpty("comment", sComment, write=False)
         versionFile._setPrpty("sourceFile", sSrcFilePath, write=False)
-        versionFile._setPrpty("author", sLoggedUser, write=False)
+        #versionFile._setPrpty("author", sLoggedUser, write=False)
         versionFile._setPrpty("currentVersion", iVersion, write=False)
 
-        sPropertyList = ("checksum", "comment", "sourceFile", "author",
-                         "currentVersion",)
+        sPropertyList = ("checksum", "comment", "sourceFile", "currentVersion",)
 
-        data = versionFile.dataToStore(sPropertyList)
+        versData = versionFile.dataToStore(sPropertyList)
+        versData = dict((k, v)for k, v in versData.iteritems() if v not in ("", None))
+        versData['file'] = versionFile.dbPath()
+
         syncData = self.getSyncData()
-        data.update(syncData)
+        versData.update(syncData)
 
-        logMsg("Creating version node: {}".format(data))
-        dbNode, _ = versionFile.createDbNode(data)
-        if not dbNode:
+        curNode = self.getDbNode()
+
+        logMsg("Creating version node: {}".format(versData))
+        versNode = self.library._db.createVersion(curNode.id_, versData)
+        if not versNode:
             raise RuntimeError("Could not create DbNode for {} !".format(versionFile))
+
+        versionFile._cacheDbNode(versNode)
 
         return versionFile
 
