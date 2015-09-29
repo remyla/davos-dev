@@ -1205,7 +1205,7 @@ class DrcFile(DrcEntry):
 
         # first, get all needed data from user or inputs
         try:
-            sComment, iNextVers, bSgVersion, sgTask = self.beginPublish(**kwargs)
+            sComment, iNextVers, bSgVersion, sgTaskInfo = self.beginPublish(**kwargs)
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
             raise
@@ -1220,9 +1220,9 @@ class DrcFile(DrcEntry):
             raise
 
         # create shotgun version if possible else warn the user.
-        if bSgVersion:
+        if bSgVersion and sgTaskInfo:
             try:
-                sgVersion = newVersFile.createSgVersion(sgTask, sComment)
+                sgVersion = newVersFile.createSgVersion(sgTaskInfo, sComment)
                 if not sgVersion:
                     raise RuntimeError("")
             except Exception, e:
@@ -1290,21 +1290,24 @@ class DrcFile(DrcEntry):
                         .format(self.currentVersion, version))
                 raise ValueError(sMsg)
 
+        sgTaskInfo = None
         bSgVersion = self.getParam('create_sg_version', False)
         if bSgVersion:
-            if sgTask is None:
-                damEntity = self.getEntity(fail=True)
-                sSgStep = self.getParam('sg_step', "")
-                if not sSgStep:
-                    raise RuntimeError("No Shotgun Step defined for {}".format(self))
+            try:
+                sgTaskInfo = self.__beginPublishSgVersion(sgTask)
+            except Exception, e:
+                sMsg = "Failed to get Shotgun Task:\n\n" + toStr(e)
+                sResult = confirmDialog(title='WARNING !',
+                                        message=sMsg,
+                                        button=["Continue", "Abort"],
+                                        defaultButton="Continue",
+                                        cancelButton="Abort",
+                                        dismissString="Abort",
+                                        icon="warning")
+                if sResult == "Abort":
+                    raise
 
-                sgTask = damEntity.chooseSgTask(sSgStep)
-            elif isinstance(sgTask, dict):
-                if "entity" not in sgTask:
-                    raise ValueError("'sgTask' arg must contain an 'entity' key !")
-            else:
-                raise TypeError("'sgTask' arg must be {}. Got {}."
-                                .format(dict, type(sgTask)))
+                bSgVersion = False
 
         sComment = comment
         if not sComment:
@@ -1318,7 +1321,7 @@ class DrcFile(DrcEntry):
             if not backupFile.exists():
                 backupFile.createFromFile(self)
 
-        return sComment, iNextVers, bSgVersion, sgTask
+        return sComment, iNextVers, bSgVersion, sgTaskInfo
 
     def _abortPublish(self, err, versionFile=None, sgVersion=None):
 
@@ -1341,6 +1344,29 @@ class DrcFile(DrcEntry):
             logMsg(sMsg , warning=True)
 
         return versionFile, sgVersion
+
+    def __beginPublishSgVersion(self, sgTask):
+
+        if not sgTask:
+            damEntity = self.getEntity(fail=True)
+            sTaskList = self.getParam("sg_tasks", default=[])
+            if len(sTaskList) == 1:
+                sgTaskInfo = damEntity._sgTaskFromCode(sTaskList[0], fail=True)
+            else:
+                sStepCode = self.getParam('sg_step', "")
+                sgTaskInfo = damEntity.chooseSgTask(sStepCode, fromList=sTaskList)
+
+        elif isinstance(sgTask, dict):
+            sgTaskInfo = sgTask
+
+        elif isinstance(sgTask, basestring):
+            damEntity = self.getEntity(fail=True)
+            sgTaskInfo = damEntity._sgTaskFromCode(sgTask, fail=True)
+        else:
+            raise TypeError("'sgTask' kwarg must be {} or {}. Got {}."
+                            .format(dict, basestring, type(sgTask)))
+
+        return sgTaskInfo
 
     def _createVersionFile(self, sSrcFilePath, iVersion, sComment,
                           saveSha1Key=False, sha1Key=""):
@@ -1397,25 +1423,29 @@ class DrcFile(DrcEntry):
         else:
             return self.library.getEntry(sFilePath)
 
-    def createSgVersion(self, sgTask, comment=""):
+    def createSgVersion(self, sgTaskInfo, comment=""):
 
         assert self.isPublic(), 'File is NOT PUBLIC !'
         assert versionFromName(self.name) is not None, "File is NOT a VERSION !"
 
         proj = self.library.project
 
-        taskNameOrInfo = sgTask
-        entityNameOrInfo = sgTask.pop("entity")
+        taskNameOrInfo = sgTaskInfo
+        if "entity" not in sgTaskInfo:
+            raise ValueError("'sgTaskInfo' arg must contain an 'entity' key !")
+
+        entityNameOrInfo = sgTaskInfo.pop("entity")
 
         sVersionName = osp.splitext(self.name)[0]
         sComment = comment
         if not comment:
             sComment = self.comment
 
-        sgVersion = proj.createSgVersion(entityNameOrInfo,
-                                         sVersionName,
+        sgVersion = proj.createSgVersion(sVersionName,
+                                         entityNameOrInfo,
                                          taskNameOrInfo,
-                                         sComment)
+                                         sComment,
+                                         self.envPath())
         return sgVersion
 
     def ensureLocked(self, autoLock=False):

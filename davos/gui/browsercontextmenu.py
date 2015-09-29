@@ -317,6 +317,9 @@ class BrowserContextMenu(BaseContextMenu):
 
         damAst = DamAsset(proj, name=sEntityName, assetType=sSection)
         damAst.createDirsAndFiles()
+        astDir = damAst.getResource("public")
+        if astDir:
+            astDir.parentDir().refresh(children=True)
 
     createNewAsset.auth_types = ("DrcDir",)
 

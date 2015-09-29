@@ -129,57 +129,71 @@ class DamEntity(object):
             if sStepCode and (sgStep['code'] == sStepCode):
                 return sgStep
 
-    def listSgTasks(self, sStepCode, b_inMyTasks=False):
+    def getSgTasks(self, sStepCode="", fail=False):
 
         proj = self.project
 
         sgEntity = self.getSgInfo()
-        sgStep = self.getSgStep(sStepCode)
+        sgStep = None
+        if sStepCode:
+            sgStep = self.getSgStep(sStepCode)
 
-        filters = [
-                    ['entity', 'is', sgEntity],
-                    ['step', 'is', sgStep]
-                ]
+        sgTaskList = proj._shotgundb.getTasks(sgEntity, sgStep)
+        if (not sgTaskList) and fail:
+            if sStepCode:
+                msg = ("<{}> No Shotgun Tasks found for '{}' step"
+                       .format(self, sStepCode))
+            else:
+                msg = "<{}> No Shotgun Task defined !".format(self)
+            raise ValueError(msg)
 
-        if b_inMyTasks:
-            filters.append(['sg_operators', 'contains', proj._shotgundb.currentUser])
+        return sgTaskList
 
-        """
-        {
-            "filter_operator": "any",
-            "filters": [
-                [ "sg_status_list", "is", "rdy"],
-                [ "sg_status_list", "is", "ip" ]
-            ]
-        }
-        """
+    def _sgTaskFromCode(self, sSgTaskCode, fail=False):
 
-        fields = ['content', 'entity']#, 'step', 'entity', 'project', 'sg_status_list', 'sg_operators']
-        tasks = proj._shotgundb.sg.find("Task", filters, fields)
+        shotgundb = self.project._shotgundb
 
-        return tasks
+        sgEntity = self.getSgInfo()
+        sgTaskInfo = shotgundb._getTask(sSgTaskCode, sgEntity)
+        if (not sgTaskInfo) and fail:
+            sgTasks = shotgundb.getTasks(sgEntity)
+            if not sgTasks:
+                msg = "<{}> No Shotgun Task defined !".format(self)
+            else:
+                sTaskList = tuple(d["content"] for d in sgTasks)
+                msg = ("<{}> No such Shotgun Task: '{}'. Are valid: {}."
+                       .format(self, sSgTaskCode, sTaskList))
+            raise ValueError(msg)
 
-    def chooseSgTask(self, sSgStep):
+        return sgTaskInfo
 
-        sgTaskList = self.listSgTasks(sSgStep)
-        if not sgTaskList:
-            raise RuntimeError("No Shotgun Tasks found for {}".format(self))
+    def chooseSgTask(self, sSgStep="", fromList=None):
 
+        in_sTaskList = fromList
+        if in_sTaskList:
+            in_sTaskList = tuple(s.lower() for s in in_sTaskList)
+
+        sgTaskList = self.getSgTasks(sSgStep, fail=True)
         if len(sgTaskList) == 1:
             taskNameOrInfo = sgTaskList[0]
         else:
-            sgTaskDct = dict((sg['content'], sg) for sg in sgTaskList)
-            sTaskList = sgTaskDct.keys()
+            sgTaskDct = dict((d['content'], d) for d in sgTaskList)
+
+            if in_sTaskList:
+                sTaskList = list(t for t in sgTaskDct.iterkeys() if t.lower() in in_sTaskList)
+                if not sTaskList:
+                    raise ValueError("<{}> Unknown input tasks: {}. Are valid: {}."
+                                     .format(self, in_sTaskList, sgTaskDct.keys()))
+            else:
+                sTaskList = sgTaskDct.keys()
 
             sMsg = "What was your task ?"
             if isQtApp():
                 from PySide import QtGui
                 sTaskName, bOk = QtGui.QInputDialog.getItem(None, "Make your choice !",
-                                                            sMsg,
-                                                            sTaskList,
+                                                            sMsg, sTaskList,
                                                             current=0,
-                                                            editable=False,
-                                                            )
+                                                            editable=False)
                 if not bOk:
                     raise RuntimeError("No task selected !")
             else:
@@ -195,8 +209,6 @@ class DamEntity(object):
                 sTaskName = sChoice
 
             taskNameOrInfo = sgTaskDct[sTaskName]
-
-        #entityNameOrInfo = taskNameOrInfo.pop('entity')
 
         return taskNameOrInfo
 
@@ -225,8 +237,7 @@ class DamAsset(DamEntity):
             self.confSection = proj._confobj.getSection(self.assetType).name
 
     def getSgInfo(self):
-        res = self.project._shotgundb.getAssetsInfo(self.name)
-        return res[0] if res else None
+        return self.project._shotgundb.getAssetInfo(self.name)
 
 
 class DamShot(DamEntity):
