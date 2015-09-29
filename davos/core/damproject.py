@@ -53,7 +53,7 @@ class DamProject(object):
 
         proj.name = sProjectName
         libClass = DrcLibrary
-        if hostApp() == "maya":
+        if "maya" in hostApp():
             try:
                 from davos_maya.core.mrclibrary import MrcLibrary
             except ImportError:
