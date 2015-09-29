@@ -536,13 +536,14 @@ class DamProject(object):
             if sEntityType and (stepInfo['entity_type'] == sEntityType):
                 yield stepInfo
 
-    def createSgVersion(self, sgEntity, s_inVersionName, sgTask, sComment):
+    def createSgVersion(self, sVersionName, sgEntity, sgTask, sComment, sFilePath):
 
         shotgundb = self._shotgundb
         if not shotgundb:
             return None
 
-        return shotgundb.createVersion("", sgEntity, s_inVersionName, sgTask, sComment)
+        return shotgundb.createVersion(sgEntity["type"], sgEntity, sVersionName, sgTask,
+                                       sComment, sFilePath)
 
     @setWaitCursor
     def uploadSgVersion(self, sgVersion, sMediaPath):
