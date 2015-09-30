@@ -691,6 +691,16 @@ class DamProject(object):
                    .format(sLibName, self.__confLibraries))
             raise ValueError(msg)
 
+    def assertMayaVersion(self, iCurMayaVersion):
+
+        iProjMayaVersion = self.getVar("project", "maya_version")
+        iCurMayaVersion /= 100
+
+        if iCurMayaVersion != iProjMayaVersion:
+            sMsg = ("{} requires Maya {}, but you're running Maya {} !"
+                    .format(self, iProjMayaVersion, iCurMayaVersion))
+            raise EnvironmentError(sMsg)
+
     def _iterConfigLibraries(self, space=LIBRARY_SPACES, fullName=False):
 
         sSpaceList = argToTuple(space)
