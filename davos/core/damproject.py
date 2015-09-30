@@ -76,19 +76,15 @@ class DamProject(object):
 
         if not kwargs.pop("empty", False):
 
-            bInit = (not proj.isAuthenticated()) if bExists else True
-            if bInit:
-                if not proj.init():
-                    return None
+            if not proj.init():
+                return None
 
-            bLoadLibs = (not proj.loadedLibraries) if bExists else True
-            if bLoadLibs:
-                proj.loadLibraries()
+            proj.loadLibraries()
 
         if not bExists:
             cls._instancesDct[sProjName] = proj
 
-        print proj, id(proj)
+        #print id(proj), proj
 
         return proj
 
@@ -118,6 +114,10 @@ class DamProject(object):
     def init(self):
         logMsg(log='all')
 
+        bExists = self._alreadyExists()
+        if bExists and self.isAuthenticated():
+            return True
+
         print "<{}> Initializing...".format(self)
 
         #self.reset()
@@ -133,6 +133,9 @@ class DamProject(object):
         self.__initDamas()
 
         return self.authenticate()
+
+    def _alreadyExists(self):
+        return id(self.__class__._instancesDct.get(self.name)) == id(self)
 
     def authenticate(self):
 
@@ -185,6 +188,10 @@ class DamProject(object):
 
     def loadLibraries(self, noError=False):
         logMsg(log='all')
+
+        bExists = self._alreadyExists()
+        if bExists and self.loadedLibraries:
+            return
 
         if not self.isAuthenticated():
             return

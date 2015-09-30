@@ -16,7 +16,7 @@ from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
 from pytd.util.fsutils import addEndSlash, pathNorm
 from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
-from pytd.util.qtutils import setWaitCursor, isValidQObj
+from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
 from pytd.util.fsutils import iterPaths
 from pytd.util.external import parse
@@ -421,7 +421,7 @@ class DrcEntry(DrcMetaObject):
             parentItem = primeItem.parent()
             parentItem.removeRow(primeItem.row())
 
-        primePrpty.viewItems = []
+        del primePrpty.viewItems[:]
 
     def updModelRow(self):
         logMsg(log='all')
@@ -430,11 +430,8 @@ class DrcEntry(DrcMetaObject):
         if not model:
             return
 
-        print model, isValidQObj(model)
-
         primePrpty = self.metaProperty(model.primaryProperty)
         for primeItem in primePrpty.viewItems:
-            #if isValidQObj(primeItem):
             primeItem.updateRow()
 
     ''

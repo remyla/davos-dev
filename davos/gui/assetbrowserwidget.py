@@ -97,6 +97,6 @@ class AssetBrowserWidget(QtGui.QWidget, Ui_AssetBrowserWidget):
 
         self.propertyEditorView.connectToTreeWidget(treeWidget)
 
-    def __del__(self):
-        print "__del__", self.objectName()
+#    def __del__(self):
+#        print "__del__", self.objectName()
 
