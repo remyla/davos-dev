@@ -48,6 +48,7 @@ class BrowserContextMenu(BaseContextMenu):
 
         { "label":"separator"           , "menu": "Main"},
         { "label":"Private Directory"   , "menu": "Go To"   , "fnc":self.showPrivateDirInExplorer   },
+        { "label":"Shotgun Page"        , "menu": "Go To"   , "fnc":self.showShotgunPage   },
         #{ "label":"Server Directory"    , "menu": "Go To"   , "fnc":self.exploreItemPath    , "args":["server"]   },
         #{ "label":"Damas Web Page"      , "menu": "Go To"   , "fnc":self.launchItemWebPage                        },
 
@@ -222,6 +223,14 @@ class BrowserContextMenu(BaseContextMenu):
         drcFile.rollBackToVersion(v)
 
     publishEditedVersion.auth_types = ("DrcFile",)
+
+    def showShotgunPage(self, *itemList):
+
+        item = itemList[-1]
+        drcEntry = item._metaobj
+
+        damEntity = drcEntry.getEntity(fail=True)
+        damEntity.showShotgunPage()
 
     def showPrivateDirInExplorer(self, *itemList):
 

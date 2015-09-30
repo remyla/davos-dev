@@ -212,6 +212,9 @@ class DamEntity(object):
 
         return taskNameOrInfo
 
+    def showShotgunPage(self):
+        self.project._shotgundb.showInBrowser(self.getSgInfo())
+
     def __repr__(self):
 
         cls = self.__class__

@@ -143,7 +143,7 @@ class DrcEntry(DrcMetaObject):
 
             self.loadData(fileInfo, dbNode=bDbNode)
 
-            self.updateModelRow()
+            self.updModelRow()
 
             if bChildren and self.childrenLoaded:
 
@@ -408,7 +408,6 @@ class DrcEntry(DrcMetaObject):
             return
 
         parentPrpty = parent.metaProperty(model.primaryProperty)
-
         for parentItem in parentPrpty.viewItems:
             model.loadRowItems(self, parentItem)
 
@@ -418,13 +417,12 @@ class DrcEntry(DrcMetaObject):
         primePrpty = self.metaProperty(model.primaryProperty)
 
         for primeItem in primePrpty.viewItems:
-
             parentItem = primeItem.parent()
             parentItem.removeRow(primeItem.row())
 
         primePrpty.viewItems = []
 
-    def updateModelRow(self):
+    def updModelRow(self):
         logMsg(log='all')
 
         model = self.library._itemmodel

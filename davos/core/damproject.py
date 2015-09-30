@@ -46,32 +46,51 @@ proj.publishEditedVersion(privFile.absPath())
 
 class DamProject(object):
 
-    def __new__(cls, sProjectName, **kwargs):
+    _instancesDct = {}
+
+    def __new__(cls, sProjName, **kwargs):
         logMsg(cls.__name__ , log='all')
 
-        proj = object.__new__(cls)
+        sProjName = sProjName.lower()
 
-        proj.name = sProjectName
-        libClass = DrcLibrary
-        if "maya" in hostApp():
-            try:
-                from davos_maya.core.mrclibrary import MrcLibrary
-            except ImportError:
-                pass
-            else:
-                libClass = MrcLibrary
+        bExists = True
+        proj = cls._instancesDct.get(sProjName)
+        if not proj:
+            bExists = False
 
-        proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
+            proj = object.__new__(cls)
+            proj.name = sProjName
+            proj.reset()
 
-        proj.reset()
+            libClass = DrcLibrary
+            if "maya" in hostApp():
+                try:
+                    from davos_maya.core.mrclibrary import MrcLibrary
+                except ImportError:
+                    pass
+                else:
+                    libClass = MrcLibrary
 
-        if kwargs.pop("empty", False):
-            return proj
+            proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
 
-        if not proj.init():
-            return None
 
-        proj.loadLibraries()
+        if not kwargs.pop("empty", False):
+
+            bInit = (not proj.isAuthenticated()) if bExists else True
+            if bInit:
+                print "Initializing", proj
+                if not proj.init():
+                    return None
+
+            bLoadLibs = (not proj.loadedLibraries) if bExists else True
+            if bLoadLibs:
+                print "Loading", proj
+                proj.loadLibraries()
+
+        if not bExists:
+            cls._instancesDct[sProjName] = proj
+
+        print proj, id(proj)
 
         return proj
 
@@ -101,7 +120,7 @@ class DamProject(object):
     def init(self):
         logMsg(log='all')
 
-        self.reset()
+        #self.reset()
 
         sMissingPathList = []
         self._checkTemplatePaths(sMissingPathList)
@@ -159,7 +178,7 @@ class DamProject(object):
 
         bForce = kwargs.get("force", False)
 
-        if bForce and not self.isAuthenticated():
+        if bForce and (not self.isAuthenticated()):
             self.authenticate(relog=True)
 
         return self.__loggedUser
@@ -184,7 +203,10 @@ class DamProject(object):
             if (not bDevMode) and sSpace == "private":
                 continue
 
-            drcLib.addModelRow()
+            if drcLib.primeProperty().viewItems:
+                drcLib.updModelRow()
+            else:
+                drcLib.addModelRow()
 
     def loadEnvVars(self):
 
@@ -204,6 +226,7 @@ class DamProject(object):
 
         sFullLibName = DrcLibrary.makeFullName(sSpace, sLibName)
         drcLib = self.loadedLibraries.get(sFullLibName, None)
+        print sFullLibName, drcLib
 
         if not drcLib:
             sLibPath = self.getPath(sSpace, sLibName)
