@@ -16,9 +16,12 @@ from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
 from pytd.util.fsutils import addEndSlash, pathNorm
 from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
-from pytd.util.qtutils import setWaitCursor
+from pytd.util.qtutils import setWaitCursor, isValidQObj
 from pytd.util.strutils import padded
 from pytd.util.fsutils import iterPaths
+from pytd.util.external import parse
+from pytd.util.sysutils import toStr, hostApp#, getCaller
+from pytd.util.sysutils import toTimestamp
 
 from pytd.gui.itemviews.utils import showPathInExplorer
 from pytd.util.sysutils import timer#, getCaller
@@ -29,9 +32,7 @@ from .drcproperties import DrcEntryProperties, DrcFileProperties
 from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
-from pytd.util.external import parse
-from pytd.util.sysutils import toStr, hostApp#, getCaller
-from pytd.util.sysutils import toTimestamp
+
 
 #from davos.core.damtypes import DamEntity
 
@@ -429,8 +430,11 @@ class DrcEntry(DrcMetaObject):
         if not model:
             return
 
+        print model, isValidQObj(model)
+
         primePrpty = self.metaProperty(model.primaryProperty)
         for primeItem in primePrpty.viewItems:
+            #if isValidQObj(primeItem):
             primeItem.updateRow()
 
     ''

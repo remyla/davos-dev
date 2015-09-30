@@ -1,7 +1,6 @@
 
-from PySide import QtCore
+#from PySide.QtCore import Slot, QObject
 from PySide import QtGui
-Qt = QtCore.Qt
 
 from pytd.util.sysutils import timer
 from pytd.util.strutils import labelify
@@ -97,3 +96,7 @@ class AssetBrowserWidget(QtGui.QWidget, Ui_AssetBrowserWidget):
         treeWidget.setupModelData(project)
 
         self.propertyEditorView.connectToTreeWidget(treeWidget)
+
+    def __del__(self):
+        print "__del__", self.objectName()
+

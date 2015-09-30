@@ -1,6 +1,7 @@
 
 import os
 
+#from PySide.QtCore import Slot, QObject
 from PySide import QtGui
 
 from pytd.util.sysutils import inDevMode, toStr, hostApp
@@ -58,3 +59,9 @@ class AssetBrowserWindow(QtGui.QMainWindow, Ui_AssetBrowserWin):
 
             raise
 
+#    def __del__(self):
+#        print "__del__", self.objectName()
+
+#    def closeEvent(self, event):
+#        print self, "closeEvent"
+#        return QtGui.QMainWindow.closeEvent(self, event)

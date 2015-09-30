@@ -78,13 +78,11 @@ class DamProject(object):
 
             bInit = (not proj.isAuthenticated()) if bExists else True
             if bInit:
-                print "Initializing", proj
                 if not proj.init():
                     return None
 
             bLoadLibs = (not proj.loadedLibraries) if bExists else True
             if bLoadLibs:
-                print "Loading", proj
                 proj.loadLibraries()
 
         if not bExists:
@@ -119,6 +117,8 @@ class DamProject(object):
 
     def init(self):
         logMsg(log='all')
+
+        print "<{}> Initializing...".format(self)
 
         #self.reset()
 
@@ -192,6 +192,8 @@ class DamProject(object):
         if not self._checkLibraryPaths(noError=noError):
             return
 
+        print "<{}> Loading libraries...".format(self)
+
         bDevMode = sysutils.inDevMode()
 
         for sSpace, sLibName in self._iterConfigLibraries():
@@ -226,7 +228,6 @@ class DamProject(object):
 
         sFullLibName = DrcLibrary.makeFullName(sSpace, sLibName)
         drcLib = self.loadedLibraries.get(sFullLibName, None)
-        print sFullLibName, drcLib
 
         if not drcLib:
             sLibPath = self.getPath(sSpace, sLibName)
