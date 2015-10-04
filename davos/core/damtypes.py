@@ -76,7 +76,7 @@ class DamEntity(object):
 
         sPublicPath = normCase(pubEntry.absPath())
 
-        pathIter = proj.iterPaths("public", self.confSection, tokens=vars(self))
+        pathIter = proj.iterRcPaths("public", self.confSection, tokens=vars(self))
         for sVar, sPath in pathIter:
             if normCase(sPath) == sPublicPath:
                 return sVar, sPath

@@ -2,6 +2,7 @@
 import os
 import os.path as osp
 import re
+from fnmatch import fnmatch
 
 from pytd.util.pyconfparser import PyConfParser
 from pytd.util.logutils import logMsg
@@ -311,9 +312,6 @@ class DamProject(object):
     def getVar(self, sSection, sVarName, default="NoEntry", **kwargs):
         return self._confobj.getVar(sSection, sVarName, default=default, **kwargs)
 
-    def hasVar(self, sSection, sVarName):
-        return self._confobj.hasVar(sSection, sVarName)
-
     def getRcParam(self, sSection, sRcName, sParam, default="NoEntry"):
 
         rcSettings = self.getVar(sSection, "resources_settings", {})
@@ -338,6 +336,34 @@ class DamProject(object):
             raise RuntimeError("No such resource path: '{}'".format(sRcPath))
 
         return drcEntry
+
+    def isEditableResource(self, sAbsPath):
+
+        sFileName = osp.basename(sAbsPath)
+        if not sFileName:
+            print "No filename"
+            return False
+
+        bPatternOk = False
+        sPatterns = self.getVar("project", "editable_files", ())
+        for sPatt in sPatterns:
+            if fnmatch(sFileName, sPatt):
+                bPatternOk = True
+                break
+
+        if not bPatternOk:
+            return False
+
+        data = self.dataFromPath(sAbsPath)
+
+        sSection = data.get("section")
+        sRcName = data.get("resource")
+
+        if not sRcName:
+            print "Not a resource"
+            return False
+
+        return self.getRcParam(sSection, sRcName, "editable", default=True)
 
     def entryFromPath(self, sEntryPath, space="", **kwargs):
 
@@ -392,7 +418,7 @@ class DamProject(object):
 
         return None
 
-    def entityFromPath(self, sEntryPath):
+    def entityFromPath(self, sEntryPath, fail=True):
 
         data = self.dataFromPath(sEntryPath)
         sSection = data.get('section')
@@ -404,29 +430,36 @@ class DamProject(object):
             return None
 
         cls = importClass(sEntityCls, globals(), locals())
-        return cls(self, **data)
+        try:
+            return cls(self, **data)
+        except:
+            if fail:
+                raise
+            return None
 
     def dataFromPath(self, sEntryPath):
 
-        sSpace, sConfSection = self.sectionFromPath(sEntryPath)
-        if not sConfSection:
+        sSpace, sSection = self.sectionFromPath(sEntryPath)
+        if not sSection:
             return {}
 
-        drcEntry = self.entryFromPath(sEntryPath)
-        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile(fail=True)
+        drcEntry = self.entryFromPath(sEntryPath, weak=True)
+        pubEntry = drcEntry
+        if not drcEntry.isPublic():
+            pubEntry = drcEntry.getPublicFile(fail=True, weak=True)
 
         sPublicPath = pubEntry.absPath()
         sPubPathDirs = pathSplitDirs(sPublicPath)
         numDirs = len(sPubPathDirs)
 
-        sConfPathList = sorted(self.iterPaths("public", sConfSection, resVars=False),
+        sRcPathList = sorted(self.iterRcPaths("public", sSection, resVars=False),
                                    key=lambda x: len(x[1]),
                                    reverse=True)
 
         parseRes = None
-        for sRcName, sConfPath in sConfPathList:
+        for sRcName, sRcPath in sRcPathList:
 
-            parseRes = pathParse(sConfPath, sPublicPath)
+            parseRes = pathParse(sRcPath, sPublicPath)
             if parseRes and parseRes.named:
                 break
 
@@ -434,10 +467,10 @@ class DamProject(object):
             return {}
 
         data = parseRes.named
-        data["section"] = sConfSection
+        data["section"] = sSection
         data["space"] = sSpace
 
-        if numDirs == len(pathSplitDirs(sConfPath)):
+        if numDirs == len(pathSplitDirs(sRcPath)):
             data["resource"] = sRcName
 
         return data
@@ -604,7 +637,7 @@ class DamProject(object):
     def iterChildren(self):
         return self.loadedLibraries.itervalues()
 
-    def iterPaths(self, sSpace, sSection, tokens=None, **kwargs):
+    def iterRcPaths(self, sSpace, sSection, tokens=None, **kwargs):
 
         for sPathVar in self.getVar(sSection, "all_tree_vars", ()):
 
@@ -696,7 +729,7 @@ class DamProject(object):
 
             sEntityDir = self.getPath("template", sSection, "entity_dir")
 
-            for _, p in self.iterPaths("template", sSection):
+            for _, p in self.iterRcPaths("template", sSection):
 
                 p = re.sub('^' + re.escape(sEntityDir), sTemplateDir, p)
 
