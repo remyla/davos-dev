@@ -169,6 +169,9 @@ class BrowserContextMenu(BaseContextMenu):
         #proj = self.model()._metamodel
 
         sSrcFilePath = self.__class__.chooseNewFile(pubDir)
+        if not sSrcFilePath:
+            logMsg("Cancelled !", warning=True)
+            return
 
         print pubDir.publishFile(sSrcFilePath, autoLock=True, autoUnlock=True)
 
