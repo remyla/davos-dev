@@ -579,9 +579,9 @@ class DrcEntry(DrcMetaObject):
         if sSiteList:
             sBadSites = sSiteList - sAllSites
             if sBadSites:
-                raise ValueError("Unknown sites: {}".format(u",".join(sBadSites)))
+                raise ValueError("Unknown sites: {}".format(",".join(sBadSites)))
 
-        syncData = dict((s, 1 if s in sSiteList else None) for s in sAllSites)
+        syncData = dict((s, "1" if s in sSiteList else None) for s in sAllSites)
 
         return syncData
 
