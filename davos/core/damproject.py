@@ -2,6 +2,7 @@
 import os
 import os.path as osp
 import re
+from fnmatch import fnmatch
 
 from pytd.util.pyconfparser import PyConfParser
 from pytd.util.logutils import logMsg
@@ -46,32 +47,45 @@ proj.publishEditedVersion(privFile.absPath())
 
 class DamProject(object):
 
-    def __new__(cls, sProjectName, **kwargs):
+    _instancesDct = {}
+
+    def __new__(cls, sProjName, **kwargs):
         logMsg(cls.__name__ , log='all')
 
-        proj = object.__new__(cls)
+        sProjName = sProjName.lower()
 
-        proj.name = sProjectName
-        libClass = DrcLibrary
-        if "maya" in hostApp():
-            try:
-                from davos_maya.core.mrclibrary import MrcLibrary
-            except ImportError:
-                pass
-            else:
-                libClass = MrcLibrary
+        bExists = True
+        proj = cls._instancesDct.get(sProjName)
+        if not proj:
+            bExists = False
 
-        proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
+            proj = object.__new__(cls)
+            proj.name = sProjName
+            proj.reset()
 
-        proj.reset()
+            libClass = DrcLibrary
+            if "maya" in hostApp():
+                try:
+                    from davos_maya.core.mrclibrary import MrcLibrary
+                except ImportError:
+                    pass
+                else:
+                    libClass = MrcLibrary
 
-        if kwargs.pop("empty", False):
-            return proj
+            proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
 
-        if not proj.init():
-            return None
 
-        proj.loadLibraries()
+        if not kwargs.pop("empty", False):
+
+            if not proj.init():
+                return None
+
+            proj.loadLibraries()
+
+        if not bExists:
+            cls._instancesDct[sProjName] = proj
+
+        #print id(proj), proj
 
         return proj
 
@@ -101,7 +115,13 @@ class DamProject(object):
     def init(self):
         logMsg(log='all')
 
-        self.reset()
+        bExists = self._alreadyExists()
+        if bExists and self.isAuthenticated():
+            return True
+
+        print "<{}> Initializing...".format(self)
+
+        #self.reset()
 
         sMissingPathList = []
         self._checkTemplatePaths(sMissingPathList)
@@ -114,6 +134,9 @@ class DamProject(object):
         self.__initDamas()
 
         return self.authenticate()
+
+    def _alreadyExists(self):
+        return id(self.__class__._instancesDct.get(self.name)) == id(self)
 
     def authenticate(self):
 
@@ -159,7 +182,7 @@ class DamProject(object):
 
         bForce = kwargs.get("force", False)
 
-        if bForce and not self.isAuthenticated():
+        if bForce and (not self.isAuthenticated()):
             self.authenticate(relog=True)
 
         return self.__loggedUser
@@ -167,11 +190,17 @@ class DamProject(object):
     def loadLibraries(self, noError=False):
         logMsg(log='all')
 
+        bExists = self._alreadyExists()
+        if bExists and self.loadedLibraries:
+            return
+
         if not self.isAuthenticated():
             return
 
         if not self._checkLibraryPaths(noError=noError):
             return
+
+        print "<{}> Loading libraries...".format(self)
 
         bDevMode = sysutils.inDevMode()
 
@@ -184,7 +213,10 @@ class DamProject(object):
             if (not bDevMode) and sSpace == "private":
                 continue
 
-            drcLib.addModelRow()
+            if drcLib.primeProperty().viewItems:
+                drcLib.updModelRow()
+            else:
+                drcLib.addModelRow()
 
     def loadEnvVars(self):
 
@@ -280,9 +312,6 @@ class DamProject(object):
     def getVar(self, sSection, sVarName, default="NoEntry", **kwargs):
         return self._confobj.getVar(sSection, sVarName, default=default, **kwargs)
 
-    def hasVar(self, sSection, sVarName):
-        return self._confobj.hasVar(sSection, sVarName)
-
     def getRcParam(self, sSection, sRcName, sParam, default="NoEntry"):
 
         rcSettings = self.getVar(sSection, "resources_settings", {})
@@ -307,6 +336,34 @@ class DamProject(object):
             raise RuntimeError("No such resource path: '{}'".format(sRcPath))
 
         return drcEntry
+
+    def isEditableResource(self, sAbsPath):
+
+        sFileName = osp.basename(sAbsPath)
+        if not sFileName:
+            print "No filename"
+            return False
+
+        bPatternOk = False
+        sPatterns = self.getVar("project", "editable_files", ())
+        for sPatt in sPatterns:
+            if fnmatch(sFileName, sPatt):
+                bPatternOk = True
+                break
+
+        if not bPatternOk:
+            return False
+
+        data = self.dataFromPath(sAbsPath)
+
+        sSection = data.get("section")
+        sRcName = data.get("resource")
+
+        if not sRcName:
+            print "Not a resource"
+            return False
+
+        return self.getRcParam(sSection, sRcName, "editable", default=True)
 
     def entryFromPath(self, sEntryPath, space="", **kwargs):
 
@@ -361,7 +418,7 @@ class DamProject(object):
 
         return None
 
-    def entityFromPath(self, sEntryPath):
+    def entityFromPath(self, sEntryPath, fail=True):
 
         data = self.dataFromPath(sEntryPath)
         sSection = data.get('section')
@@ -373,29 +430,36 @@ class DamProject(object):
             return None
 
         cls = importClass(sEntityCls, globals(), locals())
-        return cls(self, **data)
+        try:
+            return cls(self, **data)
+        except:
+            if fail:
+                raise
+            return None
 
     def dataFromPath(self, sEntryPath):
 
-        sSpace, sConfSection = self.sectionFromPath(sEntryPath)
-        if not sConfSection:
+        sSpace, sSection = self.sectionFromPath(sEntryPath)
+        if not sSection:
             return {}
 
-        drcEntry = self.entryFromPath(sEntryPath)
-        pubEntry = drcEntry if drcEntry.isPublic() else drcEntry.getPublicFile(fail=True)
+        drcEntry = self.entryFromPath(sEntryPath, weak=True)
+        pubEntry = drcEntry
+        if not drcEntry.isPublic():
+            pubEntry = drcEntry.getPublicFile(fail=True, weak=True)
 
         sPublicPath = pubEntry.absPath()
         sPubPathDirs = pathSplitDirs(sPublicPath)
         numDirs = len(sPubPathDirs)
 
-        sConfPathList = sorted(self.iterPaths("public", sConfSection, resVars=False),
+        sRcPathList = sorted(self.iterRcPaths("public", sSection, resVars=False),
                                    key=lambda x: len(x[1]),
                                    reverse=True)
 
         parseRes = None
-        for sRcName, sConfPath in sConfPathList:
+        for sRcName, sRcPath in sRcPathList:
 
-            parseRes = pathParse(sConfPath, sPublicPath)
+            parseRes = pathParse(sRcPath, sPublicPath)
             if parseRes and parseRes.named:
                 break
 
@@ -403,10 +467,10 @@ class DamProject(object):
             return {}
 
         data = parseRes.named
-        data["section"] = sConfSection
+        data["section"] = sSection
         data["space"] = sSpace
 
-        if numDirs == len(pathSplitDirs(sConfPath)):
+        if numDirs == len(pathSplitDirs(sRcPath)):
             data["resource"] = sRcName
 
         return data
@@ -573,7 +637,7 @@ class DamProject(object):
     def iterChildren(self):
         return self.loadedLibraries.itervalues()
 
-    def iterPaths(self, sSpace, sSection, tokens=None, **kwargs):
+    def iterRcPaths(self, sSpace, sSection, tokens=None, **kwargs):
 
         for sPathVar in self.getVar(sSection, "all_tree_vars", ()):
 
@@ -665,7 +729,7 @@ class DamProject(object):
 
             sEntityDir = self.getPath("template", sSection, "entity_dir")
 
-            for _, p in self.iterPaths("template", sSection):
+            for _, p in self.iterRcPaths("template", sSection):
 
                 p = re.sub('^' + re.escape(sEntityDir), sTemplateDir, p)
 

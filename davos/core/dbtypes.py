@@ -132,6 +132,21 @@ class DrcDb(object):
 
         return recs
 
+    def createVersion(self, id_, data):
+
+        print id_, data
+
+        rec = self._dbcon.version(id_, data)
+        if rec is None:
+            raise DbCreateError("Failed to version node: {}".format(data))
+
+        #TODO:remove return type when fixed by remy
+        #r = rec[0] if isinstance(rec, (list, tuple, set)) else rec
+
+        print rec
+
+        return DbNode(self, rec)
+
 class DbNode(object):
 
     __slots__ = ('__drcdb', '_dbcon', '_data', 'id_', '__dirty', 'name')

@@ -1,5 +1,6 @@
 
 import re
+import os.path as osp
 
 from PySide import QtGui
 
@@ -14,6 +15,7 @@ from davos.core.drctypes import DrcFile
 from pytd.util.sysutils import toStr#, hostApp
 from pytd.util.qtutils import setWaitCursor
 from davos.core.damtypes import DamAsset
+from pytd.util.fsutils import topmostFoundDir
 
 
 class BrowserContextMenu(BaseContextMenu):
@@ -44,35 +46,32 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"separator"           , "menu": "Main"    , "dev":False                           },
         { "label":"View (Read-only)"    , "menu": "Main"    , "fnc":self.openFile                   },
         { "label":"Edit"                , "menu": "Main"    , "fnc":self.editFile                   },
-        { "label":"Publish..."          , "menu": "Main"    , "fnc":self.publishEditedVersion       },
-
-        { "label":"separator"           , "menu": "Main"},
-        { "label":"Private Directory"   , "menu": "Go To"   , "fnc":self.showPrivateDirInExplorer   },
-        #{ "label":"Server Directory"    , "menu": "Go To"   , "fnc":self.exploreItemPath    , "args":["server"]   },
-        #{ "label":"Damas Web Page"      , "menu": "Go To"   , "fnc":self.launchItemWebPage                        },
+        { "label":"Publish..."          , "menu": "Main"    , "fnc":self.publishVersion             },
 
         { "label":"separator"           , "menu": "Main"},
         { "label":"Off"                 , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[False]      },
         { "label":"On"                  , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[True]       },
         { "label":"Break"               , "menu": "Set Lock", "fnc":self.breakFilesLock     , "dev":True       },
 
-        { "label":"Create New Asset"    , "menu": "Main"    , "fnc":self.createNewAsset     , "dev":True},
-        { "label":"Create Private Dirs" , "menu": "Main"    , "fnc":self.createPrivateDir   , "dev":False},
+        { "label":"Private Directory"   , "menu": "Go To"   , "fnc":self.showPrivateDirInExplorer   },
+        { "label":"Shotgun Page"        , "menu": "Go To"   , "fnc":self.showShotgunPage   },
 
-#        { "label":"Show In Explorer"    , "menu": "Main"    , "fnc":self.showInExplorer     , "dev":True},
+        { "label":"Asset"               , "menu": "Add New"    , "fnc":self.createNewAsset     , "dev":True},
+        { "label":"File"                , "menu": "Add New"    , "fnc":self.publishNewFile     , "dev":True},
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
-        { "label":"Log Data"            , "menu": "Advanced", "fnc":self.logData            , "dev":True},
 
-        { "label":"Fix Not Up-to-date"  , "menu": "Advanced", "fnc":self.fixNotUpToDate     , "dev":True},
+        { "label":"separator"           , "menu": "Main"},
+        { "label":"Log Data"            , "menu": "DrcEntry", "fnc":self.logData            , "dev":True},
+        { "label":"Fix Not Up-to-date"  , "menu": "DrcEntry", "fnc":self.fixNotUpToDate     , "dev":True},
 
-        { "label":"Log Data"            , "menu": "Db Node", "fnc":self.logDbNodeData       , "dev":True},
-        { "label":"Delete"              , "menu": "Db Node", "fnc":self.deleteDbNode        , "dev":True},
+        { "label":"Log Data"            , "menu": "DbNode", "fnc":self.logDbNodeData       , "dev":True},
+        { "label":"Delete"              , "menu": "DbNode", "fnc":self.deleteDbNode        , "dev":True},
         )
 
         return actionsCfg
 
-    # @forceLog(log='all')
+
     def editFile(self, *itemList):
 
         pubFile = itemList[-1]._metaobj
@@ -99,7 +98,7 @@ class BrowserContextMenu(BaseContextMenu):
 
         return True
 
-    setFilesLocked.auth_types = [ "DrcFile" ]
+    setFilesLocked.auth_types = ["DrcFile"]
 
     def breakFilesLock(self, *itemList):
         drcFiles = (item._metaobj for item in itemList)
@@ -109,7 +108,7 @@ class BrowserContextMenu(BaseContextMenu):
             if drcFile.setLocked(False, force=True):
                 logMsg('{0} {1}.'.format("Lock broken:", drcFile))
 
-    breakFilesLock.auth_types = [ "DrcFile" ]
+    breakFilesLock.auth_types = ["DrcFile"]
 
     @setWaitCursor
     def refreshItems(self, *itemList, **kwargs):
@@ -123,7 +122,8 @@ class BrowserContextMenu(BaseContextMenu):
 #             for d in lib._cachedEntries.iteritems():
 #                 print d
 
-    # @forceLog(log="debug")
+        return
+
     def removeItems(self, *itemList):
 
         entryList = tuple(item._metaobj for item in itemList)
@@ -162,32 +162,47 @@ class BrowserContextMenu(BaseContextMenu):
                 else:
                     continue
 
-
-    @staticmethod
-    def choosePrivateFileToPublish(drcFile):
-
-        privDir = drcFile.getPrivateDir()
-        if not privDir:
-            raise RuntimeError('Could not find the private directory !')
-
-        sNameFilter = pathSuffixed(drcFile.nextVersionName(), '*').replace(' ', '?')
-        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
-                                                            "Select a file to publish...",
-                                                            privDir.absPath(),
-                                                            sNameFilter
-                                                            )
-
-        return sSrcFilePath
-
-    def publishEditedVersion(self, *itemList):
+    def publishNewFile(self, *itemList):
 
         item = itemList[-1]
-        drcFile = item._metaobj
+        pubDir = item._metaobj
+        #proj = self.model()._metamodel
 
-        if not isinstance(drcFile, DrcFile):
-            raise TypeError, 'A {} cannot be published.'.format(type(drcFile).__name__)
+        sSrcFilePath = self.__class__.chooseNewFile(pubDir)
 
-        sSrcFilePath = self.__class__.choosePrivateFileToPublish(drcFile)
+        print pubDir.publishFile(sSrcFilePath, autoLock=True, autoUnlock=True)
+
+    publishNewFile.auth_types = ("DrcDir",)
+
+    @staticmethod
+    def chooseNewFile(pubDir):
+
+        sStartDirPath = topmostFoundDir(pubDir.getHomonym("private", weak=True).absPath())
+        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
+                                                            "Select a file to publish...",
+                                                            sStartDirPath,
+                                                            "File (*.*)")
+        return sSrcFilePath
+
+    def publishVersion(self, *itemList):
+
+        item = itemList[-1]
+        pubEntry = item._metaobj
+        proj = self.model()._metamodel
+
+        if proj.isEditableResource(pubEntry.absPath()):
+            self.__publishEdited(pubEntry)
+        else:
+            self.__publishRegular(pubEntry)
+
+    publishVersion.auth_types = ("DrcFile",)
+
+    def __publishEdited(self, pubFile):
+
+        if not isinstance(pubFile, DrcFile):
+            raise TypeError('A {} cannot be published.'.format(type(pubFile).__name__))
+
+        sSrcFilePath = self.__class__.chooseEditedVersion(pubFile)
         if not sSrcFilePath:
             logMsg("Cancelled !", warning=True)
             return
@@ -195,7 +210,46 @@ class BrowserContextMenu(BaseContextMenu):
         proj = self.model()._metamodel
         proj.publishEditedVersion(sSrcFilePath)
 
-    publishEditedVersion.auth_types = ("DrcFile",)
+    @staticmethod
+    def chooseEditedVersion(pubFile):
+
+        privDir = pubFile.getPrivateDir()
+        if not privDir:
+            raise RuntimeError('Could not find the private directory !')
+
+        sNameFilter = pathSuffixed(pubFile.nextVersionName(), '*').replace(' ', '?')
+        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
+                                                            "Select a file to publish...",
+                                                            privDir.absPath(),
+                                                            sNameFilter)
+        return sSrcFilePath
+
+    def __publishRegular(self, pubFile):
+
+        sSrcFilePath = self.__class__.chooseRegularVersion(pubFile)
+        if not sSrcFilePath:
+            logMsg("Cancelled !", warning=True)
+            return
+
+        pubFile.publishVersion(sSrcFilePath, autoLock=True)
+
+    @staticmethod
+    def chooseRegularVersion(pubFile):
+
+        sExt = osp.splitext(pubFile.name)[1]
+        if not sExt:
+            raise ValueError, 'File has no extension: {}'.format(pubFile)
+
+        sStartDirPath = osp.dirname(pubFile.sourceFile)
+        if not osp.isdir(sStartDirPath):
+            sStartDirPath = pubFile.getPrivateDir(weak=True).absPath()
+        sStartDirPath = topmostFoundDir(sStartDirPath)
+
+        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
+                                                            "Select a file to publish...",
+                                                            sStartDirPath,
+                                                            "File (*{})".format(sExt))
+        return sSrcFilePath
 
     def rollBackToVersion(self, *itemList):
 
@@ -221,7 +275,13 @@ class BrowserContextMenu(BaseContextMenu):
 
         drcFile.rollBackToVersion(v)
 
-    publishEditedVersion.auth_types = ("DrcFile",)
+    def showShotgunPage(self, *itemList):
+
+        item = itemList[-1]
+        drcEntry = item._metaobj
+
+        damEntity = drcEntry.getEntity(fail=True)
+        damEntity.showShotgunPage()
 
     def showPrivateDirInExplorer(self, *itemList):
 
@@ -291,11 +351,20 @@ class BrowserContextMenu(BaseContextMenu):
 
         item = itemList[-1]
         drcDir = item._metaobj
-        proj = drcDir.library.project
+
+        library = drcDir.library
+        if library.sectionName != "asset_lib":
+            raise RuntimeError("Cannot create new asset under '{}'"
+                               .format(library.sectionName))
+
+        proj = library.project
 
         sSection = drcDir.fileName()
+        if not proj._confobj.hasSection(sSection):
+            raise RuntimeError("Cannot create new asset under '{}'"
+                               .format(sSection))
 
-        if not proj.hasVar(sSection, "template_dir"):
+        if not proj._confobj.hasVar(sSection, "template_dir"):
             raise RuntimeError("No template found for '{}'".format(sSection))
 
         result = promptDialog(title='Please...',

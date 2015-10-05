@@ -11,17 +11,19 @@ from PySide.QtCore import QDir
 from pytd.gui.dialogs import confirmDialog
 
 from pytd.util.logutils import logMsg
-from pytd.util.qtutils import toQFileInfo
+
+from pytd.util import fsutils
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
 from pytd.util.fsutils import addEndSlash, pathNorm
-from pytd.util.fsutils import copyFile
 from pytd.util.fsutils import sha1HashFile
+from pytd.util.fsutils import iterPaths
+from pytd.util.qtutils import toQFileInfo
 from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
-from pytd.util.fsutils import iterPaths
-
+from pytd.util.external import parse
+from pytd.util.sysutils import toStr, hostApp, timer
+from pytd.util.sysutils import toTimestamp
 from pytd.gui.itemviews.utils import showPathInExplorer
-from pytd.util.sysutils import timer#, getCaller
 from pytd.util.external.send2trash import send2trash
 
 from .drcproperties import DrcMetaObject
@@ -29,11 +31,9 @@ from .drcproperties import DrcEntryProperties, DrcFileProperties
 from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
-from pytd.util.external import parse
-from pytd.util.sysutils import toStr, hostApp#, getCaller
-from pytd.util.sysutils import toTimestamp
 
-#from davos.core.damtypes import DamEntity
+copyFile = setWaitCursor(fsutils.copyFile)
+
 
 _COPY_PRIV_SPACE_MSG = """
 You have {0} version of '{1}':
@@ -143,7 +143,7 @@ class DrcEntry(DrcMetaObject):
 
             self.loadData(fileInfo, dbNode=bDbNode)
 
-            self.updateModelRow()
+            self.updModelRow()
 
             if bChildren and self.childrenLoaded:
 
@@ -166,6 +166,20 @@ class DrcEntry(DrcMetaObject):
 
     def getChild(self, sChildName):
         return self.library.getEntry(pathJoin(self.absPath(), sChildName))
+
+    def getChildFile(self, sFilename, weak=False):
+        sAbsPath = pathJoin(self.absPath(), sFilename)
+        if weak:
+            return self.library._weakFile(sAbsPath)
+        else:
+            return self.library.getEntry(sAbsPath)
+
+    def getChildDir(self, sDirName, weak=False):
+        sAbsPath = pathJoin(self.absPath(), sDirName)
+        if weak:
+            return self.library._weakDir(sAbsPath)
+        else:
+            return self.library.getEntry(sAbsPath)
 
     def listChildren(self, *nameFilters, **kwargs):
         return tuple(self.iterChildren(*nameFilters, **kwargs))
@@ -228,9 +242,9 @@ class DrcEntry(DrcMetaObject):
 
     def getEntity(self, fail=False):
         p = self.absPath()
-        damEntity = self.library.project.entityFromPath(p)
+        damEntity = self.library.project.entityFromPath(p, fail=False)
         if (not damEntity) and fail:
-            raise RuntimeError("Could not get an entity from '{}'".format(p))
+            raise ValueError("Could not get an ENTITY from '{}'.".format(p))
 
         return damEntity
 
@@ -245,7 +259,7 @@ class DrcEntry(DrcMetaObject):
 
         if not (sSection and sRcName):
             if default == "NoEntry":
-                raise RuntimeError("{} is not a configured resource: '{}'"
+                raise KeyError("{} is not a configured resource: '{}'"
                                    .format(self, sAbsPath))
             else:
                 return default
@@ -408,7 +422,6 @@ class DrcEntry(DrcMetaObject):
             return
 
         parentPrpty = parent.metaProperty(model.primaryProperty)
-
         for parentItem in parentPrpty.viewItems:
             model.loadRowItems(self, parentItem)
 
@@ -418,13 +431,12 @@ class DrcEntry(DrcMetaObject):
         primePrpty = self.metaProperty(model.primaryProperty)
 
         for primeItem in primePrpty.viewItems:
-
             parentItem = primeItem.parent()
             parentItem.removeRow(primeItem.row())
 
-        primePrpty.viewItems = []
+        del primePrpty.viewItems[:]
 
-    def updateModelRow(self):
+    def updModelRow(self):
         logMsg(log='all')
 
         model = self.library._itemmodel
@@ -733,6 +745,34 @@ class DrcDir(DrcEntry):
     def __init__(self, drcLibrary, absPathOrInfo=None, **kwargs):
         super(DrcDir, self).__init__(drcLibrary, absPathOrInfo, **kwargs)
 
+    def publishFile(self, sSrcFilePath, **kwargs):
+
+        if not os.path.isfile(sSrcFilePath):
+            raise ValueError, "Path does not lead to a file : '{0}' .".format(sSrcFilePath)
+
+        sFilename = kwargs.pop("newName", os.path.basename(sSrcFilePath))
+
+        bCreated = False
+        pubFile = self.getChildFile(sFilename)
+        if not pubFile:
+            pubFile = self.getChildFile(sFilename, weak=True)
+            open(pubFile.absPath(), 'w').close()
+            bCreated = True
+
+        try:
+            pubFile.refresh(simple=True)
+            drcVersion, _ = pubFile.publishVersion(sSrcFilePath, **kwargs)
+        except:
+            if bCreated:
+                os.remove(pubFile.absPath())
+            raise
+
+        if drcVersion:
+            logMsg("Published '{0}' as {1}.".format(sSrcFilePath, pubFile))
+            self.refresh(children=True)
+
+        return pubFile, drcVersion
+
     def getHomonym(self, sSpace, weak=False, create=False):
 
         curLib = self.library
@@ -868,16 +908,17 @@ class DrcFile(DrcEntry):
 
     def _assertEditable(self):
 
-        self.refresh()
+        proj = self.library.project
 
-        if not self.getParam("editable", True):
+        if not proj.isEditableResource(self.absPath()):
             raise AssertionError("File is NOT EDITABLE !")
 
         if not self.isUpToDate():
             raise AssertionError("File is NOT UP-TO-DATE !")
 
-
     def isUpToDate(self):
+
+        self.refresh(simple=True)
 
         if not self.currentVersion:
             return True
@@ -1114,13 +1155,13 @@ class DrcFile(DrcEntry):
 
         return pubFile
 
-    def getPrivateDir(self):
+    def getPrivateDir(self, **kwargs):
 
         #assert self.isFile(), "File does NOT exist !"
         assert self.isPublic(), "File is NOT PUBLIC !"
 
         pubDir = self.parentDir()
-        privDir = pubDir.getHomonym("private")
+        privDir = pubDir.getHomonym("private", **kwargs)
         return privDir
 
     def latestBackupVersion(self):
@@ -1177,7 +1218,7 @@ class DrcFile(DrcEntry):
         privFile.publishAsserted = True
 
     def isReadOnly(self):
-        return "readonly" in self.name
+        return ("readonly" in self.name)
 
     def publishEditedFile(self, editFile, **kwargs):
 
@@ -1189,19 +1230,19 @@ class DrcFile(DrcEntry):
         sSrcFilePath = editFile.absPath()
         return self.publishVersion(sSrcFilePath, **kwargs)
 
-    @setWaitCursor
+    '@setWaitCursor'
     def publishVersion(self, sSrcFilePath, **kwargs):
 
         bAutoUnlock = kwargs.pop("autoUnlock", True)
         bSaveSha1Key = kwargs.pop("saveSha1Key", False)
 
+        sgVersion = None
+        newVersFile = None
+
         bDiffers, sSrcSha1Key = self.differsFrom(sSrcFilePath)
         if not bDiffers:
             logMsg("Skipping {0} increment: Files are identical.".format(self))
-            return True
-
-        sgVersion = None
-        newVersFile = None
+            return newVersFile, sgVersion
 
         # first, get all needed data from user or inputs
         try:
@@ -1377,7 +1418,7 @@ class DrcFile(DrcEntry):
             raise RuntimeError("Version file ALREADY exists:\n'{}'."
                                .format(sVersionPath))
 
-        sLoggedUser = self.library.project.loggedUser().loginName
+        #sLoggedUser = self.library.project.loggedUser().loginName
 
         if saveSha1Key:
             if not sha1Key:
@@ -1390,20 +1431,26 @@ class DrcFile(DrcEntry):
 
         versionFile._setPrpty("comment", sComment, write=False)
         versionFile._setPrpty("sourceFile", sSrcFilePath, write=False)
-        versionFile._setPrpty("author", sLoggedUser, write=False)
+        #versionFile._setPrpty("author", sLoggedUser, write=False)
         versionFile._setPrpty("currentVersion", iVersion, write=False)
 
-        sPropertyList = ("checksum", "comment", "sourceFile", "author",
-                         "currentVersion",)
+        sPropertyList = ("checksum", "comment", "sourceFile", "currentVersion",)
 
-        data = versionFile.dataToStore(sPropertyList)
+        versData = versionFile.dataToStore(sPropertyList)
+        versData = dict((k, v)for k, v in versData.iteritems() if v not in ("", None))
+        versData['file'] = versionFile.dbPath()
+
         syncData = self.getSyncData()
-        data.update(syncData)
+        versData.update(syncData)
 
-        logMsg("Creating version node: {}".format(data))
-        dbNode, _ = versionFile.createDbNode(data)
-        if not dbNode:
+        curNode = self.getDbNode()
+
+        logMsg("Creating version node: {}".format(versData))
+        versNode = self.library._db.createVersion(curNode.id_, versData)
+        if not versNode:
             raise RuntimeError("Could not create DbNode for {} !".format(versionFile))
+
+        versionFile._cacheDbNode(versNode)
 
         return versionFile
 
@@ -1453,7 +1500,7 @@ class DrcFile(DrcEntry):
                 raise RuntimeError(msg)
 
         if not self.setLocked(True, owner=sLockOwner):
-            raise RuntimeError, "Could not lock the file !"
+            raise RuntimeError("Could not lock the file !")
 
         return sLockOwner
 

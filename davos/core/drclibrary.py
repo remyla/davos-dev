@@ -35,7 +35,7 @@ class DrcLibrary(DrcEntry):
         self._itemmodel = None
         self._db = None
 
-        self.libName = sLibName
+        self.sectionName = sLibName
         self.fullName = DrcLibrary.makeFullName(sSpace, sLibName)
         self.space = sSpace
         self.project = project
@@ -204,10 +204,10 @@ class DrcLibrary(DrcEntry):
         if self.space == sSpace:
             return None
 
-        return self.project.getLibrary(sSpace, self.libName)
+        return self.project.getLibrary(sSpace, self.sectionName)
 
     def getVar(self, sVarName, default="NoEntry", **kwargs):
-        return self.project.getVar(self.libName, sVarName, default=default, **kwargs)
+        return self.project.getVar(self.sectionName, sVarName, default=default, **kwargs)
 
     def hasChildren(self):
         return True
