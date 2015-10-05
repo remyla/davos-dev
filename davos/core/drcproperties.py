@@ -108,12 +108,6 @@ DrcEntryProperties = (
     'uiCategory':"06_Sync",
     }
 ),
-('onlineSync',
-    syncProperty("online", uiDisplay="Online")
-),
-('dmnParisSync',
-    syncProperty("dmn_paris", uiDisplay="Paris")
-),
 ('dmnAngoulmSync',
     syncProperty("dmn_angouleme", uiDisplay="Angouleme")
 ),
@@ -122,6 +116,12 @@ DrcEntryProperties = (
 ),
 ('pipangaiSync',
     syncProperty("pipangai", uiDisplay="Pipangai")
+),
+('dmnParisSync',
+    syncProperty("dmn_paris", uiDisplay="Paris")
+),
+('onlineSync',
+    syncProperty("online", uiDisplay="Online")
 ),
 )
 
