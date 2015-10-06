@@ -61,9 +61,9 @@ class DamProject(object):
 
             proj = object.__new__(cls)
             proj.name = sProjName
-            proj.reset()
 
             libClass = DrcLibrary
+            setEnvFunc = None
             if "maya" in hostApp():
                 try:
                     from davos_maya.core.mrclibrary import MrcLibrary
@@ -72,8 +72,17 @@ class DamProject(object):
                 else:
                     libClass = MrcLibrary
 
-            proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
+                try:
+                    from pymel.util import putEnv
+                except ImportError:
+                    pass
+                else:
+                    setEnvFunc = putEnv
 
+            proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
+            proj.__setEnvFunc = setEnvFunc
+
+            proj.reset()
 
         if not kwargs.pop("empty", False):
 
@@ -220,14 +229,22 @@ class DamProject(object):
 
     def loadEnvVars(self):
 
-        print "\nLoading '{}' environment:".format(self.name)
+        sMsg = "\nLoading '{}' environment:".format(self.name)
+
+        setEnvFunc = self.__setEnvFunc
+        if setEnvFunc:
+            print sMsg, "(using {}.{})".format(setEnvFunc.__module__, setEnvFunc.__name__)
+        else:
+            print sMsg
 
         for sSpace, sLibName in self._iterConfigLibraries():
 
             sEnvVars = self.getVar(sLibName, sSpace + "_path_envars", default=())
 
             for sVar in sEnvVars:
-                updEnv(sVar, self.getPath(sSpace, sLibName), conflict="keep")
+                updEnv(sVar, self.getPath(sSpace, sLibName),
+                       conflict="keep",
+                       setEnvFunc=setEnvFunc)
 
     def getLibrary(self, sSpace, sLibName):
         logMsg(log='all')
