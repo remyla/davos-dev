@@ -112,8 +112,11 @@ class DamEntity(object):
 
                 if not bDryRun:
                     if sDestPath.endswith("/"):
-                        os.mkdir(sDestPath)
+                        os.makedirs(sDestPath)
                     else:
+                        sDirPath = osp.dirname(sDestPath)
+                        if not osp.exists(sDirPath):
+                            os.makedirs(sDirPath)
                         copyFile(sSrcPath, sDestPath, **kwargs)
 
                 createdList.append(sDestPath)
