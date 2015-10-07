@@ -202,7 +202,7 @@ class DrcLibrary(DrcEntry):
     def getHomonym(self, sSpace):
 
         if self.space == sSpace:
-            return None
+            return self
 
         return self.project.getLibrary(sSpace, self.sectionName)
 

@@ -638,12 +638,12 @@ class DrcEntry(DrcMetaObject):
         send2trash(self.absPath())
         self.refresh(children=True)
 
-    def showInExplorer(self, isFile=False):
+    def showInExplorer(self, **kwargs):
 
         sPath = self.absPath()
-        assert self.isPrivate(), "File is NOT private: '{}'".format(sPath)
+        #assert self.isPrivate(), "File is NOT private: '{}'".format(sPath)
 
-        return showPathInExplorer(sPath, isFile)
+        return showPathInExplorer(sPath, **kwargs)
 
     '@forceLog(log="debug")'
     def _writeAllValues(self, propertyNames=None):
@@ -1622,8 +1622,8 @@ class DrcFile(DrcEntry):
         if parentDir._qdir.remove(self.name):
             parentDir.refresh(children=True)
 
-    def showInExplorer(self):
-        return DrcEntry.showInExplorer(self, isFile=True)
+    def showInExplorer(self, **kwargs):
+        return DrcEntry.showInExplorer(self, isFile=True, **kwargs)
 
     def absToRelPath(self, sAbsPath):
         raise NotImplementedError('Not applicable to a File')

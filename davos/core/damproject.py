@@ -146,7 +146,7 @@ class DamProject(object):
 
         self.__loggedUser = DamUser(self, userData)
         sLogin = self.__loggedUser.loginName
-        updEnv("DAVOS_USER", sLogin, conflict="keep", usingFunc=sysutils.funcToSetHostEnv())
+        os.environ["DAVOS_USER"] = sLogin
 
         self._db = DrcDb(self._damasdb, sLogin)
 
@@ -229,13 +229,17 @@ class DamProject(object):
 #        sDirName = self.getVar("project", "dir_name")
 #        updEnv("DAVOS_PROJECT_DIR", sDirName, conflict="replace", usingFunc=envFunc)
 
+        sCurLogin = os.environ.get("DAVOS_USER")
+        if sCurLogin:
+            updEnv("DAVOS_USER", sCurLogin, conflict="replace", usingFunc=envFunc)
+
         sConflict = "replace" if force else "keep"
         for sSpace, sLibName in self._iterConfigLibraries():
 
             sEnvVars = self.getVar(sLibName, sSpace + "_path_envars", default=())
 
             for sVar in sEnvVars:
-                updEnv(sVar, self.getPath(sSpace, sLibName, resEnvs=True),
+                updEnv(sVar, self.getPath(sSpace, sLibName, resEnvs=False),
                        conflict=sConflict, usingFunc=envFunc)
 
     def getLibrary(self, sSpace, sLibName):

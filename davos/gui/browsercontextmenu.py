@@ -53,11 +53,12 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"On"                  , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[True]       },
         { "label":"Break"               , "menu": "Set Lock", "fnc":self.breakFilesLock     , "dev":True       },
 
-        { "label":"Private Directory"   , "menu": "Go To"   , "fnc":self.showPrivateDirInExplorer   },
         { "label":"Shotgun Page"        , "menu": "Go To"   , "fnc":self.showShotgunPage   },
+        { "label":"Private Location"    , "menu": "Go To"   , "fnc":self.showPrivateLoc   },
+        { "label":"Location"            , "menu": "Go To"   , "fnc":self.showLocation   },
 
-        { "label":"Asset"               , "menu": "Add New"    , "fnc":self.createNewAsset     , "dev":True},
-        { "label":"File"                , "menu": "Add New"    , "fnc":self.publishNewFile     , "dev":True},
+        { "label":"Asset"               , "menu": "Add New" , "fnc":self.createNewAsset     , "dev":True},
+        { "label":"File"                , "menu": "Add New" , "fnc":self.publishNewFile     , "dev":True},
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
 
@@ -286,7 +287,7 @@ class BrowserContextMenu(BaseContextMenu):
         damEntity = drcEntry.getEntity(fail=True)
         damEntity.showShotgunPage()
 
-    def showPrivateDirInExplorer(self, *itemList):
+    def showPrivateLoc(self, *itemList):
 
         item = itemList[-1]
         drcEntry = item._metaobj
@@ -295,10 +296,7 @@ class BrowserContextMenu(BaseContextMenu):
         if isinstance(drcEntry, DrcFile):
             pubDir = drcEntry.parentDir()
 
-        if drcEntry.isPrivate():
-            privDir = pubDir
-        else:
-            privDir = pubDir.getHomonym("private")
+        privDir = pubDir.getHomonym("private")
 
         if not privDir:
             confirmDialog(title='SORRY !',
@@ -307,13 +305,27 @@ class BrowserContextMenu(BaseContextMenu):
                         icon="critical")
             return
 
-        privDir.showInExplorer()
+        privDir.showInExplorer(select=True)
 
-    def showInExplorer(self, *itemList):
+    def showLocation(self, *itemList):
         item = itemList[-1]
         drcEntry = item._metaobj
 
-        drcEntry.showInExplorer()
+        if drcEntry.isPublic():
+            sMsg = u"Go to PUBLIC location of {} !?".format(drcEntry.name)
+            sConfirm = confirmDialog(title='WARNING !',
+                                     message=sMsg,
+                                     button=['OK', 'Cancel'],
+                                     defaultButton='Cancel',
+                                     cancelButton='Cancel',
+                                     dismissString='Cancel',
+                                     icon="warning")
+
+            if sConfirm == 'Cancel':
+                logMsg("Cancelled !", warning=True)
+                return
+
+        drcEntry.showInExplorer(select=True)
 
     def logDbNodeData(self, *itemList):
 
@@ -362,13 +374,13 @@ class BrowserContextMenu(BaseContextMenu):
 
         proj = library.project
 
-        sSection = drcDir.fileName()
+        sSection = drcDir.name
         if not proj._confobj.hasSection(sSection):
-            raise RuntimeError("Cannot create new asset under '{}'"
+            raise RuntimeError("No such asset type configured: '{}'."
                                .format(sSection))
 
-        if not proj._confobj.hasVar(sSection, "template_dir"):
-            raise RuntimeError("No template found for '{}'".format(sSection))
+        if not proj._confobj.getVar(sSection, "template_dir", ""):
+            raise RuntimeError("No template configured for '{}'".format(sSection))
 
         result = promptDialog(title='Please...',
                             message='Entity Name: ',
@@ -377,6 +389,7 @@ class BrowserContextMenu(BaseContextMenu):
                             cancelButton='Cancel',
                             dismissString='Cancel',
                             scrollableField=True,
+                            text=sSection + "_"
                             )
 
         if result == 'Cancel':
@@ -388,6 +401,10 @@ class BrowserContextMenu(BaseContextMenu):
             return
 
         damAst = DamAsset(proj, name=sEntityName, assetType=sSection)
+        if damAst.assetType != sSection:
+            raise ValueError("Bad asset type: '{}' ! Expected '{}'."
+                             .format(damAst.assetType, sSection))
+
         damAst.createDirsAndFiles()
         astDir = damAst.getResource("public")
         if astDir:
