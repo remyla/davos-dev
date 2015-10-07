@@ -8,7 +8,7 @@ from pytd.util.pyconfparser import PyConfParser
 from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs, pathParse
-from pytd.util.strutils import findFields
+from pytd.util.strutils import findFmtFields
 from pytd.util import sysutils
 from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp, updEnv
 from pytd.gui.dialogs import confirmDialog
@@ -63,7 +63,6 @@ class DamProject(object):
             proj.name = sProjName
 
             libClass = DrcLibrary
-            setEnvFunc = None
             if "maya" in hostApp():
                 try:
                     from davos_maya.core.mrclibrary import MrcLibrary
@@ -72,15 +71,7 @@ class DamProject(object):
                 else:
                     libClass = MrcLibrary
 
-                try:
-                    from pymel.util import putEnv
-                except ImportError:
-                    pass
-                else:
-                    setEnvFunc = putEnv
-
             proj.__libClass = libClass#kwargs.pop("libraryType", DrcLibrary)
-            proj.__setEnvFunc = setEnvFunc
 
             proj.reset()
 
@@ -119,8 +110,6 @@ class DamProject(object):
 
         self.__confLibraries = self.getVar("project", "libraries")
 
-        self.loadEnvVars()
-
     def init(self):
         logMsg(log='all')
 
@@ -157,7 +146,7 @@ class DamProject(object):
 
         self.__loggedUser = DamUser(self, userData)
         sLogin = self.__loggedUser.loginName
-        os.environ["DAVOS_USER"] = sLogin
+        updEnv("DAVOS_USER", sLogin, conflict="keep", usingFunc=sysutils.funcToSetHostEnv())
 
         self._db = DrcDb(self._damasdb, sLogin)
 
@@ -227,24 +216,27 @@ class DamProject(object):
             else:
                 drcLib.addModelRow()
 
-    def loadEnvVars(self):
+    def loadEnviron(self, force=False):
 
         sMsg = "\nLoading '{}' environment:".format(self.name)
 
-        setEnvFunc = self.__setEnvFunc
-        if setEnvFunc:
-            print sMsg, "(using {}.{})".format(setEnvFunc.__module__, setEnvFunc.__name__)
+        envFunc = sysutils.funcToSetHostEnv()
+        if envFunc:
+            print sMsg, "(using {}.{})".format(envFunc.__module__, envFunc.__name__)
         else:
             print sMsg
 
+#        sDirName = self.getVar("project", "dir_name")
+#        updEnv("DAVOS_PROJECT_DIR", sDirName, conflict="replace", usingFunc=envFunc)
+
+        sConflict = "replace" if force else "keep"
         for sSpace, sLibName in self._iterConfigLibraries():
 
             sEnvVars = self.getVar(sLibName, sSpace + "_path_envars", default=())
 
             for sVar in sEnvVars:
-                updEnv(sVar, self.getPath(sSpace, sLibName),
-                       conflict="keep",
-                       setEnvFunc=setEnvFunc)
+                updEnv(sVar, self.getPath(sSpace, sLibName, resEnvs=True),
+                       conflict=sConflict, usingFunc=envFunc)
 
     def getLibrary(self, sSpace, sLibName):
         logMsg(log='all')
@@ -286,7 +278,7 @@ class DamProject(object):
             return sRcPath
 
         # resolve vars from config
-        sFieldSet = set(findFields(sRcPath))
+        sFieldSet = set(findFmtFields(sRcPath))
         if sFieldSet:
 
             confTokens = self.getVar(sSection, pathVar + "_tokens", default={})
@@ -656,14 +648,15 @@ class DamProject(object):
 
     def iterRcPaths(self, sSpace, sSection, tokens=None, **kwargs):
 
-        for sPathVar in self.getVar(sSection, "all_tree_vars", ()):
-
-            p = self.getPath(sSpace, sSection, pathVar=sPathVar,
+        allTreeVars = self.getVar(sSection, "all_tree_vars", ())
+        #print sSection, len(allTreeVars), len(set(allTreeVars)), set(allTreeVars)
+        for sTreeVar in allTreeVars:
+            p = self.getPath(sSpace, sSection, pathVar=sTreeVar,
                              tokens=tokens, **kwargs)
             if not p:
                 continue
 
-            yield (sPathVar, p)
+            yield (sTreeVar, p)
 
     def _checkLibraryPaths(self, noError=False):
 

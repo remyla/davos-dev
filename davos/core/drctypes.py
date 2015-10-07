@@ -910,6 +910,8 @@ class DrcFile(DrcEntry):
 
         proj = self.library.project
 
+        assert versionFromName(self.name) is None, "File is already a version !"
+
         if not proj.isEditableResource(self.absPath()):
             raise AssertionError("File is NOT EDITABLE !")
 
@@ -1017,7 +1019,6 @@ class DrcFile(DrcEntry):
         privFile = self.getPrivateFile(suffix=suffix, weak=True)
 
         assert self.isFile(), "File does NOT exist !"
-        assert versionFromName(self.name) is None, "File is already a version !"
 
         sPrivFilePath = privFile.absPath()
         sPubFilePath = self.absPath()
@@ -1025,7 +1026,6 @@ class DrcFile(DrcEntry):
         if sPubFilePath == sPrivFilePath:
             raise ValueError('Source and destination files are identical: "{0}".'
                              .format(sPubFilePath))
-
 
         bDryRun = kwargs.get("dry_run", False)
 

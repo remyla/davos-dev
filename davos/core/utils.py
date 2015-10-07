@@ -26,8 +26,6 @@ def getConfigModule(sProjectName):
     except ImportError:
         raise ImportError("No config module named '{}'".format(sConfigModule))
 
-    reload(modobj)
-
     return modobj
 
 def versionFromName(sFileName):

@@ -411,10 +411,10 @@ class BrowserContextMenu(BaseContextMenu):
 
     def fixNotUpToDate(self, *itemList):
 
-        proj = self.model()._metamodel
+#        proj = self.model()._metamodel
 
-        if proj.name != "zombtest":
-            raise EnvironmentError("No allowed in project: '{}'".format(proj.name))
+#        if proj.name != "zombtest":
+#            raise EnvironmentError("No allowed in project: '{}'".format(proj.name))
 
         for item in itemList:
 
