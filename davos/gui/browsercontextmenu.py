@@ -61,6 +61,7 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"File"                , "menu": "Add New" , "fnc":self.publishNewFile     , "dev":True},
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
+        { "label":"Create Private Dirs" , "menu": "Advanced", "fnc":self.createPrivateDirs  , "dev":True},
 
         { "label":"separator"           , "menu": "Main"},
         { "label":"Log Data"            , "menu": "DrcEntry", "fnc":self.logData            , "dev":True},
@@ -409,14 +410,14 @@ class BrowserContextMenu(BaseContextMenu):
 
     createNewAsset.auth_types = ("DrcDir",)
 
-    def createPrivateDir(self, *itemList):
+    def createPrivateDirs(self, *itemList):
 
         entryList = tuple(item._metaobj for item in itemList)
 
         for drcDir in entryList:
             drcDir.getHomonym("private", create=True)
 
-    createPrivateDir.auth_types = ("DrcDir",)
+    createPrivateDirs.auth_types = ("DrcDir",)
 
     def logData(self, *itemList):
 
