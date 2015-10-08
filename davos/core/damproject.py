@@ -9,7 +9,7 @@ from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs, pathParse
 from pytd.util.strutils import findFmtFields
-from pytd.util import sysutils
+from pytd.util.sysutils import inDevMode, hostSetEnvFunc
 from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp, updEnv
 from pytd.gui.dialogs import confirmDialog
 from pytd.util.qtutils import setWaitCursor
@@ -146,7 +146,7 @@ class DamProject(object):
 
         self.__loggedUser = DamUser(self, userData)
         sLogin = self.__loggedUser.loginName
-        os.environ["DAVOS_USER"] = sLogin
+        updEnv("DAVOS_USER", sLogin, conflict="replace", usingFunc=hostSetEnvFunc())
 
         self._db = DrcDb(self._damasdb, sLogin)
 
@@ -200,7 +200,7 @@ class DamProject(object):
 
         print "<{}> Loading libraries...".format(self)
 
-        bDevMode = sysutils.inDevMode()
+        bDevMode = inDevMode()
 
         for sSpace, sLibName in self._iterConfigLibraries():
 
@@ -220,7 +220,7 @@ class DamProject(object):
 
         sMsg = "\nLoading '{}' environment:".format(self.name)
 
-        envFunc = sysutils.funcToSetHostEnv()
+        envFunc = hostSetEnvFunc()
         if envFunc:
             print sMsg, "(using {}.{})".format(envFunc.__module__, envFunc.__name__)
         else:
@@ -229,9 +229,9 @@ class DamProject(object):
 #        sDirName = self.getVar("project", "dir_name")
 #        updEnv("DAVOS_PROJECT_DIR", sDirName, conflict="replace", usingFunc=envFunc)
 
-        sCurLogin = os.environ.get("DAVOS_USER")
-        if sCurLogin:
-            updEnv("DAVOS_USER", sCurLogin, conflict="replace", usingFunc=envFunc)
+        sDavosUser = os.environ.get("DAVOS_USER")
+        if sDavosUser:
+            updEnv("DAVOS_USER", sDavosUser, conflict="replace", usingFunc=envFunc)
 
         sConflict = "replace" if force else "keep"
         for sSpace, sLibName in self._iterConfigLibraries():
@@ -241,6 +241,8 @@ class DamProject(object):
             for sVar in sEnvVars:
                 updEnv(sVar, self.getPath(sSpace, sLibName, resEnvs=False),
                        conflict=sConflict, usingFunc=envFunc)
+
+        print ''
 
     def getLibrary(self, sSpace, sLibName):
         logMsg(log='all')
