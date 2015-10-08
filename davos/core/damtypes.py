@@ -5,7 +5,7 @@ import os.path as osp
 from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
 from pytd.util.fsutils import normCase
 from pytd.util.external import parse
-from pytd.util.sysutils import isQtApp
+from pytd.util.sysutils import qtGuiApp
 from pytd.util.strutils import assertChars
 
 
@@ -191,7 +191,7 @@ class DamEntity(object):
                 sTaskList = sgTaskDct.keys()
 
             sMsg = "What was your task ?"
-            if isQtApp():
+            if qtGuiApp():
                 from PySide import QtGui
                 sTaskName, bOk = QtGui.QInputDialog.getItem(None, "Make your choice !",
                                                             sMsg, sTaskList,

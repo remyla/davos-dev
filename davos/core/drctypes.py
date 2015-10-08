@@ -11,8 +11,6 @@ from PySide.QtCore import QDir
 from pytd.gui.dialogs import confirmDialog
 
 from pytd.util.logutils import logMsg
-
-from pytd.util import fsutils
 from pytd.util.fsutils import pathJoin, pathSuffixed, normCase
 from pytd.util.fsutils import addEndSlash, pathNorm
 from pytd.util.fsutils import sha1HashFile
@@ -21,7 +19,7 @@ from pytd.util.qtutils import toQFileInfo
 from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
 from pytd.util.external import parse
-from pytd.util.sysutils import toStr, hostApp, timer
+from pytd.util.sysutils import toStr, hostApp, timer, qtGuiApp
 from pytd.util.sysutils import toTimestamp
 from pytd.gui.itemviews.utils import showPathInExplorer
 from pytd.util.external.send2trash import send2trash
@@ -32,6 +30,7 @@ from .utils import promptForComment
 from .utils import versionFromName
 from .locktypes import LockFile
 
+from pytd.util import fsutils
 copyFile = setWaitCursor(fsutils.copyFile)
 
 
@@ -1074,7 +1073,7 @@ class DrcFile(DrcEntry):
             elif existing == 'keep':
                 return privLib.getEntry(sPrivFilePath), bCopied
             elif existing == 'choose':
-                if hostApp():
+                if hostApp() and qtGuiApp():
                     privFile = self.choosePrivateFileToEdit()
                 else:
                     privFile = self.getLatestEditFile()

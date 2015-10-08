@@ -10,7 +10,7 @@ from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs, pathParse
 from pytd.util.strutils import findFmtFields
 from pytd.util.sysutils import inDevMode, hostSetEnvFunc
-from pytd.util.sysutils import argToTuple, isQtApp, importClass, hostApp, updEnv
+from pytd.util.sysutils import argToTuple, qtGuiApp, importClass, hostApp, updEnv
 from pytd.gui.dialogs import confirmDialog
 from pytd.util.qtutils import setWaitCursor
 
@@ -699,7 +699,7 @@ class DamProject(object):
             msgIter = (u"'{}': '{}'".format(n, p) for n, p in sMissingPathList)
             msg = u"No such libraries:\n" + u"\n".join(msgIter)
 
-            if isQtApp():
+            if qtGuiApp():
                 sConfirm = confirmDialog(title='WARNING !',
                                          message=msg + u"\n\n\tShould I create them ?",
                                          button=['OK', 'Cancel'],

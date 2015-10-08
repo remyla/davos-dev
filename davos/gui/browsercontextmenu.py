@@ -2,7 +2,7 @@
 import re
 import os.path as osp
 
-from PySide import QtGui
+from PySide.QtGui import QFileDialog
 
 from pytd.gui.itemviews.basecontextmenu import BaseContextMenu
 from pytd.gui.dialogs import confirmDialog, promptDialog
@@ -169,7 +169,7 @@ class BrowserContextMenu(BaseContextMenu):
         pubDir = item._metaobj
         #proj = self.model()._metamodel
 
-        sSrcFilePath = self.__class__.chooseNewFile(pubDir)
+        sSrcFilePath = self.chooseNewFile(pubDir)
         if not sSrcFilePath:
             logMsg("Cancelled !", warning=True)
             return
@@ -178,14 +178,13 @@ class BrowserContextMenu(BaseContextMenu):
 
     publishNewFile.auth_types = ("DrcDir",)
 
-    @staticmethod
-    def chooseNewFile(pubDir):
+    def chooseNewFile(self, pubDir):
 
         sStartDirPath = topmostFoundDir(pubDir.getHomonym("private", weak=True).absPath())
-        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
-                                                            "Select a file to publish...",
-                                                            sStartDirPath,
-                                                            "File (*.*)")
+        sSrcFilePath, _ = QFileDialog.getOpenFileName(self.view,
+                                                      "Select a file to publish...",
+                                                      sStartDirPath,
+                                                      "File (*.*)")
         return sSrcFilePath
 
     def publishVersion(self, *itemList):
@@ -206,7 +205,7 @@ class BrowserContextMenu(BaseContextMenu):
         if not isinstance(pubFile, DrcFile):
             raise TypeError('A {} cannot be published.'.format(type(pubFile).__name__))
 
-        sSrcFilePath = self.__class__.chooseEditedVersion(pubFile)
+        sSrcFilePath = self.chooseEditedVersion(pubFile)
         if not sSrcFilePath:
             logMsg("Cancelled !", warning=True)
             return
@@ -214,31 +213,29 @@ class BrowserContextMenu(BaseContextMenu):
         proj = self.model()._metamodel
         proj.publishEditedVersion(sSrcFilePath)
 
-    @staticmethod
-    def chooseEditedVersion(pubFile):
+    def chooseEditedVersion(self, pubFile):
 
         privDir = pubFile.getPrivateDir()
         if not privDir:
             raise RuntimeError('Could not find the private directory !')
 
         sNameFilter = pathSuffixed(pubFile.nextVersionName(), '*').replace(' ', '?')
-        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
-                                                            "Select a file to publish...",
-                                                            privDir.absPath(),
-                                                            sNameFilter)
+        sSrcFilePath, _ = QFileDialog.getOpenFileName(self.view,
+                                                      "Select a file to publish...",
+                                                      privDir.absPath(),
+                                                      sNameFilter)
         return sSrcFilePath
 
     def __publishRegular(self, pubFile):
 
-        sSrcFilePath = self.__class__.chooseRegularVersion(pubFile)
+        sSrcFilePath = self.chooseRegularVersion(pubFile)
         if not sSrcFilePath:
             logMsg("Cancelled !", warning=True)
             return
 
         pubFile.publishVersion(sSrcFilePath, autoLock=True)
 
-    @staticmethod
-    def chooseRegularVersion(pubFile):
+    def chooseRegularVersion(self, pubFile):
 
         sExt = osp.splitext(pubFile.name)[1]
         if not sExt:
@@ -249,10 +246,10 @@ class BrowserContextMenu(BaseContextMenu):
             sStartDirPath = pubFile.getPrivateDir(weak=True).absPath()
         sStartDirPath = topmostFoundDir(sStartDirPath)
 
-        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
-                                                            "Select a file to publish...",
-                                                            sStartDirPath,
-                                                            "File (*{})".format(sExt))
+        sSrcFilePath, _ = QFileDialog.getOpenFileName(self.view,
+                                                      "Select a file to publish...",
+                                                      sStartDirPath,
+                                                      "File (*{})".format(sExt))
         return sSrcFilePath
 
     def rollBackToVersion(self, *itemList):
