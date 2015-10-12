@@ -352,11 +352,14 @@ class DamProject(object):
 
         return drcEntry
 
-    def isEditableResource(self, sAbsPath):
+    def isEditableResource(self, sAbsPath, assertion=False):
 
-        sFileName = osp.basename(sAbsPath)
-        if not sFileName:
-            print "No filename"
+        p = pathNorm(sAbsPath)
+
+        sFileName = osp.basename(p)
+        if not (sFileName and osp.splitext(p)[1]):
+            if assertion:
+                raise AssertionError("Invalid filename: '{}'".format(sFileName))
             return False
 
         bPatternOk = False
@@ -367,18 +370,29 @@ class DamProject(object):
                 break
 
         if not bPatternOk:
+            if assertion:
+                raise AssertionError("Not in project's editable files: {}."
+                                     .format(" ".join(sPatterns)))
             return False
 
-        data = self.dataFromPath(sAbsPath)
+        data = self.dataFromPath(p)
 
         sSection = data.get("section")
         sRcName = data.get("resource")
 
         if not sRcName:
-            print "Not a resource"
+            if assertion:
+                raise AssertionError("Not a configured resource.")
             return False
 
-        return self.getRcParam(sSection, sRcName, "editable", default=True)
+        bEditable = self.getRcParam(sSection, sRcName, "editable", default=True)
+        if not bEditable:
+            if assertion:
+                raise AssertionError("Resource configured as non-editable: '{}.{}' ."
+                                     .format(sSection, sRcName))
+            return False
+
+        return True
 
     def entryFromPath(self, sEntryPath, space="", **kwargs):
 
@@ -530,7 +544,7 @@ class DamProject(object):
 
         mainPubFile = mainPrivFile.getPublicFile(fail=True)
 
-        mainPubFile.ensureFilePublishable(mainPrivFile)
+        mainPubFile.assertEditedVersion(mainPrivFile)
         mainPubFile.ensureLocked()
 
         privOutcomeItemsList = []
@@ -586,7 +600,7 @@ class DamProject(object):
         try:
             for pubFile, privFile in outcomePairs:
 
-                pubFile.ensureFilePublishable(privFile, version=iNxtVers)
+                pubFile.assertEditedVersion(privFile, version=iNxtVers)
                 pubFile.ensureLocked(autoLock=True)
 
             _, sgVersion = mainPubFile.publishEditedFile(mainPrivFile, checkLock=False,

@@ -2,7 +2,7 @@
 import os
 import os.path as osp
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import filecmp
 from fnmatch import fnmatch
 
@@ -885,50 +885,56 @@ class DrcFile(DrcEntry):
 
         return privFile
 
-    def choosePrivateFileToEdit(self):
-
-        privDir = self.getPrivateDir()
-        if not privDir:
-            raise RuntimeError('Could not find the private directory !')
-
-        sSuffix = self.makeEditSuffix(w='*')
-        sNameFilter = pathSuffixed(self.name, sSuffix).replace(' ', '?')
-
-        from PySide import QtGui
-        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
-                                                            "Select a file to edit...",
-                                                            privDir.absPath(),
-                                                            sNameFilter
-                                                            )
-        if not sSrcFilePath:
-            return None
-
-        return privDir.library.getEntry(sSrcFilePath)
-
     def _assertEditable(self):
 
         proj = self.library.project
 
         assert versionFromName(self.name) is None, "File is already a version !"
 
-        if not proj.isEditableResource(self.absPath()):
-            raise AssertionError("File is NOT EDITABLE !")
+        try:
+            proj.isEditableResource(self.absPath(), assertion=True)
+        except AssertionError, e:
+            raise AssertionError("File is NOT EDITABLE !\n\n{}".format(toStr(e)))
 
         if not self.isUpToDate():
-            raise AssertionError("File is NOT UP-TO-DATE !")
+            raise AssertionError("File is OUT OF SYNC !")
 
-    def isUpToDate(self):
+    def isUpToDate(self, refresh=True):
 
-        self.refresh(simple=True)
+        if refresh:
+            self.refresh()
 
         if not self.currentVersion:
             return True
 
-        if not self.dbMtime:
-            return True
+        bStrict = False
+        if bStrict:
 
-        if self.dbMtime <= self.fsMtime:
-            return True
+            if not self.dbMtime:
+                return True
+
+            if self.dbMtime == self.fsMtime:
+                return True
+
+        else:
+
+            iDbVers = self.currentVersion
+            versionFile = self.getLatestBackupFile()
+            iFsVers = versionFromName(versionFile.name) if versionFile else 0
+
+            if iDbVers == iFsVers:
+
+                if self.fileSize != versionFile.fileSize:
+                    return False
+
+                td = versionFile.fsMtime - self.fsMtime
+                if td <= timedelta(0, 3600):
+                    return True
+
+            elif iDbVers < iFsVers:
+                msg = ("Found inconsistent versions: DB at v{} < file at v{} !"
+                       .format(iDbVers, iFsVers))
+                raise ValueError(msg)
 
         return False
 
@@ -1093,6 +1099,26 @@ class DrcFile(DrcEntry):
 
         return privLib.getEntry(sPrivFilePath), bCopied
 
+    def choosePrivateFileToEdit(self):
+
+        privDir = self.getPrivateDir()
+        if not privDir:
+            raise RuntimeError('Could not find the private directory !')
+
+        sSuffix = self.makeEditSuffix(w='*')
+        sNameFilter = pathSuffixed(self.name, sSuffix).replace(' ', '?')
+
+        from PySide import QtGui
+        sSrcFilePath, _ = QtGui.QFileDialog.getOpenFileName(None,
+                                                            "Select a file to edit...",
+                                                            privDir.absPath(),
+                                                            sNameFilter
+                                                            )
+        if not sSrcFilePath:
+            return None
+
+        return privDir.library.getEntry(sSrcFilePath)
+
     def getPrivateFile(self, suffix="", weak=False):
 
         assert self.isPublic(), "File is NOT PUBLIC !"
@@ -1148,7 +1174,7 @@ class DrcFile(DrcEntry):
 
         pubFile = pubDir.library.getEntry(sPubFilePath, dbNode=False)
 
-        if not pubFile and fail:
+        if (not pubFile) and fail:
             raise RuntimeError("Could not get public version of '{}'"
                                .format(self.relPath()))
 
@@ -1201,56 +1227,72 @@ class DrcFile(DrcEntry):
         sFilePath = pathJoin(privDir.absPath(), sEntryList[0])
         return privDir.library.getEntry(sFilePath, dbNode=False)
 
-    def ensureFilePublishable(self, privFile, version=None):
+    def assertEditedVersion(self, privFile, version=None):
 
         assert privFile.isPrivate(), "File must live in a PRIVATE library !"
         assert not privFile.isReadOnly(), "File is READ-ONLY !"
 
-        iSrcVers = versionFromName(privFile.name)
+        p = privFile.absPath()
+        self._assertNewVersion(p)
+
+        sPattern = pathSuffixed(self.name, '*')
+        sSrcFilename = osp.basename(p)
+        print sSrcFilename, sPattern
+        if not fnmatch(sSrcFilename, sPattern):
+            raise AssertionError("Bad filename pattern: Expected '{}', got '{}'"
+                                 .format(sPattern, sSrcFilename))
+
+        iPrivVers = versionFromName(privFile.name)
         iNxtVers = (self.currentVersion + 1) if version is None else version
 
-        if iSrcVers < iNxtVers:
-            raise AssertionError, "File version is OBSOLETE !"
-        elif iSrcVers > iNxtVers:
-            raise AssertionError, "File version is WHAT THE FUCK !"
+        if iPrivVers < iNxtVers:
+            msg = ("Can't publish an OBSOLETE version ! Expected v{}, got v{}."
+                   .format(iNxtVers, iPrivVers))
+            raise AssertionError(msg)
+
+        elif iPrivVers > iNxtVers:
+            msg = ("Unexpected version ! Expected v{}, got v{}."
+                   .format(iNxtVers, iPrivVers))
+            raise AssertionError(msg)
 
         privFile.publishAsserted = True
 
-    def isReadOnly(self):
-        return ("readonly" in self.name)
+    def publishEditedFile(self, privFile, **kwargs):
 
-    def publishEditedFile(self, editFile, **kwargs):
+        if not privFile.publishAsserted:
+            raise RuntimeError("DrcFile.assertEditedVersion() has not been applied to {} !"
+                               .format(privFile))
 
-        if not editFile.publishAsserted:
-            editFile.publishAsserted = False
-            raise RuntimeError("DrcFile.ensureFilePublishable() has not been applied to {} !"
-                               .format(editFile))
+        privFile.publishAsserted = False
 
-        sSrcFilePath = editFile.absPath()
-        return self.publishVersion(sSrcFilePath, **kwargs)
+        return self.publishVersion(privFile.absPath(), assertions=False, **kwargs)
 
-    '@setWaitCursor'
     def publishVersion(self, sSrcFilePath, **kwargs):
 
         bAutoUnlock = kwargs.pop("autoUnlock", True)
         bSaveSha1Key = kwargs.pop("saveSha1Key", False)
+        bAssertions = kwargs.pop("assertions", True)
 
         sgVersion = None
         newVersFile = None
+
+        if bAssertions:
+            self._assertNewVersion(sSrcFilePath)
 
         bDiffers, sSrcSha1Key = self.differsFrom(sSrcFilePath)
         if not bDiffers:
             logMsg("Skipping {0} increment: Files are identical.".format(self))
             return newVersFile, sgVersion
 
-        # first, get all needed data from user or inputs
+        # first, get all needed infos from user or inputs
         try:
-            sComment, iNextVers, bSgVersion, sgTaskInfo = self.beginPublish(**kwargs)
+            infos = self.beginPublish(sSrcFilePath, **kwargs)
+            sComment, iNextVers, bSgVersion, sgTaskInfo = infos
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
             raise
 
-        # create version file's DbNode and DrcFile.
+        # create DbNode and DrcFile  for new version.
         try:
             newVersFile = self._createVersionFile(sSrcFilePath, iNextVers, sComment,
                                                   saveSha1Key=bSaveSha1Key,
@@ -1280,8 +1322,6 @@ class DrcFile(DrcEntry):
 
                 sgVersion = None
 
-
-        #iPrevMtime = osp.getmtime(sSrcFilePath)
         # copy source file as new version file
         try:
             iUtcStamp = toTimestamp(newVersFile.dbMtime)
@@ -1307,15 +1347,13 @@ class DrcFile(DrcEntry):
             self._abortPublish(e, newVersFile, sgVersion)
             raise
 
-        #os.utime(sSrcFilePath, (iPrevMtime, iPrevMtime))
-
         self.restoreLockState(autoUnlock=bAutoUnlock, refresh=False)
         self.refresh()
 
         return newVersFile, sgVersion
 
-    def beginPublish(self, comment="", autoLock=False, version=None, sgTask=None,
-                     checkLock=True):
+    def beginPublish(self, sSrcFilePath, comment="", autoLock=False, version=None,
+                     sgTask=None, checkLock=True):
         logMsg(log='all')
 
         if checkLock:
@@ -1384,6 +1422,17 @@ class DrcFile(DrcEntry):
             logMsg(sMsg , warning=True)
 
         return versionFile, sgVersion
+
+    def _assertNewVersion(self, sSrcFilePath):
+
+        sSrcExt = osp.splitext(sSrcFilePath)[1].lower()
+        sCurExt = osp.splitext(self.name)[1].lower()
+        if sSrcExt != sCurExt:
+            raise AssertionError("Bad file extension: Expected '{}', got '{}' !"
+                                 .format(sCurExt, sSrcExt))
+
+        if not self.isUpToDate():
+            raise AssertionError("File is OUT OF SYNC !")
 
     def __beginPublishSgVersion(self, sgTask):
 
@@ -1611,6 +1660,9 @@ class DrcFile(DrcEntry):
 
     def nameFromVersion(self, v):
         return pathSuffixed(self.name, self.versionSuffix(v))
+
+    def isReadOnly(self):
+        return ("readonly" in self.name)
 
     def imagePath(self):
         sRoot, sExt = osp.splitext(self.absPath())

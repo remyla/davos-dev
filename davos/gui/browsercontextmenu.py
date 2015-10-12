@@ -16,6 +16,7 @@ from pytd.util.sysutils import toStr#, hostApp
 from pytd.util.qtutils import setWaitCursor
 from davos.core.damtypes import DamAsset
 from pytd.util.fsutils import topmostFoundDir
+from fnmatch import fnmatch
 
 
 class BrowserContextMenu(BaseContextMenu):
@@ -240,7 +241,7 @@ class BrowserContextMenu(BaseContextMenu):
 
         sExt = osp.splitext(pubFile.name)[1]
         if not sExt:
-            raise ValueError, 'File has no extension: {}'.format(pubFile)
+            raise ValueError('File has no extension: {}'.format(pubFile))
 
         sStartDirPath = osp.dirname(pubFile.sourceFile)
         if not osp.isdir(sStartDirPath):
