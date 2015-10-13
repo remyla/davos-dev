@@ -53,7 +53,4 @@ def promptForComment(**kwargs):
     elif result == 'OK':
         sComment = promptDialog(query=True, text=True)
 
-    if not sComment:
-        raise RuntimeError, "Comment has NOT been provided !"
-
     return sComment

@@ -541,7 +541,6 @@ class DamProject(object):
     def publishEditedVersion(self, sSrcFilePath, **kwargs):
 
         mainPrivFile = self.entryFromPath(sSrcFilePath, space="private", fail=True)
-
         mainPubFile = mainPrivFile.getPublicFile(fail=True)
 
         mainPubFile.assertEditedVersion(mainPrivFile)
@@ -622,6 +621,50 @@ class DamProject(object):
 
         return mainPrivFile, privOutcomeDct
 
+    def publishDependencies(self, sDepType, sMainFilePath, sDepPathList):
+
+        mainPrivFile = self.entryFromPath(sMainFilePath, space="private", fail=True)
+        mainPubFile = mainPrivFile.getPublicFile(fail=True)
+
+        entity = mainPubFile.getEntity(fail=True)
+
+        sSection = entity.confSection
+        depTypes = self.getVar(sSection, "dependency_types", None)
+        if not depTypes:
+            raise EnvironmentError("No dependency types configured for '{}'."
+                                   .format(sSection))
+        try:
+            depDct = depTypes[sDepType]
+        except KeyError:
+            raise ValueError("'{}' has no such dependency type: '{}'. Are valid: {}."
+                             .format(sSection, sDepType, depTypes.keys()))
+        try:
+            sRcDirName = depDct["location"]
+        except KeyError:
+            raise EnvironmentError("Bad '{}' config in '{}'. Missing 'location' key: {} !"
+                                   .format(sDepType, sSection, depDct))
+
+        bChecksum = depDct.get("checkcum", False)
+        depDir = entity.getResource("public", sRcDirName)
+
+        sComment = '{} dependency'.format(mainPrivFile.name)
+
+        publishItems = sDepPathList[:]
+
+        for i, sDepPath in enumerate(sDepPathList):
+
+            pubFile, versionFile = depDir.publishFile(sDepPath, autoLock=True,
+                                                      autoUnlock=True,
+                                                      checksum=bChecksum,
+                                                      comment=sComment,
+                                                      refresh=False)
+
+            publishItems[i] = (pubFile, versionFile)
+
+        depDir.refresh(children=True)
+
+        return publishItems
+
     def iterSgSteps(self, sEntityType=""):
 
         stepList = self._shotgundb.getSteps()
@@ -675,18 +718,19 @@ class DamProject(object):
             if sResult == "Abort":
                 raise
 
-        newSgVersions = []
-        for versFile in versionFiles:
+        newSgVersions = versionFiles[:]
+        for i, versFile in enumerate(versionFiles):
 
+            sgVersion = None
             if versFile.sgVersionName() in sgVersNames:
                 print "Shotgun Version already exists for {}.".format(versFile)
-                continue
+            else:
+                sgVersion = versFile.createSgVersion(sgTaskInfo)
+                print "created shotgun version", sgVersion
 
-            sgVersion = versFile.createSgVersion(sgTaskInfo)
-            print "created shotgun version", sgVersion
-            newSgVersions.append(sgVersion)
+            newSgVersions[i] = sgVersion
 
-        return newSgVersions
+        return list(v for v in newSgVersions if v)
 
     def getSgVersion(self, sVersionName):
 

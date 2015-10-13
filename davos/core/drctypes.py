@@ -747,10 +747,13 @@ class DrcDir(DrcEntry):
     def publishFile(self, sSrcFilePath, **kwargs):
 
         if not os.path.isfile(sSrcFilePath):
-            raise ValueError, "Path does not lead to a file : '{0}' .".format(sSrcFilePath)
+            raise ValueError("Path does not lead to a file : '{0}' ."
+                             .format(sSrcFilePath))
 
+        bRefresh = kwargs.pop("refresh", True)
         sFilename = kwargs.pop("newName", os.path.basename(sSrcFilePath))
 
+        versionFile = None
         bCreated = False
         pubFile = self.getChildFile(sFilename)
         if not pubFile:
@@ -760,17 +763,18 @@ class DrcDir(DrcEntry):
 
         try:
             pubFile.refresh(simple=True)
-            drcVersion, _ = pubFile.publishVersion(sSrcFilePath, **kwargs)
+            versionFile, _ = pubFile.publishVersion(sSrcFilePath, **kwargs)
         except:
             if bCreated:
                 os.remove(pubFile.absPath())
             raise
 
-        if drcVersion:
-            logMsg("Published '{0}' as {1}.".format(sSrcFilePath, pubFile))
-            self.refresh(children=True)
+        if versionFile:
+            logMsg("'{}' published as {}.".format(sSrcFilePath, versionFile))
+            if bRefresh:
+                self.refresh(children=True)
 
-        return pubFile, drcVersion
+        return pubFile, versionFile
 
     def getHomonym(self, sSpace, weak=False, create=False):
 
@@ -1142,21 +1146,21 @@ class DrcFile(DrcEntry):
 
     def differsFrom(self, sOtherFilePath):
 
-        sOtherSha1Key = ""
+        sOtherChecksum = ""
 
         sCurFilePath = self.absPath()
 
         if osp.normcase(sOtherFilePath) == osp.normcase(sCurFilePath):
-            return False, sOtherSha1Key
+            return False, sOtherChecksum
 
-        sOwnSha1Key = self.getPrpty("checksum")
-        if not sOwnSha1Key:
-            return True, sOtherSha1Key
+        sOwnChecksum = self.getPrpty("checksum")
+        if not sOwnChecksum:
+            return True, sOtherChecksum
 
-        sOtherSha1Key = sha1HashFile(sOtherFilePath)
-        bDiffers = (sOtherSha1Key != sOwnSha1Key)
+        sOtherChecksum = sha1HashFile(sOtherFilePath)
+        bDiffers = (sOtherChecksum != sOwnChecksum)
 
-        return bDiffers, sOtherSha1Key
+        return bDiffers, sOtherChecksum
 
     def getPublicFile(self, fail=False):
 
@@ -1270,7 +1274,7 @@ class DrcFile(DrcEntry):
     def publishVersion(self, sSrcFilePath, **kwargs):
 
         bAutoUnlock = kwargs.pop("autoUnlock", True)
-        bSaveSha1Key = kwargs.pop("saveSha1Key", False)
+        bSaveChecksum = kwargs.pop("saveChecksum", False)
         bAssertions = kwargs.pop("assertions", True)
 
         sgVersion = None
@@ -1279,7 +1283,7 @@ class DrcFile(DrcEntry):
         if bAssertions:
             self._assertNewVersion(sSrcFilePath)
 
-        bDiffers, sSrcSha1Key = self.differsFrom(sSrcFilePath)
+        bDiffers, sSrcChecksum = self.differsFrom(sSrcFilePath)
         if not bDiffers:
             logMsg("Skipping {0} increment: Files are identical.".format(self))
             return newVersFile, sgVersion
@@ -1295,8 +1299,8 @@ class DrcFile(DrcEntry):
         # create DbNode and DrcFile  for new version.
         try:
             newVersFile = self._createVersionFile(sSrcFilePath, iNextVers, sComment,
-                                                  saveSha1Key=bSaveSha1Key,
-                                                  sha1Key=sSrcSha1Key)
+                                                  saveChecksum=bSaveChecksum,
+                                                  checksum=sSrcChecksum)
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
             raise
@@ -1390,6 +1394,8 @@ class DrcFile(DrcEntry):
         sComment = comment
         if not sComment:
             sComment = promptForComment(text=self.getPrpty("comment"))
+            if not sComment:
+                raise RuntimeError("Comment has NOT been provided !")
 
         # copy a first backup file if no version yet (usually a empty file)
         backupFile = None
@@ -1458,7 +1464,7 @@ class DrcFile(DrcEntry):
         return sgTaskInfo
 
     def _createVersionFile(self, sSrcFilePath, iVersion, sComment,
-                          saveSha1Key=False, sha1Key=""):
+                          saveChecksum=False, checksum=""):
 
         versionFile = self.getVersionFile(iVersion, weak=True)
         sVersionPath = versionFile.absPath()
@@ -1468,14 +1474,14 @@ class DrcFile(DrcEntry):
 
         #sLoggedUser = self.library.project.loggedUser().loginName
 
-        if saveSha1Key:
-            if not sha1Key:
-                sNewSha1Key = sha1HashFile(sSrcFilePath)
+        if saveChecksum:
+            if not checksum:
+                sNewChecksum = sha1HashFile(sSrcFilePath)
             else:
-                sNewSha1Key = sha1Key
+                sNewChecksum = checksum
 
-            if sNewSha1Key:
-                versionFile._setPrpty("checksum", sNewSha1Key, write=False)
+            if sNewChecksum:
+                versionFile._setPrpty("checksum", sNewChecksum, write=False)
 
         versionFile._setPrpty("comment", sComment, write=False)
         versionFile._setPrpty("sourceFile", sSrcFilePath, write=False)
