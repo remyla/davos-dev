@@ -713,30 +713,19 @@ class DamProject(object):
             msgIter = (u"'{}': '{}'".format(n, p) for n, p in sMissingPathList)
             msg = u"No such libraries:\n" + u"\n".join(msgIter)
 
-            if qtGuiApp():
-                sConfirm = confirmDialog(title='WARNING !',
-                                         message=msg + u"\n\n\tShould I create them ?",
-                                         button=['OK', 'Cancel'],
-                                         defaultButton='Cancel',
-                                         cancelButton='Cancel',
-                                         dismissString='Cancel',
-                                         icon="warning")
+            sConfirm = confirmDialog(title='WARNING !',
+                                     message=msg + u"\n\nShould I create them ?",
+                                     button=['Yes', 'No'],
+                                     defaultButton='Cancel',
+                                     cancelButton='Cancel',
+                                     dismissString='Cancel',
+                                     icon="warning")
 
-                if sConfirm == 'Cancel':
-                    logMsg("Cancelled !", warning=True)
-                    return False
-            else:
-                logMsg(msg, warning=True)
-                res = ""
-                while res not in ("yes", "no"):
-                    res = raw_input("Should I create them ? (yes/no)")
-
-                if res == "no":
-                    return False
+            if sConfirm == 'No':
+                return False
 
             for _, p in sMissingPathList:
                 os.makedirs(p)
-
 
         return True
 
