@@ -215,6 +215,21 @@ class DamEntity(object):
 
         return taskNameOrInfo
 
+    def listVersions(self):
+
+        shotgundb = self.project._shotgundb
+        if not shotgundb:
+            return []
+
+        filters = [
+            ['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
+            ['entity', 'is', self.getSgInfo()]
+        ]
+
+        return shotgundb.sg.find("Version", filters,
+                                 ['code', 'entity', 'sg_task'],
+                                 [{'field_name':'code', 'direction':'asc'}])
+
     def showShotgunPage(self):
         self.project._shotgundb.showInBrowser(self.getSgInfo())
 

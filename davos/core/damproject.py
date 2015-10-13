@@ -9,8 +9,8 @@ from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs, pathParse
 from pytd.util.strutils import findFmtFields
-from pytd.util.sysutils import inDevMode, hostSetEnvFunc
-from pytd.util.sysutils import argToTuple, qtGuiApp, importClass, hostApp, updEnv
+from pytd.util.sysutils import inDevMode, hostSetEnvFunc, toStr
+from pytd.util.sysutils import argToTuple, importClass, hostApp, updEnv
 from pytd.gui.dialogs import confirmDialog
 from pytd.util.qtutils import setWaitCursor
 
@@ -641,6 +641,65 @@ class DamProject(object):
     @setWaitCursor
     def uploadSgVersion(self, sgVersion, sMediaPath):
         return self._shotgundb.uploadVersion(sgVersion, sMediaPath)
+
+    def publishSgVersions(self, versionFiles):
+
+        headFileSet = set()
+        for versFile in versionFiles:
+            headFile = versFile.getHeadFile(fail=True)
+            headFileSet.add(headFile)
+
+        if len(headFileSet) > 1:
+            raise ValueError("Given files should be versions of the same head file !")
+
+        headFile = headFileSet.pop()
+        bSgVersion = headFile.getParam('create_sg_version', False)
+        if not bSgVersion:
+            raise RuntimeError("Public file not configured to have a shotgun version: {} !"
+                               .format(headFile))
+
+        sgVersions = headFile.getEntity().listVersions()
+        sgVersNames = tuple(d["code"] for d in sgVersions)
+
+        try:
+            sgTaskInfo = headFile._beginPublishSgVersion()
+        except Exception, e:
+            sMsg = "Failed to get Shotgun Task:\n\n" + toStr(e)
+            sResult = confirmDialog(title='WARNING !',
+                                    message=sMsg,
+                                    button=["Continue", "Abort"],
+                                    defaultButton="Continue",
+                                    cancelButton="Abort",
+                                    dismissString="Abort",
+                                    icon="warning")
+            if sResult == "Abort":
+                raise
+
+        newSgVersions = []
+        for versFile in versionFiles:
+
+            if versFile.sgVersionName() in sgVersNames:
+                print "Shotgun Version already exists for {}.".format(versFile)
+                continue
+
+            sgVersion = versFile.createSgVersion(sgTaskInfo)
+            print "created shotgun version", sgVersion
+            newSgVersions.append(sgVersion)
+
+        return newSgVersions
+
+    def getSgVersion(self, sVersionName):
+
+        shotgundb = self._shotgundb
+        if not shotgundb:
+            return None
+
+        filters = [
+                        ['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
+                        ['code', 'is', sVersionName]
+                    ]
+
+        return shotgundb.sg.find_one("Version", filters, ['code', 'entity', 'sg_task'])
 
     def findDbNodes(self, sQuery="", **kwargs):
 

@@ -1372,7 +1372,7 @@ class DrcFile(DrcEntry):
         bSgVersion = self.getParam('create_sg_version', False)
         if bSgVersion:
             try:
-                sgTaskInfo = self.__beginPublishSgVersion(sgTask)
+                sgTaskInfo = self._beginPublishSgVersion(sgTask)
             except Exception, e:
                 sMsg = "Failed to get Shotgun Task:\n\n" + toStr(e)
                 sResult = confirmDialog(title='WARNING !',
@@ -1434,7 +1434,7 @@ class DrcFile(DrcEntry):
         if not self.isUpToDate():
             raise AssertionError("File is OUT OF SYNC !")
 
-    def __beginPublishSgVersion(self, sgTask):
+    def _beginPublishSgVersion(self, sgTask=None):
 
         if not sgTask:
             damEntity = self.getEntity(fail=True)
@@ -1525,7 +1525,7 @@ class DrcFile(DrcEntry):
 
         entityNameOrInfo = sgTaskInfo.pop("entity")
 
-        sVersionName = osp.splitext(self.name)[0]
+        sVersionName = self.sgVersionName()
         sComment = comment
         if not comment:
             sComment = self.comment
@@ -1536,6 +1536,33 @@ class DrcFile(DrcEntry):
                                          sComment,
                                          self.envPath())
         return sgVersion
+
+    def getSgVersion(self):
+        sVersionName = self.sgVersionName()
+        return self.library.project.getSgVersion(sVersionName)
+
+    def sgVersionName(self):
+        return osp.splitext(self.name)[0]
+
+    def getHeadFile(self, fail=False):
+
+        assert versionFromName(self.name) is not None, "File is NOT a VERSION !"
+
+        sFilename , sExt = osp.splitext(self.name)
+
+        parentDir = self.parentDir().parentDir()
+
+        sHeadDirPath = parentDir.absPath()
+        sHeadFilename = sFilename.split('-v')[0] + sExt
+        sHeadFilePath = pathJoin(sHeadDirPath, sHeadFilename)
+
+        headFile = self.library.getEntry(sHeadFilePath)
+
+        if (not headFile) and fail:
+            raise RuntimeError("Could not get head file for version {}"
+                               .format(self))
+
+        return headFile
 
     def ensureLocked(self, autoLock=False):
 

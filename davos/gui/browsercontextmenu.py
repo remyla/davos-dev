@@ -16,7 +16,7 @@ from pytd.util.sysutils import toStr#, hostApp
 from pytd.util.qtutils import setWaitCursor
 from davos.core.damtypes import DamAsset
 from pytd.util.fsutils import topmostFoundDir
-from fnmatch import fnmatch
+#from fnmatch import fnmatch
 
 
 class BrowserContextMenu(BaseContextMenu):
@@ -54,15 +54,17 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"On"                  , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[True]       },
         { "label":"Break"               , "menu": "Set Lock", "fnc":self.breakFilesLock     , "dev":True       },
 
-        { "label":"Shotgun Page"        , "menu": "Go To"   , "fnc":self.showShotgunPage   },
-        { "label":"Private Location"    , "menu": "Go To"   , "fnc":self.showPrivateLoc   },
-        { "label":"Location"            , "menu": "Go To"   , "fnc":self.showLocation   },
+        { "label":"Shotgun Page"        , "menu": "Go To"   , "fnc":self.showShotgunPage                },
+        { "label":"Private Location"    , "menu": "Go To"   , "fnc":self.showPrivateLoc                 },
+        { "label":"Location"            , "menu": "Go To"   , "fnc":self.showLocation       , "dev":True},
 
         { "label":"Asset"               , "menu": "Add New" , "fnc":self.createNewAsset     , "dev":True},
         { "label":"File"                , "menu": "Add New" , "fnc":self.publishNewFile     , "dev":True},
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
         { "label":"Create Private Dirs" , "menu": "Advanced", "fnc":self.createPrivateDirs  , "dev":True},
+        { "label":"Publish Into Shotgun", "menu": "Advanced", "fnc":self.publishSgVersions  , "dev":True},
+
 
         { "label":"separator"           , "menu": "Main"},
         { "label":"Log Data"            , "menu": "DrcEntry", "fnc":self.logData            , "dev":True},
@@ -104,7 +106,7 @@ class BrowserContextMenu(BaseContextMenu):
     setFilesLocked.auth_types = ["DrcFile"]
 
     def breakFilesLock(self, *itemList):
-        drcFiles = (item._metaobj for item in itemList)
+        drcFiles = tuple(item._metaobj for item in itemList)
 
         for drcFile in drcFiles:
             drcFile.refresh()
@@ -112,6 +114,11 @@ class BrowserContextMenu(BaseContextMenu):
                 logMsg('{0} {1}.'.format("Lock broken:", drcFile))
 
     breakFilesLock.auth_types = ["DrcFile"]
+
+    def publishSgVersions(self, *itemList):
+
+        versionFiles = tuple(item._metaobj for item in itemList)
+        self.model()._metamodel.publishSgVersions(versionFiles)
 
     @setWaitCursor
     def refreshItems(self, *itemList, **kwargs):
