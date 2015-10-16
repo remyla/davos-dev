@@ -1,6 +1,7 @@
 
 import os
 import os.path as osp
+import sys
 import re
 from fnmatch import fnmatch
 
@@ -19,6 +20,7 @@ from .damtypes import DamUser
 from .authtypes import HellAuth
 from .utils import getConfigModule
 from .dbtypes import DrcDb
+from davos.core.utils import projectNameFromPath
 
 
 LIBRARY_SPACES = ("public", "private")
@@ -48,6 +50,18 @@ proj.publishEditedVersion(privFile.absPath())
 class DamProject(object):
 
     _instancesDct = {}
+
+    @classmethod
+    def fromPath(cls, p, fail=False, **kwargs):
+
+        sProjName = projectNameFromPath(p)
+        if not sProjName:
+            if fail:
+                raise ValueError("Could NOT resolve a KNOWN PROJECT from '{}'"
+                                 .format(p))
+            return None
+
+        return cls(sProjName, **kwargs)
 
     def __new__(cls, sProjName, **kwargs):
         logMsg(cls.__name__ , log='all')
@@ -216,6 +230,12 @@ class DamProject(object):
             else:
                 drcLib.addModelRow()
 
+    def makeCurrent(self):
+
+        self.loadEnviron(force=True)
+        m = sys.modules["__main__"]
+        m.DAVOS_CURRENT_PROJECT = self
+
     def loadEnviron(self, force=False):
 
         sMsg = "\nLoading '{}' environment:".format(self.name)
@@ -225,9 +245,6 @@ class DamProject(object):
             print sMsg, "(using {}.{})".format(envFunc.__module__, envFunc.__name__)
         else:
             print sMsg
-
-#        sDirName = self.getVar("project", "dir_name")
-#        updEnv("DAVOS_PROJECT_DIR", sDirName, conflict="replace", usingFunc=envFunc)
 
         sDavosUser = os.environ.get("DAVOS_USER")
         if sDavosUser:
@@ -540,10 +557,7 @@ class DamProject(object):
 
     def publishEditedVersion(self, sSrcFilePath, **kwargs):
 
-        mainPrivFile = self.entryFromPath(sSrcFilePath, space="private", fail=True)
-        mainPubFile = mainPrivFile.getPublicFile(fail=True)
-
-        mainPubFile.assertEditedVersion(mainPrivFile)
+        mainPrivFile, mainPubFile = self.assertEditedVersion(sSrcFilePath)
         mainPubFile.ensureLocked()
 
         privOutcomeItemsList = []
@@ -621,7 +635,15 @@ class DamProject(object):
 
         return mainPrivFile, privOutcomeDct
 
-    def publishDependencies(self, sDepType, sMainFilePath, sDepPathList):
+    def assertEditedVersion(self, sSrcFilePath):
+
+        mainPrivFile = self.entryFromPath(sSrcFilePath, space="private", fail=True)
+        mainPubFile = mainPrivFile.getPublicFile(fail=True)
+        mainPubFile.assertEditedVersion(mainPrivFile)
+
+        return mainPrivFile, mainPubFile
+
+    def publishDependencies(self, sDepType, sMainFilePath, sDepPathList, **kwargs):
 
         mainPrivFile = self.entryFromPath(sMainFilePath, space="private", fail=True)
         mainPubFile = mainPrivFile.getPublicFile(fail=True)
@@ -644,21 +666,20 @@ class DamProject(object):
             raise EnvironmentError("Bad '{}' config in '{}'. Missing 'location' key: {} !"
                                    .format(sDepType, sSection, depDct))
 
-        bChecksum = depDct.get("checkcum", False)
+        bChecksum = depDct.get("checksum", False)
         depDir = entity.getResource("public", sRcDirName)
 
-        sComment = '{} dependency'.format(mainPrivFile.name)
+        sComment = kwargs.pop("comment", '{} dependency'.format(mainPrivFile.name))
 
-        publishItems = sDepPathList[:]
+        publishItems = list(sDepPathList)[:]
 
         for i, sDepPath in enumerate(sDepPathList):
 
             pubFile, versionFile = depDir.publishFile(sDepPath, autoLock=True,
                                                       autoUnlock=True,
-                                                      checksum=bChecksum,
+                                                      saveChecksum=bChecksum,
                                                       comment=sComment,
                                                       refresh=False)
-
             publishItems[i] = (pubFile, versionFile)
 
         depDir.refresh(children=True)

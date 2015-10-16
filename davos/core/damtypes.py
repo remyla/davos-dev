@@ -5,7 +5,7 @@ import os.path as osp
 from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
 from pytd.util.fsutils import normCase
 from pytd.util.external import parse
-from pytd.util.sysutils import qtGuiApp
+from pytd.util.sysutils import qtGuiApp, argToTuple
 from pytd.util.strutils import assertChars
 
 
@@ -126,31 +126,41 @@ class DamEntity(object):
     def getSgInfo(self):
         raise NotImplementedError("Must be implemented in sub-classes")
 
-    def getSgStep(self, sStepCode):
+    def getSgTasks(self, in_sStepCodes=None, fail=False):
 
-        for sgStep in self.project.iterSgSteps(self.__class__.sgEntityType):
-            if sStepCode and (sgStep['code'] == sStepCode):
-                return sgStep
-
-    def getSgTasks(self, sStepCode="", fail=False):
+        sStepCodes = argToTuple(in_sStepCodes)
 
         proj = self.project
 
         sgEntity = self.getSgInfo()
-        sgStep = None
-        if sStepCode:
-            sgStep = self.getSgStep(sStepCode)
+        sgSteps = None
+        if sStepCodes:
+            sgSteps = self.getSgSteps(*sStepCodes)
 
-        sgTaskList = proj._shotgundb.getTasks(sgEntity, sgStep)
+        sgTaskList = proj._shotgundb.getTasks(sgEntity, sgSteps)
         if (not sgTaskList) and fail:
-            if sStepCode:
-                msg = ("<{}> No Shotgun Tasks found for '{}' step"
-                       .format(self, sStepCode))
+            if sStepCodes:
+                msg = ("<{}> No Shotgun Tasks found for given steps: {}"
+                       .format(self, ", ".join(sStepCodes)))
             else:
                 msg = "<{}> No Shotgun Task defined !".format(self)
             raise ValueError(msg)
 
+        #sgTaskList.sort(key=lambda t:t['step']['list_order'])
+
         return sgTaskList
+
+    def getSgSteps(self, *in_sStepCodes):
+
+        sStepCodes = tuple(c.lower() for c in in_sStepCodes)
+
+        sgStepIter = self.project.iterSgSteps(self.__class__.sgEntityType)
+
+        if sStepCodes:
+            return tuple(sgStep for sgStep in sgStepIter
+                         if sgStep['code'].lower() in sStepCodes)
+        else:
+            return tuple(sgStepIter)
 
     def _sgTaskFromCode(self, sSgTaskCode, fail=False):
 
@@ -170,37 +180,38 @@ class DamEntity(object):
 
         return sgTaskInfo
 
-    def chooseSgTask(self, sSgStep="", fromList=None):
+    def chooseSgTask(self, sStepCodes=None, fromList=None):
 
         in_sTaskList = fromList
         if in_sTaskList:
             in_sTaskList = tuple(s.lower() for s in in_sTaskList)
 
-        sgTaskList = self.getSgTasks(sSgStep, fail=True)
+        sgTaskList = self.getSgTasks(sStepCodes, fail=True)
         if len(sgTaskList) == 1:
             taskNameOrInfo = sgTaskList[0]
         else:
-            sgTaskDct = dict((d['content'], d) for d in sgTaskList)
+            sTaskList = list(d['content'] for d in sgTaskList)
+            sgTaskDct = dict(zip(sTaskList, sgTaskList))
 
             if in_sTaskList:
-                sTaskList = list(t for t in sgTaskDct.iterkeys() if t.lower() in in_sTaskList)
-                if not sTaskList:
+                sTaskChoiceList = list(t for t in sTaskList if t.lower() in in_sTaskList)
+                if not sTaskChoiceList:
                     raise ValueError("<{}> Unknown input tasks: {}. Are valid: {}."
-                                     .format(self, in_sTaskList, sgTaskDct.keys()))
+                                     .format(self, in_sTaskList, sTaskList))
             else:
-                sTaskList = sgTaskDct.keys()
+                sTaskChoiceList = sTaskList
 
             sMsg = "What was your task ?"
             if qtGuiApp():
                 from PySide import QtGui
                 sTaskName, bOk = QtGui.QInputDialog.getItem(None, "Make your choice !",
-                                                            sMsg, sTaskList,
+                                                            sMsg, sTaskChoiceList,
                                                             current=0,
                                                             editable=False)
                 if not bOk:
                     raise RuntimeError("No task selected !")
             else:
-                sChoiceList = sTaskList + ["Cancel"]
+                sChoiceList = sTaskChoiceList + ["Cancel"]
                 sMsg += "({})".format("|".join(sChoiceList))
                 sChoice = ""
                 while sChoice not in sChoiceList:

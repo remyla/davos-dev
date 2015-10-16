@@ -1233,6 +1233,9 @@ class DrcFile(DrcEntry):
 
     def assertEditedVersion(self, privFile, version=None):
 
+        if privFile.publishAsserted:
+            return
+
         assert privFile.isPrivate(), "File must live in a PRIVATE library !"
         assert not privFile.isReadOnly(), "File is READ-ONLY !"
 
@@ -1291,7 +1294,7 @@ class DrcFile(DrcEntry):
         # first, get all needed infos from user or inputs
         try:
             infos = self.beginPublish(sSrcFilePath, **kwargs)
-            sComment, iNextVers, bSgVersion, sgTaskInfo = infos
+            sComment, iNextVers, sgTaskInfo = infos
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
             raise
@@ -1306,7 +1309,7 @@ class DrcFile(DrcEntry):
             raise
 
         # create shotgun version if possible else warn the user.
-        if bSgVersion and sgTaskInfo:
+        if sgTaskInfo:
             try:
                 sgVersion = newVersFile.createSgVersion(sgTaskInfo, sComment)
                 if not sgVersion:
@@ -1357,7 +1360,7 @@ class DrcFile(DrcEntry):
         return newVersFile, sgVersion
 
     def beginPublish(self, sSrcFilePath, comment="", autoLock=False, version=None,
-                     sgTask=None, checkLock=True):
+                     sgTask=None, withSgVersion=True, checkLock=True):
         logMsg(log='all')
 
         if checkLock:
@@ -1373,7 +1376,7 @@ class DrcFile(DrcEntry):
                 raise ValueError(sMsg)
 
         sgTaskInfo = None
-        bSgVersion = self.getParam('create_sg_version', False)
+        bSgVersion = self.getParam('create_sg_version', False) if withSgVersion else False
         if bSgVersion:
             try:
                 sgTaskInfo = self._beginPublishSgVersion(sgTask)
@@ -1389,8 +1392,6 @@ class DrcFile(DrcEntry):
                 if sResult == "Abort":
                     raise
 
-                bSgVersion = False
-
         sComment = comment
         if not sComment:
             sComment = promptForComment(text=self.getPrpty("comment"))
@@ -1405,7 +1406,7 @@ class DrcFile(DrcEntry):
             if not backupFile.exists():
                 backupFile.createFromFile(self)
 
-        return sComment, iNextVers, bSgVersion, sgTaskInfo
+        return sComment, iNextVers, sgTaskInfo
 
     def _abortPublish(self, err, versionFile=None, sgVersion=None):
 
@@ -1448,8 +1449,8 @@ class DrcFile(DrcEntry):
             if len(sTaskList) == 1:
                 sgTaskInfo = damEntity._sgTaskFromCode(sTaskList[0], fail=True)
             else:
-                sStepCode = self.getParam('sg_step', "")
-                sgTaskInfo = damEntity.chooseSgTask(sStepCode, fromList=sTaskList)
+                sStepCodes = self.getParam('sg_steps', None)
+                sgTaskInfo = damEntity.chooseSgTask(sStepCodes, fromList=sTaskList)
 
         elif isinstance(sgTask, dict):
             sgTaskInfo = sgTask
@@ -1499,7 +1500,7 @@ class DrcFile(DrcEntry):
 
         curNode = self.getDbNode()
 
-        logMsg("Creating version node: {}".format(versData))
+        logMsg("Creating version node: {}".format(versData), log="info")
         versNode = self.library._db.createVersion(curNode.id_, versData)
         if not versNode:
             raise RuntimeError("Could not create DbNode for {} !".format(versionFile))
