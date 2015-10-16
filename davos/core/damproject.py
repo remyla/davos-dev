@@ -10,7 +10,7 @@ from pytd.util.logutils import logMsg
 from pytd.util.fsutils import pathJoin, pathResolve, pathNorm, normCase
 from pytd.util.fsutils import pathSplitDirs, pathParse
 from pytd.util.strutils import findFmtFields
-from pytd.util.sysutils import inDevMode, hostSetEnvFunc, toStr
+from pytd.util.sysutils import hostSetEnvFunc, toStr
 from pytd.util.sysutils import argToTuple, importClass, hostApp, updEnv
 from pytd.gui.dialogs import confirmDialog
 from pytd.util.qtutils import setWaitCursor
@@ -214,15 +214,10 @@ class DamProject(object):
 
         print "<{}> Loading libraries...".format(self)
 
-        bDevMode = inDevMode()
-
         for sSpace, sLibName in self._iterConfigLibraries():
 
             drcLib = self.getLibrary(sSpace, sLibName)
             if not drcLib:
-                continue
-
-            if (not bDevMode) and sSpace == "private":
                 continue
 
             if drcLib.primeProperty().viewItems:

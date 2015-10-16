@@ -63,6 +63,14 @@ class DrcLibrary(DrcEntry):
         if model:
             model.loadRowItems(self, model)
 
+    def displayViewItems(self):
+
+        bDevMode = sysutils.inDevMode()
+        if (not bDevMode) and (self.space == "private"):
+            return False
+
+        return True
+
     @staticmethod
     def makeFullName(*names):
         return "|".join(names)

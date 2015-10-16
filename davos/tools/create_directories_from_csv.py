@@ -83,9 +83,8 @@ def createAssetDirectories(proj, sCsvFilePath, **kwargs):
         if count == iMaxCount:
             break
 
-        damAst.createDirsAndFiles(**kwargs)
-
-        count += 1
+        if damAst.createDirsAndFiles(**kwargs):
+            count += 1
 
     sCreated = "will be created" if kwargs.get("dry_run") else "created"
     print "{} asset directories {}.".format(count, sCreated)
