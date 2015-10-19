@@ -1315,7 +1315,8 @@ class DrcFile(DrcEntry):
                 if not sgVersion:
                     raise RuntimeError("")
             except Exception, e:
-                sMsg = "Failed to create Shotgun Version:\n\n" + toStr(e)
+                sMsg = "Failed to create Shotgun Version !\n\n\
+Continue publishing WITHOUT Shotgun Version ??"
                 sResult = confirmDialog(title='WARNING !',
                                         message=sMsg,
                                         button=["Continue", "Abort"],
@@ -1326,6 +1327,9 @@ class DrcFile(DrcEntry):
                 if sResult == "Abort":
                     logMsg("Cancelled !", warning=True)
                     return self._abortPublish(e, newVersFile, sgVersion)
+                else:
+                    sMsg = "Failed to create Shotgun Version: " + toStr(e)
+                    logMsg(sMsg, warning=True)
 
                 sgVersion = None
 
@@ -1381,7 +1385,8 @@ class DrcFile(DrcEntry):
             try:
                 sgTaskInfo = self._beginPublishSgVersion(sgTask)
             except Exception, e:
-                sMsg = "Failed to get Shotgun Task:\n\n" + toStr(e)
+                sMsg = "Failed to get Shotgun Task !\n\n\
+Continue publishing WITHOUT Shotgun Version ??"
                 sResult = confirmDialog(title='WARNING !',
                                         message=sMsg,
                                         button=["Continue", "Abort"],
@@ -1391,6 +1396,9 @@ class DrcFile(DrcEntry):
                                         icon="warning")
                 if sResult == "Abort":
                     raise
+                else:
+                    sMsg = "Failed to get Shotgun Task: " + toStr(e)
+                    logMsg(sMsg, warning=True)
 
         sComment = comment
         if not sComment:
