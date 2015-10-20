@@ -1,6 +1,7 @@
 
 import os
 import os.path as osp
+import re
 
 from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
 from pytd.util.fsutils import normCase
@@ -49,6 +50,10 @@ class DamEntity(object):
                     raise ValueError(msg.format(sParentAttr, sParsedName, sParentName))
 
         for k, v in nameParse.named.iteritems():
+
+            if re.match("^[A-Z]", v):
+                raise ValueError("Invalid name part: '{}'. Must NOT start with an uppercase !".format(v))
+
             assertChars(v, r"[a-zA-Z0-9]")
             setattr(self, k, v)
 
