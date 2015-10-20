@@ -226,11 +226,13 @@ class DrcLibrary(DrcEntry):
     def sendToTrash(self):
         raise RuntimeError("You cannot delete a library !!")
 
-    def _weakDir(self, pathOrInfo):
-        return self.getEntry(pathOrInfo, weak=True, drcType=self.__class__.classDir)
+    def _weakDir(self, pathOrInfo, **kwargs):
+        return self.getEntry(pathOrInfo, weak=True, drcType=self.__class__.classDir,
+                             **kwargs)
 
-    def _weakFile(self, pathOrInfo):
-        return self.getEntry(pathOrInfo, weak=True, drcType=self.__class__.classFile)
+    def _weakFile(self, pathOrInfo, **kwargs):
+        return self.getEntry(pathOrInfo, weak=True, drcType=self.__class__.classFile,
+                             **kwargs)
 
     def _remember(self):
 

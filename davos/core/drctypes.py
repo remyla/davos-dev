@@ -1162,7 +1162,7 @@ class DrcFile(DrcEntry):
 
         return bDiffers, sOtherChecksum
 
-    def getPublicFile(self, fail=False):
+    def getPublicFile(self, weak=False, fail=False):
 
         #assert self.isFile(), "File does NOT exist !"
         assert self.isPrivate(), "File must live in a PRIVATE library !"
@@ -1176,7 +1176,10 @@ class DrcFile(DrcEntry):
         sPubFilename = sPrivFilename.split('-v')[0] + sExt
         sPubFilePath = pathJoin(sPubDirPath, sPubFilename)
 
-        pubFile = pubDir.library.getEntry(sPubFilePath, dbNode=False)
+        if weak:
+            pubFile = pubDir.library._weakFile(sPubFilePath, dbNode=False)
+        else:
+            pubFile = pubDir.library.getEntry(sPubFilePath, dbNode=False)
 
         if (not pubFile) and fail:
             raise RuntimeError("Could not get public version of '{}'"

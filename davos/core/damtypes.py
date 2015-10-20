@@ -86,7 +86,7 @@ class DamEntity(object):
 
     def createDirsAndFiles(self, sSpace="public", **kwargs):
 
-        bDryRun = kwargs.get("dry_run", False)
+        bDryRun = kwargs.get("dry_run", True)
 
         sEntityName = self.name
 
@@ -94,13 +94,16 @@ class DamEntity(object):
         if not sTemplatePath:
             return []
 
-        print '\nCreating {} directories for "{}":'.format(sSpace.upper(), sEntityName)
-        sEntityDirPath = self.getPath(sSpace)
-
-        if not (bDryRun or osp.isdir(sEntityDirPath)):
-            os.makedirs(sEntityDirPath)
+        sAction = "Creating" if not bDryRun else "Missing"
+        print '\n{} {} paths for "{}":'.format(sAction, sSpace.upper(), sEntityName)
 
         createdList = []
+
+        sEntityDirPath = self.getPath(sSpace)
+        if not osp.exists(sEntityDirPath):
+            if not bDryRun:
+                os.makedirs(sEntityDirPath)
+            createdList.append(sEntityDirPath)
 
         srcPathItr = iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*"))
         for sSrcPath in srcPathItr:
