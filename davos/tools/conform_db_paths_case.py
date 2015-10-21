@@ -4,7 +4,7 @@ from davos.core.damproject import DamProject
 
 from pytd.util.fsutils import iterPaths, ignorePatterns
 
-sProject = "zombillenium"#os.environ["DAVOS_INIT_PROJECT"]
+sProject = os.environ["DAVOS_INIT_PROJECT"]
 
 proj = DamProject(sProject)
 

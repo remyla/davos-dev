@@ -3,7 +3,8 @@ import os
 import os.path as osp
 import re
 
-from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
+from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile, \
+    pathRelativeTo
 from pytd.util.fsutils import normCase
 from pytd.util.external import parse
 from pytd.util.sysutils import qtGuiApp, argToTuple
@@ -51,7 +52,7 @@ class DamEntity(object):
 
         for k, v in nameParse.named.iteritems():
 
-            if re.match("^[A-Z]", v):
+            if re.match("^[A-Z][a-z]", v):
                 raise ValueError("Invalid name part: '{}'. Must NOT start with an uppercase !".format(v))
 
             assertChars(v, r"[a-zA-Z0-9]")
@@ -89,26 +90,22 @@ class DamEntity(object):
     def parentEntity(self):
         return getattr(self, self.__class__.parentEntityAttr)
 
-    def createDirsAndFiles(self, sSpace="public", **kwargs):
+    def createDirsAndFiles(self, sSpace="public", log=True, **kwargs):
 
-        bDryRun = kwargs.get("dry_run", True)
-
+        bDryRun = kwargs.pop("dryRun", True)
         sEntityName = self.name
 
         sTemplatePath = self.getTemplatePath()
         if not sTemplatePath:
             return []
 
-        sAction = "Creating" if not bDryRun else "Missing"
-        print '\n{} {} paths for "{}":'.format(sAction, sSpace.upper(), sEntityName)
-
-        createdList = []
+        sDestPathList = []
 
         sEntityDirPath = self.getPath(sSpace)
         if not osp.exists(sEntityDirPath):
             if not bDryRun:
                 os.makedirs(sEntityDirPath)
-            createdList.append(sEntityDirPath)
+            sDestPathList.append(sEntityDirPath)
 
         srcPathItr = iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*"))
         for sSrcPath in srcPathItr:
@@ -116,7 +113,7 @@ class DamEntity(object):
                          .format(**vars(self)))
 
             if not osp.exists(sDestPath):
-                print "\t", sDestPath
+                #print "\t", sDestPath
 
                 if not bDryRun:
                     if sDestPath.endswith("/"):
@@ -125,11 +122,17 @@ class DamEntity(object):
                         sDirPath = osp.dirname(sDestPath)
                         if not osp.exists(sDirPath):
                             os.makedirs(sDirPath)
-                        copyFile(sSrcPath, sDestPath, **kwargs)
+                        copyFile(sSrcPath, sDestPath, dry_run=bDryRun)
 
-                createdList.append(sDestPath)
+                sDestPathList.append(sDestPath)
 
-        return createdList
+        if log and sDestPathList:
+            sAction = "Creating" if not bDryRun else "Missing"
+            sMsg = '\n{} {} paths for "{}":'.format(sAction, sSpace.upper(), sEntityName)
+            sMsg += "\n    " + "\n    ".join(sDestPathList)
+            print sMsg
+
+        return sDestPathList
 
     def getSgInfo(self):
         raise NotImplementedError("Must be implemented in sub-classes")
@@ -270,6 +273,7 @@ class DamAsset(DamEntity):
     parentEntityAttr = "assetType"
     nameFormat = "{assetType}_{baseName}_{variation}"
     sgEntityType = "Asset"
+    libraryName = "asset_lib"
 
     def __init__(self, proj, **kwargs):
         super(DamAsset, self).__init__(proj, **kwargs)
@@ -285,6 +289,7 @@ class DamShot(DamEntity):
     parentEntityAttr = "sequence"
     nameFormat = "{sequence}_{baseName}"
     sgEntityType = "Shot"
+    libraryName = "shot_lib"
 
     def __init__(self, proj, **kwargs):
         super(DamShot, self).__init__(proj, **kwargs)

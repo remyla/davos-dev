@@ -3,19 +3,12 @@ import os
 import sys
 
 from PySide import QtGui
-from PySide.QtGui import QTreeWidget, QTreeWidgetItem, QTreeWidgetItemIterator
+from PySide.QtGui import QTreeWidgetItem, QTreeWidgetItemIterator
 from PySide.QtCore import Qt
 
 from davos.core.damproject import DamProject
 from pytd.util.sysutils import qtGuiApp
-from pytd.gui.dialogs import confirmDialog
-
-sProject = "zombillenium"#os.environ["DAVOS_INIT_PROJECT"]
-
-proj = DamProject(sProject)
-
-print sProject.center(80, "-")
-
+from pytd.gui.dialogs import confirmDialog, SimpleTreeDialog
 
 class TreeItem(QTreeWidgetItem):
 
@@ -23,34 +16,32 @@ class TreeItem(QTreeWidgetItem):
         super(TreeItem, self).__init__(*args, **kwargs)
         #self.setFlags(self.flags() | Qt.ItemIsTristate)
 
-def launch(bDryRun=True):
+def launch(dryRun=True, project=""):
 
     app = qtGuiApp()
     if not app:
         app = QtGui.QApplication(sys.argv)
 
+    sProject = os.environ["DAVOS_INIT_PROJECT"] if not project else project
+    proj = DamProject(sProject)
+    print sProject.center(80, "-")
+
     dbNodeDct = {}
 
     sFieldSet = set()
     for n in proj.findDbNodes():
-
         sFieldSet.update(n._data.iterkeys())
         dbNodeDct.setdefault(n.file.lower(), []).append(n)
 
-    dlg = QtGui.QDialog()
+    dlg = SimpleTreeDialog()
+    treeWdg = dlg.treeWidget
 
-    treeWdg = QTreeWidget(dlg)
-    vLay = QtGui.QVBoxLayout(dlg)
-    dlg.setLayout(vLay)
-    vLay.addWidget(treeWdg)
-
-    treeWdg.setColumnCount(len(sFieldSet))
     sFieldList = sorted(sFieldSet)
     sFieldList.remove("file")
     sFieldList.remove("#parent")
     sFieldList.insert(0, "file")
-    treeWdg.setHeaderLabels(sFieldList)
 
+    treeWdg.setHeaderLabels(sFieldList)
     treeWdg.setTextElideMode(Qt.ElideLeft)
 
     topLevelItemDct = {}
@@ -76,7 +67,9 @@ def launch(bDryRun=True):
     for c in xrange(treeWdg.columnCount()):
         treeWdg.resizeColumnToContents(c)
 
-    bExit = dlg.exec_()
+    bOk = dlg.exec_()
+    if not bOk:
+        return
 
     itemIter = QTreeWidgetItemIterator(treeWdg, QTreeWidgetItemIterator.Checked)
     toDeleteNodes = [item.value().data(0, Qt.UserRole) for item in itemIter]
@@ -94,7 +87,6 @@ def launch(bDryRun=True):
         if sConfirm == "Yes":
             for n in toDeleteNodes:
                 print "Deleting", n.file, n._data
-                if not bDryRun:
+                if not dryRun:
                     n.delete()
 
-    sys.exit(bExit)

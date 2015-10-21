@@ -431,11 +431,9 @@ class DamProject(object):
 
     def libraryFromDbPath(self, sDbPath):
 
-        for drcLib in self.loadedLibraries.itervalues():
+        pubLibIter = (l for l in self.loadedLibraries.itervalues() if l.isPublic())
 
-            if not drcLib.isPublic():
-                continue
-
+        for drcLib in pubLibIter:
             try:
                 drcLib.dbToAbsPath(sDbPath)
             except ValueError:
@@ -449,10 +447,13 @@ class DamProject(object):
 
         p = pathNorm(sEntryPath)
 
-        for drcLib in self.loadedLibraries.itervalues():
+        if space:
+            drcLibIter = (l for l in self.loadedLibraries.itervalues()
+                          if (l.space == space))
+        else:
+            drcLibIter = self.loadedLibraries.itervalues()
 
-            if space and (drcLib.space != space):
-                continue
+        for drcLib in drcLibIter:
 
             if drcLib.contains(p):
                 return drcLib

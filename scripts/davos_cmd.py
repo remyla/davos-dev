@@ -1,9 +1,4 @@
 
-"""
-from davos.tools import create_directories_from_csv
-create_directories_from_csv.launch(proj,dry_run=True)
-"""
-
 import argparse
 
 import os

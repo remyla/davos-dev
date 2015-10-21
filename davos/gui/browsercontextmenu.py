@@ -411,7 +411,7 @@ class BrowserContextMenu(BaseContextMenu):
             raise ValueError("Bad asset type: '{}' ! Expected '{}'."
                              .format(damAst.assetType, sSection))
 
-        damAst.createDirsAndFiles()
+        damAst.createDirsAndFiles(dryRun=False)
         astDir = damAst.getResource("public")
         if astDir:
             astDir.parentDir().refresh(children=True)
