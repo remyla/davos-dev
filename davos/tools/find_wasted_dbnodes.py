@@ -45,11 +45,10 @@ def launch(bDryRun=True, project=""):
 
     wastedNodes = findWastedDbNodes(proj, dbNodeList)
 
-
     print '\n', '\n'.join(n.file + "\n    " + os.path.normpath(p) for n, p in wastedNodes)
     print "found {}/{} unused DbNodes".format(len(wastedNodes), len(dbNodeList))
 
     if not bDryRun:
-        for n in wastedNodes:
+        for n, _ in wastedNodes:
             print "deleting", n
             n.delete()
