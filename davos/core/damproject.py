@@ -427,7 +427,7 @@ class DamProject(object):
 
         sDbPath = dbnode.getField('file')
         drcLib = self.libraryFromDbPath(sDbPath)
-        return drcLib.entryFromDbPath(sDbPath, **kwargs)
+        return drcLib.entryFromDbPath(sDbPath, dbNode=False, **kwargs)
 
     def libraryFromDbPath(self, sDbPath):
 
@@ -674,8 +674,7 @@ class DamProject(object):
             pubFile, versionFile = depDir.publishFile(sDepPath, autoLock=True,
                                                       autoUnlock=True,
                                                       saveChecksum=bChecksum,
-                                                      comment=sComment,
-                                                      refresh=False)
+                                                      comment=sComment)
             publishItems[i] = (pubFile, versionFile)
 
         depDir.refresh(children=True)

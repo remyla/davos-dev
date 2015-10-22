@@ -10,7 +10,7 @@ from pytd.util.logutils import logMsg
 from pytd.util.sysutils import listClassesFromModule, getCaller
 from pytd.util.qtutils import toQFileInfo
 from pytd.util.fsutils import pathNorm, normCase, pathSplitDirs, pathJoin
-from pytd.util.fsutils import pathRelativeTo, addEndSlash
+from pytd.util.fsutils import pathRelativeTo
 from pytd.util import sysutils
 
 from . import drctypes
@@ -19,7 +19,7 @@ from .dbtypes import DrcDb
 from fnmatch import fnmatch
 
 
-class DrcLibrary(DrcEntry):
+class DrcLibrary(DrcDir):
 
     classLabel = "library"
     classReprAttr = "fullName"
@@ -162,9 +162,6 @@ class DrcLibrary(DrcEntry):
 
         return sAlignedPath == sLibPath
 
-    def dbPath(self):
-        return addEndSlash(DrcEntry.dbPath(self))
-
     def absToRelPath(self, sAbsPath):
         return pathRelativeTo(sAbsPath, self.absPath())
 
@@ -207,7 +204,10 @@ class DrcLibrary(DrcEntry):
         sRelPath = pathRelativeTo(sDbPath, pathNorm(self.dbPath()))
         return sRelPath
 
-    def getHomonym(self, sSpace):
+    def allowFreePublish(self):
+        return self.getVar("free_publish", False)
+
+    def getHomonym(self, sSpace, weak=False, create=False):
 
         if self.space == sSpace:
             return self
@@ -216,9 +216,6 @@ class DrcLibrary(DrcEntry):
 
     def getVar(self, sVarName, default="NoEntry", **kwargs):
         return self.project.getVar(self.sectionName, sVarName, default=default, **kwargs)
-
-    def hasChildren(self):
-        return True
 
     def suppress(self):
         raise RuntimeError("You cannot delete a library !!")

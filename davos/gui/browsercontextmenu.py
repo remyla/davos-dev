@@ -1,5 +1,6 @@
 
 import re
+import os
 import os.path as osp
 
 from PySide.QtGui import QFileDialog
@@ -9,7 +10,7 @@ from pytd.gui.dialogs import confirmDialog, promptDialog
 
 
 from pytd.util.logutils import logMsg
-from pytd.util.fsutils import  pathSuffixed
+from pytd.util.fsutils import  pathSuffixed, pathJoin
 # from pytd.util.logutils import forceLog
 from davos.core.drctypes import DrcFile
 from pytd.util.sysutils import toStr#, hostApp
@@ -47,7 +48,7 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"separator"           , "menu": "Main"    , "dev":False                           },
         { "label":"View (Read-only)"    , "menu": "Main"    , "fnc":self.openFile                   },
         { "label":"Edit"                , "menu": "Main"    , "fnc":self.editFile                   },
-        { "label":"Publish..."          , "menu": "Main"    , "fnc":self.publishVersion             },
+        { "label":"Publish..."          , "menu": "Main"    , "fnc":self.publishAnything             },
 
         { "label":"separator"           , "menu": "Main"},
         { "label":"Off"                 , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[False]      },
@@ -59,7 +60,9 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Location"            , "menu": "Go To"   , "fnc":self.showLocation       , "dev":True},
 
         { "label":"Asset"               , "menu": "Add New" , "fnc":self.createNewAsset     , "dev":True},
-        { "label":"File"                , "menu": "Add New" , "fnc":self.publishNewFile     , "dev":True},
+        #{ "label":"Files"               , "menu": "Add New" , "fnc":self.publishNewFiles     },
+        { "label":"Directory"           , "menu": "Add New" , "fnc":self.createNewDirectory     },
+
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
         { "label":"Create Private Dirs" , "menu": "Advanced", "fnc":self.createPrivateDirs  , "dev":True},
@@ -166,48 +169,28 @@ class BrowserContextMenu(BaseContextMenu):
                                         cancelButton="Abort",
                                         dismissString="Abort",
                                         icon="critical")
-
                 if sResult == "Abort":
                     return
                 else:
                     continue
 
-    def publishNewFile(self, *itemList):
 
-        item = itemList[-1]
-        pubDir = item._metaobj
-        #proj = self.model()._metamodel
 
-        sSrcFilePath = self.chooseNewFile(pubDir)
-        if not sSrcFilePath:
-            logMsg("Cancelled !", warning=True)
-            return
-
-        print pubDir.publishFile(sSrcFilePath, autoLock=True, autoUnlock=True)
-
-    publishNewFile.auth_types = ("DrcDir",)
-
-    def chooseNewFile(self, pubDir):
-
-        sStartDirPath = topmostFoundDir(pubDir.getHomonym("private", weak=True).absPath())
-        sSrcFilePath, _ = QFileDialog.getOpenFileName(self.view,
-                                                      "Select a file to publish...",
-                                                      sStartDirPath,
-                                                      "File (*.*)")
-        return sSrcFilePath
-
-    def publishVersion(self, *itemList):
+    def publishAnything(self, *itemList):
 
         item = itemList[-1]
         pubEntry = item._metaobj
         proj = self.model()._metamodel
 
-        if proj.isEditableResource(pubEntry.absPath()):
-            self.__publishEdited(pubEntry)
+        if isinstance(pubEntry, DrcFile):
+            if proj.isEditableResource(pubEntry.absPath()):
+                self.__publishEdited(pubEntry)
+            else:
+                self.__publishRegular(pubEntry)
         else:
-            self.__publishRegular(pubEntry)
+            self.__publishFiles(pubEntry)
 
-    publishVersion.auth_types = ("DrcFile",)
+    #publishAnything.auth_types = ("DrcFile",)
 
     def __publishEdited(self, pubFile):
 
@@ -260,6 +243,67 @@ class BrowserContextMenu(BaseContextMenu):
                                                       sStartDirPath,
                                                       "File (*{})".format(sExt))
         return sSrcFilePath
+
+    def __publishFiles(self, pubDir):
+
+        if not pubDir.allowFreePublish():
+            confirmDialog(title='SORRY !',
+                          message="You can't add new files here.",
+                          button=["OK"],
+                          icon="information")
+            return
+
+        sFilePathList = self.chooseFiles(pubDir)
+        if not sFilePathList:
+            logMsg("Cancelled !", warning=True)
+            return
+
+        for sSrcFilePath in sFilePathList:
+            print pubDir.publishFile(sSrcFilePath, autoLock=True, autoUnlock=True)
+
+        pubDir.refresh(children=True)
+
+    def chooseFiles(self, pubDir):
+
+        sStartDirPath = topmostFoundDir(pubDir.getHomonym("private", weak=True).absPath())
+        sFilePathList, _ = QFileDialog.getOpenFileNames(self.view,
+                                                     "Select files to publish...",
+                                                     sStartDirPath,
+                                                     "File (*.*)")
+        return sFilePathList
+
+    def createNewDirectory(self, *itemList):
+
+        item = itemList[-1]
+        pubDir = item._metaobj
+        #proj = self.model()._metamodel
+
+        if not pubDir.allowFreePublish():
+            confirmDialog(title='SORRY !',
+                          message="You can't add new directories here.",
+                          button=["OK"],
+                          icon="information")
+            return
+
+        result = promptDialog(title='Please...',
+                            message='Directory Name: ',
+                            button=['OK', 'Cancel'],
+                            defaultButton='OK',
+                            cancelButton='Cancel',
+                            dismissString='Cancel',
+                            scrollableField=True,
+                            )
+
+        if result == 'Cancel':
+            logMsg("Cancelled !" , warning=True)
+            return
+
+        sDirName = promptDialog(query=True, text=True)
+        if not sDirName:
+            return
+
+        os.mkdir(pathJoin(pubDir.absPath(), sDirName.strip().replace(" ", "_")))
+        pubDir.refresh(children=True)
 
     def rollBackToVersion(self, *itemList):
 

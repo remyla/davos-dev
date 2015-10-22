@@ -511,12 +511,14 @@ class DrcEntry(DrcMetaObject):
             #drcFileList.append(drcFile)
             #print dbNode.dataRepr()
 
-        proj._db.updateNodes(toUpdateNodes, syncData)
+        numUpdNodes = len(toUpdateNodes)
+        if numUpdNodes:
+            proj._db.updateNodes(toUpdateNodes, syncData)
 
 #        for drcFile in drcFileList:
 #            drcFile.refresh(simple=True)
 
-        print "- created: {} - updated: {} -".format(numCreated, len(toUpdateNodes))
+        print "- created: {} - updated: {} -".format(numCreated, numUpdNodes)
 
     def __beginApplySyncData(self):
 
@@ -747,23 +749,25 @@ class DrcDir(DrcEntry):
     def publishFile(self, sSrcFilePath, **kwargs):
 
         if not os.path.isfile(sSrcFilePath):
-            raise ValueError("Path does not lead to a file : '{0}' ."
-                             .format(sSrcFilePath))
+            raise ValueError("No such file: '{}'.".format(sSrcFilePath))
 
-        bRefresh = kwargs.pop("refresh", True)
         sFilename = kwargs.pop("newName", os.path.basename(sSrcFilePath))
+        sComment = kwargs.pop("comment", "updated")
 
         versionFile = None
         bCreated = False
         pubFile = self.getChildFile(sFilename)
         if not pubFile:
+            if sComment == "updated":
+                sComment = "first version"
             pubFile = self.getChildFile(sFilename, weak=True)
             open(pubFile.absPath(), 'w').close()
             bCreated = True
 
         try:
             pubFile.refresh(simple=True)
-            versionFile, _ = pubFile.publishVersion(sSrcFilePath, **kwargs)
+            versionFile, _ = pubFile.publishVersion(sSrcFilePath,
+                                                    comment=sComment, **kwargs)
         except:
             if bCreated:
                 os.remove(pubFile.absPath())
@@ -771,10 +775,11 @@ class DrcDir(DrcEntry):
 
         if versionFile:
             logMsg("'{}' published as {}.".format(sSrcFilePath, versionFile))
-            if bRefresh:
-                self.refresh(children=True)
 
         return pubFile, versionFile
+
+    def allowFreePublish(self):
+        return self.getParam("free_publish", self.library.allowFreePublish())
 
     def getHomonym(self, sSpace, weak=False, create=False):
 

@@ -1,6 +1,7 @@
 
 import sys
 import os
+from pytd.util.qtutils import setWaitCursor
 osp = os.path
 import re
 
@@ -12,7 +13,7 @@ from PySide.QtGui import QTreeWidgetItem, QTreeWidgetItemIterator
 from PySide.QtCore import Qt
 
 from pytd.util.fsutils import pathNorm, pathSplitDirs, pathJoin
-from pytd.util.sysutils import toStr, qtGuiApp, argToTuple
+from pytd.util.sysutils import toStr, qtGuiApp, argToTuple, timer
 from davos.core.damproject import DamProject
 from davos.core.damtypes import DamAsset, DamShot
 from pytd.util.strutils import assertChars
@@ -26,7 +27,7 @@ class TreeItem(QTreeWidgetItem):
 
         if kwargs.get("checkable", True):
             self.setFlags(self.flags() | Qt.ItemIsTristate)
-            self.setCheckState(0, Qt.Checked)
+            self.setCheckState(0, Qt.Unchecked)
 
 def iterMissingPathItems(proj, sEntityType, sgEntityList):
 
@@ -46,7 +47,7 @@ def iterMissingPathItems(proj, sEntityType, sgEntityList):
             damEntity = entityCls(proj, name=sEntityName)
         except Exception, e:
             sError = toStr(e)
-            print "'{}': {}.".format(sEntityName, sError)
+            print "{:<60}: {}".format(sEntityName, sError)
             yield sEntityName, sError
         else:
             sMissingPaths = damEntity.createDirsAndFiles(dryRun=True, log=False)
@@ -55,33 +56,9 @@ def iterMissingPathItems(proj, sEntityType, sgEntityList):
 
             yield damEntity, sMissingPaths
 
-def loadTreeItem(parent, sItemPath, sTextList, flags=None, userData=None, **kwargs):
-
-    global TREE_ITEM_DCT
-
-    item = TreeItem(parent, sTextList, **kwargs)
-    TREE_ITEM_DCT[sItemPath] = item
-
-    if flags is not None:
-        item.setFlags(flags)
-
-    if userData is not None:
-        item.setData(0, Qt.UserRole, userData)
-
-    return item
-
-def launch(entityType="", dryRun=True, project=""):
-
-    global TREE_ITEM_DCT
-    TREE_ITEM_DCT = {}
-
-    app = qtGuiApp()
-    if not app:
-        app = QtGui.QApplication(sys.argv)
-
-    sProject = os.environ["DAVOS_INIT_PROJECT"] if not project else project
-    proj = DamProject(sProject)
-    print sProject.center(80, "-")
+@timer
+@setWaitCursor
+def listMissingPathItems(proj, entityType=""):
 
     shotgundb = proj._shotgundb
     sg = shotgundb.sg
@@ -136,9 +113,43 @@ def launch(entityType="", dryRun=True, project=""):
     if bShots:
         missingPathItems.extend(iterMissingPathItems(proj, "shot", allSgShotList))
 
-    dlg = SimpleTreeDialog()
+    return missingPathItems
+
+def loadTreeItem(parent, sItemPath, sTextList, flags=None, userData=None, **kwargs):
+
+    global TREE_ITEM_DCT
+
+    item = TreeItem(parent, sTextList, **kwargs)
+    TREE_ITEM_DCT[sItemPath] = item
+
+    if flags is not None:
+        item.setFlags(flags)
+
+    if userData is not None:
+        item.setData(0, Qt.UserRole, userData)
+
+    return item
+
+def launch(entityType="", dryRun=True, project="", dialogParent=None):
+
+    global TREE_ITEM_DCT
+    TREE_ITEM_DCT = {}
+
+    app = qtGuiApp()
+    if not app:
+        app = QtGui.QApplication(sys.argv)
+
+    sProject = os.environ["DAVOS_INIT_PROJECT"] if not project else project
+    proj = DamProject(sProject)
+    print sProject.center(80, "-")
+
+    dlg = SimpleTreeDialog(dialogParent)
     treeWdg = dlg.treeWidget
     treeWdg.setHeaderLabels(("Entity Name", "Infos"))
+
+    dlg.show()
+
+    missingPathItems = listMissingPathItems(proj, entityType)
 
     badEntityItems = []
     for damEntity, sMissingPaths in missingPathItems:
@@ -220,7 +231,8 @@ def launch(entityType="", dryRun=True, project=""):
 
         bApply = False
 
-        treeIter = QTreeWidgetItemIterator(treeWdg, QTreeWidgetItemIterator.Checked)
+        flags = (QTreeWidgetItemIterator.Checked | QTreeWidgetItemIterator.Enabled)
+        treeIter = QTreeWidgetItemIterator(treeWdg, flags)
         damEntities = tuple(it.value().data(0, Qt.UserRole) for it in treeIter)
         damAssets = tuple(e for e in damEntities if isinstance(e, DamAsset))
         damShots = tuple(e for e in damEntities if isinstance(e, DamShot))

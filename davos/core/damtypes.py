@@ -3,8 +3,7 @@ import os
 import os.path as osp
 import re
 
-from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile, \
-    pathRelativeTo
+from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
 from pytd.util.fsutils import normCase
 from pytd.util.external import parse
 from pytd.util.sysutils import qtGuiApp, argToTuple
@@ -36,7 +35,7 @@ class DamEntity(object):
         fmt = cls.nameFormat
         nameParse = parse.parse(fmt, self.name)
         if not nameParse:
-            raise ValueError("Invalid name: '{}'. Must match '{}' format."
+            raise ValueError("Invalid '{}': Must match '{}' format."
                              .format(self.name, fmt))
 
         sParentAttr = cls.parentEntityAttr
@@ -52,8 +51,16 @@ class DamEntity(object):
 
         for k, v in nameParse.named.iteritems():
 
+            msg = ""
             if re.match("^[A-Z][a-z]", v):
-                raise ValueError("Invalid name part: '{}'. Must NOT start with an uppercase !".format(v))
+                msg = ("Invalid '{}': Must NOT start with an uppercase !"
+                        .format(v))
+                raise ValueError(msg)
+
+            if len(v) > 24:
+                msg = ("Invalid '{}': Must NOT exceed 24 characters, got {} !"
+                        .format(v, len(v)))
+                raise ValueError(msg)
 
             assertChars(v, r"[a-zA-Z0-9]")
             setattr(self, k, v)
