@@ -68,7 +68,11 @@ class DamEntity(object):
     def getResource(self, sSpace, sRcName="entity_dir", default="NoEntry", **kwargs):
 
         sRcPath = self.getPath(sSpace, pathVar=sRcName, default=default)
-        return self.project.entryFromPath(sRcPath, **kwargs)
+
+        proj = self.project
+        drcLib = proj.getLibrary(sSpace, self.__class__.libraryName)
+
+        return proj.entryFromPath(sRcPath, library=drcLib, **kwargs)
 
     def getPath(self, sSpace, pathVar="entity_dir", **kwargs):
         return self.project.getPath(sSpace, self.confSection, pathVar,

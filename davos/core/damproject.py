@@ -375,7 +375,7 @@ class DamProject(object):
             return False
 
         bPatternOk = False
-        sPatterns = self.getVar("project", "editable_files", ())
+        sPatterns = self.getVar("project", "editable_file_patterns", ())
         for sPatt in sPatterns:
             if fnmatch(sFileName, sPatt):
                 bPatternOk = True
@@ -406,20 +406,23 @@ class DamProject(object):
 
         return True
 
-    def entryFromPath(self, sEntryPath, space="", **kwargs):
+    def entryFromPath(self, sEntryPath, space="", library=None, **kwargs):
 
         bFail = kwargs.pop('fail', False)
 
-        drcLib = self.libraryFromPath(sEntryPath, space=space)
-        if not drcLib:
-            sLibType = space.upper() if space else "KNOWN"
-            msg = "Path NOT from {} library: '{}'".format(sLibType, sEntryPath)
+        if library:
+            drcLib = library
+        else:
+            drcLib = self.libraryFromPath(sEntryPath, space=space)
+            if not drcLib:
+                sLibType = space.upper() if space else "KNOWN"
+                msg = "Path NOT from {} library: '{}'".format(sLibType, sEntryPath)
 
-            if bFail:
-                raise ValueError(msg)
-            else:
-                logMsg(msg, warning=True)
-                return None
+                if bFail:
+                    raise ValueError(msg)
+                else:
+                    logMsg(msg, warning=True)
+                    return None
 
         return drcLib.getEntry(sEntryPath, **kwargs)
 
