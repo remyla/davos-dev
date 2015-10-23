@@ -130,6 +130,107 @@ def loadTreeItem(parent, sItemPath, sTextList, flags=None, userData=None, **kwar
 
     return item
 
+def launch_test(entityType="", dryRun=True, project="", dialogParent=None):
+
+    global TREE_ITEM_DCT
+    TREE_ITEM_DCT = {}
+
+    app = qtGuiApp()
+    if not app:
+        app = QtGui.QApplication(sys.argv)
+
+    sProject = os.environ["DAVOS_INIT_PROJECT"] if not project else project
+    proj = DamProject(sProject)
+    print sProject.center(80, "-")
+
+    dlg = SimpleTreeDialog(dialogParent)
+    treeWdg = dlg.treeWidget
+    treeWdg.setHeaderLabels(("Entity Name", "Infos"))
+
+    dlg.show()
+
+    missingPathItems = listMissingPathItems(proj, entityType)
+
+    entityByTreePath = {}
+    badEntityItems = []
+    sItemPathList = []
+    for damEntity, sMissingPaths in missingPathItems:
+
+        if isinstance(damEntity, basestring):
+            badEntityItems.append((damEntity, sMissingPaths))
+            continue
+
+        drcLib = proj.getLibrary("public", damEntity.libraryName)
+        sLibPath = drcLib.absPath()
+        sEntityTitle = damEntity.sgEntityType + 's'
+
+        sEntityPath = damEntity.getPath("public")
+        sEntityPath = re.sub("^" + sLibPath, sEntityTitle, sEntityPath)
+        entityByTreePath[sEntityPath] = damEntity
+
+#        sEntityPathDirs = pathSplitDirs(sEntityPath)
+
+        for sAbsPath in sMissingPaths:
+
+            sTreePath = re.sub("^" + sLibPath, sEntityTitle, sAbsPath)
+            sItemPathList.append(sTreePath)
+
+    treeWdg.createTree(sItemPathList)
+
+    if badEntityItems:
+
+        errorsItem = loadTreeItem(None, "Errors", ["ERRORS"])
+        treeWdg.insertTopLevelItem(0, errorsItem)
+
+        for sEntityName, sError in badEntityItems:
+            loadTreeItem(errorsItem, sEntityName, [sEntityName, sError],
+                         checkable=False)
+
+    for i in xrange(treeWdg.topLevelItemCount()):
+        treeWdg.topLevelItem(i).setExpanded(True)
+
+    while True:
+
+        bOk = dlg.exec_()
+        if not bOk:
+            return
+
+        bApply = False
+
+        flags = (QTreeWidgetItemIterator.Checked | QTreeWidgetItemIterator.Enabled)
+        treeIter = QTreeWidgetItemIterator(treeWdg, flags)
+        damEntities = tuple(it.value().data(0, Qt.UserRole) for it in treeIter)
+        damAssets = tuple(e for e in damEntities if isinstance(e, DamAsset))
+        damShots = tuple(e for e in damEntities if isinstance(e, DamShot))
+        if damAssets or damShots:
+
+            sMsg = "Create directories and files for:\n"
+            if damAssets:
+                sMsg += "\n     - {} Assets".format(len(damAssets))
+
+            if damShots:
+                sMsg += "\n     - {} Shots".format(len(damShots))
+
+            sConfirm = confirmDialog(title="WARNING !",
+                                     message=sMsg,
+                                     button=("Yes", "No"),
+                                     defaultButton="No",
+                                     cancelButton="No",
+                                     dismissString="No",
+                                     icon="warning",
+                                    )
+
+            if sConfirm == "Yes":
+                bApply = True
+                break
+
+    if bApply:
+        for damEntity in damEntities:
+            if not damEntity:
+                continue
+            damEntity.createDirsAndFiles(dryRun=dryRun)
+
+
 def launch(entityType="", dryRun=True, project="", dialogParent=None):
 
     global TREE_ITEM_DCT
