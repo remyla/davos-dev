@@ -8,7 +8,7 @@ from PySide.QtCore import Qt
 
 from davos.core.damproject import DamProject
 from pytd.util.sysutils import qtGuiApp
-from pytd.gui.dialogs import confirmDialog, SimpleTreeDialog
+from pytd.gui.dialogs import confirmDialog, QuickTreeDialog
 
 class TreeItem(QTreeWidgetItem):
 
@@ -33,7 +33,7 @@ def launch(dryRun=True, project=""):
         sFieldSet.update(n._data.iterkeys())
         dbNodeDct.setdefault(n.file.lower(), []).append(n)
 
-    dlg = SimpleTreeDialog()
+    dlg = QuickTreeDialog()
     treeWdg = dlg.treeWidget
 
     sFieldList = sorted(sFieldSet)

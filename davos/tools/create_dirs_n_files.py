@@ -17,7 +17,7 @@ from pytd.util.sysutils import toStr, qtGuiApp, argToTuple, timer
 from davos.core.damproject import DamProject
 from davos.core.damtypes import DamAsset, DamShot
 from pytd.util.strutils import assertChars
-from pytd.gui.dialogs import SimpleTreeDialog, confirmDialog
+from pytd.gui.dialogs import QuickTreeDialog, confirmDialog
 
 
 class TreeItem(QTreeWidgetItem):
@@ -143,7 +143,7 @@ def launch_test(entityType="", dryRun=True, project="", dialogParent=None):
     proj = DamProject(sProject)
     print sProject.center(80, "-")
 
-    dlg = SimpleTreeDialog(dialogParent)
+    dlg = QuickTreeDialog(dialogParent)
     treeWdg = dlg.treeWidget
     treeWdg.setHeaderLabels(("Entity Name", "Infos"))
 
@@ -168,12 +168,21 @@ def launch_test(entityType="", dryRun=True, project="", dialogParent=None):
         sEntityPath = re.sub("^" + sLibPath, sEntityTitle, sEntityPath)
         entityByTreePath[sEntityPath] = damEntity
 
-#        sEntityPathDirs = pathSplitDirs(sEntityPath)
+        sEntityPathDirs = pathSplitDirs(sEntityPath)
 
         for sAbsPath in sMissingPaths:
 
             sTreePath = re.sub("^" + sLibPath, sEntityTitle, sAbsPath)
-            sItemPathList.append(sTreePath)
+
+            flags = None
+            if sTreePath.startswith(sEntityPath):
+                if len(pathSplitDirs(sTreePath)) > len(sEntityPathDirs):
+                    flags = Qt.NoItemFlags
+
+            if sTreePath == sEntityPath:
+                roleData = {Qt.UserRole:(0, damEntity)}
+
+            sItemPathList.append({"path":sTreePath, "flags":flags, "roles":roleData})
 
     treeWdg.createTree(sItemPathList)
 
@@ -244,7 +253,7 @@ def launch(entityType="", dryRun=True, project="", dialogParent=None):
     proj = DamProject(sProject)
     print sProject.center(80, "-")
 
-    dlg = SimpleTreeDialog(dialogParent)
+    dlg = QuickTreeDialog(dialogParent)
     treeWdg = dlg.treeWidget
     treeWdg.setHeaderLabels(("Entity Name", "Infos"))
 
