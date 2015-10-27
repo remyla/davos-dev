@@ -17,6 +17,7 @@ from pytd.util.sysutils import toStr, qtGuiApp, argToTuple, timer
 from davos.core.damproject import DamProject
 from davos.core.damtypes import DamAsset, DamShot
 from pytd.util.strutils import assertChars
+from pytd.util.utiltypes import OrderedTree
 from pytd.gui.dialogs import QuickTreeDialog, confirmDialog
 
 
@@ -56,8 +57,8 @@ def iterMissingPathItems(proj, sEntityType, sgEntityList):
 
             yield damEntity, sMissingPaths
 
-@timer
 @setWaitCursor
+@timer
 def listMissingPathItems(proj, entityType=""):
 
     shotgundb = proj._shotgundb
@@ -91,6 +92,7 @@ def listMissingPathItems(proj, entityType=""):
                                [{'field_name':'sg_asset_type', 'direction':'asc'},
                                 {'field_name':'code', 'direction':'asc'}])
 
+#        allSgAstList.append({"code":"chfjhgrjlkhdjtr"})
         print "Assets:", len(allSgAstList)
 
     if bShots:
@@ -115,22 +117,7 @@ def listMissingPathItems(proj, entityType=""):
 
     return missingPathItems
 
-def loadTreeItem(parent, sItemPath, sTextList, flags=None, userData=None, **kwargs):
-
-    global TREE_ITEM_DCT
-
-    item = TreeItem(parent, sTextList, **kwargs)
-    TREE_ITEM_DCT[sItemPath] = item
-
-    if flags is not None:
-        item.setFlags(flags)
-
-    if userData is not None:
-        item.setData(0, Qt.UserRole, userData)
-
-    return item
-
-def launch_test(entityType="", dryRun=True, project="", dialogParent=None):
+def launch(entityType="", dryRun=True, project="", dialogParent=None):
 
     global TREE_ITEM_DCT
     TREE_ITEM_DCT = {}
@@ -151,13 +138,16 @@ def launch_test(entityType="", dryRun=True, project="", dialogParent=None):
 
     missingPathItems = listMissingPathItems(proj, entityType)
 
-    entityByTreePath = {}
-    badEntityItems = []
-    sItemPathList = []
+    badEntityList = []
+    treeDataList = []
     for damEntity, sMissingPaths in missingPathItems:
 
         if isinstance(damEntity, basestring):
-            badEntityItems.append((damEntity, sMissingPaths))
+            p = pathJoin("Errors", damEntity)
+            badEntityList.append({"path":p, "texts":[damEntity, sMissingPaths],
+                                  "flags":Qt.ItemIsEnabled,
+                                  "roles":{Qt.ForegroundRole:(1, QtGui.QBrush(Qt.red))}
+                                })
             continue
 
         drcLib = proj.getLibrary("public", damEntity.libraryName)
@@ -165,35 +155,24 @@ def launch_test(entityType="", dryRun=True, project="", dialogParent=None):
         sEntityTitle = damEntity.sgEntityType + 's'
 
         sEntityPath = damEntity.getPath("public")
-        sEntityPath = re.sub("^" + sLibPath, sEntityTitle, sEntityPath)
-        entityByTreePath[sEntityPath] = damEntity
+        sEntiTreePath = re.sub("^" + sLibPath, sEntityTitle, sEntityPath)
 
-        sEntityPathDirs = pathSplitDirs(sEntityPath)
+        roleData = {Qt.UserRole:(0, damEntity)}
+        treeDataList.append({"path":sEntiTreePath, "flags":None, "roles":roleData})
 
-        for sAbsPath in sMissingPaths:
+        sTreePathList = tuple(re.sub("^" + sLibPath, sEntityTitle, p)
+                              for p in sMissingPaths)
 
-            sTreePath = re.sub("^" + sLibPath, sEntityTitle, sAbsPath)
+        tree = OrderedTree.fromPaths(sTreePathList)
 
-            flags = None
-            if sTreePath.startswith(sEntityPath):
-                if len(pathSplitDirs(sTreePath)) > len(sEntityPathDirs):
-                    flags = Qt.NoItemFlags
+        for sTreePath in tree.iterPaths(rootPath=sEntiTreePath):
+            treeDataList.append({"path":sTreePath, "flags":Qt.NoItemFlags})
 
-            if sTreePath == sEntityPath:
-                roleData = {Qt.UserRole:(0, damEntity)}
+    treeWdg.createTree(badEntityList)
 
-            sItemPathList.append({"path":sTreePath, "flags":flags, "roles":roleData})
-
-    treeWdg.createTree(sItemPathList)
-
-    if badEntityItems:
-
-        errorsItem = loadTreeItem(None, "Errors", ["ERRORS"])
-        treeWdg.insertTopLevelItem(0, errorsItem)
-
-        for sEntityName, sError in badEntityItems:
-            loadTreeItem(errorsItem, sEntityName, [sEntityName, sError],
-                         checkable=False)
+    treeWdg.defaultFlags |= Qt.ItemIsTristate
+    treeWdg.defaultRoles = {Qt.CheckStateRole:(0, Qt.Unchecked)}
+    treeWdg.createTree(treeDataList)
 
     for i in xrange(treeWdg.topLevelItemCount()):
         treeWdg.topLevelItem(i).setExpanded(True)
@@ -240,7 +219,22 @@ def launch_test(entityType="", dryRun=True, project="", dialogParent=None):
             damEntity.createDirsAndFiles(dryRun=dryRun)
 
 
-def launch(entityType="", dryRun=True, project="", dialogParent=None):
+def loadTreeItem(parent, sItemPath, sTextList, flags=None, userData=None, **kwargs):
+
+    global TREE_ITEM_DCT
+
+    item = TreeItem(parent, sTextList, **kwargs)
+    TREE_ITEM_DCT[sItemPath] = item
+
+    if flags is not None:
+        item.setFlags(flags)
+
+    if userData is not None:
+        item.setData(0, Qt.UserRole, userData)
+
+    return item
+
+def launch_old(entityType="", dryRun=True, project="", dialogParent=None):
 
     global TREE_ITEM_DCT
     TREE_ITEM_DCT = {}

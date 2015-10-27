@@ -3,7 +3,7 @@ import os
 import os.path as osp
 import re
 
-from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile
+from pytd.util.fsutils import iterPaths, ignorePatterns, copyFile, pathNorm
 from pytd.util.fsutils import normCase
 from pytd.util.external import parse
 from pytd.util.sysutils import qtGuiApp, argToTuple
@@ -108,34 +108,38 @@ class DamEntity(object):
 
         sTemplatePath = self.getTemplatePath()
         if not sTemplatePath:
+            raise EnvironmentError("{} has NO template configured.".format(self))
             return []
 
         sDestPathList = []
 
+        bCheckIfExists = True
         sEntityDirPath = self.getPath(sSpace)
         if not osp.exists(sEntityDirPath):
+            bCheckIfExists = False
             if not bDryRun:
                 os.makedirs(sEntityDirPath)
             sDestPathList.append(sEntityDirPath)
 
-        srcPathItr = iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*"))
-        for sSrcPath in srcPathItr:
+        sSrcPathIter = iterPaths(sTemplatePath, ignoreFiles=ignorePatterns("*.db", ".*"))
+        for sSrcPath in sSrcPathIter:
+
             sDestPath = (sSrcPath.replace(sTemplatePath, sEntityDirPath)
                          .format(**vars(self)))
 
-            if not osp.exists(sDestPath):
-                #print "\t", sDestPath
+            bExists = osp.exists(sDestPath) if bCheckIfExists else False
+            if not bExists:
+
+                sDestPathList.append(sDestPath)
 
                 if not bDryRun:
                     if sDestPath.endswith("/"):
-                        os.makedirs(sDestPath)
+                        os.makedirs(pathNorm(sDestPath))
                     else:
                         sDirPath = osp.dirname(sDestPath)
                         if not osp.exists(sDirPath):
                             os.makedirs(sDirPath)
                         copyFile(sSrcPath, sDestPath, dry_run=bDryRun)
-
-                sDestPathList.append(sDestPath)
 
         if log and sDestPathList:
             sAction = "Creating" if not bDryRun else "Missing"
