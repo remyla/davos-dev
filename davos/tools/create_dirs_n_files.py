@@ -43,19 +43,18 @@ def iterMissingPathItems(proj, sEntityType, sgEntityList):
 
         sEntityName = sgEntity["code"]
         damEntity = None
+        sMissingPathList = []
 
         try:
             damEntity = entityCls(proj, name=sEntityName)
+            sMissingPathList = damEntity.createDirsAndFiles(dryRun=True, log=False)
         except Exception, e:
             sError = toStr(e)
             print "{:<60}: {}".format(sEntityName, sError)
             yield sEntityName, sError
         else:
-            sMissingPaths = damEntity.createDirsAndFiles(dryRun=True, log=False)
-            if not sMissingPaths:
-                continue
-
-            yield damEntity, sMissingPaths
+            if sMissingPathList:
+                yield damEntity, sMissingPathList
 
 @setWaitCursor
 @timer

@@ -777,6 +777,12 @@ class DamProject(object):
     def listAllSites(self):
         return ("dmn_paris", "dmn_angouleme", "online", "dream_wall", "pipangai")
 
+    def iterAssetPrefixes(self):
+        for sSection in self.getVar("asset_lib", "asset_types"):
+            sAstPrefix = self.getVar(sSection, "prefix", "")
+            if sAstPrefix:
+                yield sAstPrefix
+
     def listUiClasses(self):
         return DrcLibrary.listUiClasses()
 

@@ -27,43 +27,32 @@ class DamEntity(object):
     def __init__(self, proj, **kwargs):
 
         self.project = proj
-        self.name = kwargs["name"]
+
+        sEntityName = kwargs["name"]
         self.confSection = kwargs.get("section", "")
 
         cls = self.__class__
 
-        fmt = cls.nameFormat
-        nameParse = parse.parse(fmt, self.name)
-        if not nameParse:
-            raise ValueError("Invalid '{}': Must match '{}' format."
-                             .format(self.name, fmt))
+        nameParts = cls.getNameParts(sEntityName)
 
         sParentAttr = cls.parentEntityAttr
         sParentName = kwargs.get(sParentAttr, "")
-        if sParentAttr in nameParse:
+        print kwargs
+        print sParentAttr, nameParts, sParentName
+        if sParentAttr in nameParts.named.keys():
             if not sParentName:
-                sParentName = nameParse[sParentAttr]
+                sParentName = nameParts[sParentAttr]
             else:
-                sParsedName = nameParse[sParentAttr]
+                sParsedName = nameParts[sParentAttr]
+                print sParentName, sParsedName
                 if sParentName != sParsedName:
-                    msg = "Mismatch of '{}' between name and input arg: '{}' != '{}' !"
-                    raise ValueError(msg.format(sParentAttr, sParsedName, sParentName))
+                    msg = "Bad '{}' arg: '{}'. Must match the name prefix: '{}'."
+                    raise ValueError(msg.format(sParentAttr, sParentName, sParsedName))
 
-        for k, v in nameParse.named.iteritems():
+        self.name = sEntityName
 
-            msg = ""
-            if re.match("^[A-Z][a-z]", v):
-                msg = ("Invalid '{}': Must NOT start with an uppercase !"
-                        .format(v))
-                raise ValueError(msg)
-
-            if len(v) > 24:
-                msg = ("Invalid '{}': Must NOT exceed 24 characters, got {} !"
-                        .format(v, len(v)))
-                raise ValueError(msg)
-
-            assertChars(v, r"[a-zA-Z0-9]")
-            setattr(self, k, v)
+        for sAttr, value in nameParts.named.iteritems():
+            setattr(self, sAttr, value)
 
     def getResource(self, sSpace, sRcName="entity_dir", default="NoEntry", **kwargs):
 
@@ -105,6 +94,9 @@ class DamEntity(object):
 
         bDryRun = kwargs.pop("dryRun", True)
         sEntityName = self.name
+
+        cls = self.__class__
+        cls.assertNameParts(cls.getNameParts(sEntityName))
 
         sTemplatePath = self.getTemplatePath()
         if not sTemplatePath:
@@ -148,6 +140,33 @@ class DamEntity(object):
             print sMsg
 
         return sDestPathList
+
+    @classmethod
+    def assertNameParts(cls, nameParts):
+
+        for k, v in nameParts.named.iteritems():
+
+            if re.match("^[A-Z][a-z]", v):
+                msg = ("Invalid {}: '{}'. Must NOT start with an uppercase !"
+                        .format(k, v))
+                raise AssertionError(msg)
+
+            if len(v) > 24:
+                msg = ("Invalid {}: '{}'. Must NOT exceed 24 characters, got {} !"
+                        .format(k, v, len(v)))
+                raise AssertionError(msg)
+
+            assertChars(v, r"[a-zA-Z0-9]")
+
+    @classmethod
+    def getNameParts(cls, sEntityName):
+
+        fmt = cls.nameFormat
+        nameParts = parse.parse(fmt, sEntityName)
+        if not nameParts:
+            raise ValueError("Invalid '{}': Must match '{}' format."
+                             .format(sEntityName, fmt))
+        return nameParts
 
     def getSgInfo(self):
         raise NotImplementedError("Must be implemented in sub-classes")
@@ -292,8 +311,15 @@ class DamAsset(DamEntity):
 
     def __init__(self, proj, **kwargs):
         super(DamAsset, self).__init__(proj, **kwargs)
+
+        sAstType = self.assetType
+        sAstTypeList = tuple(proj.iterAssetPrefixes())
+        if sAstType not in sAstTypeList:
+            raise ValueError("Unknown asset type: '{}'. Expected: {}."
+                             .format(sAstType, sAstTypeList))
+
         if not self.confSection:
-            self.confSection = proj._confobj.getSection(self.assetType).name
+            self.confSection = proj._confobj.getSection(sAstType).name
 
     def getSgInfo(self):
         return self.project._shotgundb.getAssetInfo(self.name)
