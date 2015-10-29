@@ -35,13 +35,13 @@ def promptForComment(**kwargs):
     sComment = ""
 
     result = promptDialog(title='Please...',
-                        message='Leave a comment: ',
-                        button=['OK', 'Cancel'],
-                        defaultButton='OK',
-                        cancelButton='Cancel',
-                        dismissString='Cancel',
-                        scrollableField=True,
-                        **kwargs)
+                          message='Leave a comment: ',
+                          button=['OK', 'Cancel'],
+                          defaultButton='OK',
+                          cancelButton='Cancel',
+                          dismissString='Cancel',
+                          scrollableField=True,
+                          **kwargs)
 
     if result == 'Cancel':
         logMsg("Cancelled !" , warning=True)

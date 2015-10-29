@@ -1410,7 +1410,7 @@ Continue publishing WITHOUT Shotgun Version ??"
 
         sComment = comment
         if not sComment:
-            sComment = promptForComment(text=self.getPrpty("comment"))
+            sComment = promptForComment()
             if not sComment:
                 raise RuntimeError("Comment has NOT been provided !")
 
