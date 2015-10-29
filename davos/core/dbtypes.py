@@ -2,7 +2,7 @@
 import os
 
 from pytd.util.logutils import logMsg#, forceLog
-#from pytd.util.sysutils import timer
+from pytd.util.sysutils import chunkate
 #from pytd.util.sysutils import toStr
 
 class DummyDbCon(object):
@@ -39,9 +39,6 @@ class DrcDb(object):
         rec = self._dbcon.create(data)
         if rec is None:
             raise DbCreateError("Failed to create node: {}".format(data))
-
-        #TODO:remove return type when fixed by remy
-        #r = rec[0] if isinstance(rec, (list, tuple, set)) else rec
 
         return DbNode(self, rec)
 
@@ -118,9 +115,19 @@ class DrcDb(object):
 
     def read(self, ids):
 
-        recs = self._dbcon.read(ids)
-        if recs is None:
-            raise DbReadError('Failed to read ids: \n\n{}'.format(ids))
+        numIds = len(ids)
+        if numIds > 3260:#TODO: remove when ids limit fixed in Damas
+            #print numIds
+            recs = []
+            dbcon = self._dbcon
+            for chunkIt in chunkate(ids, 3260):
+                subIds = tuple(chunkIt)
+                #print len(subIds)
+                recs.extend(dbcon.read(subIds))
+        else:
+            recs = self._dbcon.read(ids)
+            if recs is None:
+                raise DbReadError('Failed to read ids: \n\n{}'.format(ids))
 
         return recs
 
@@ -137,9 +144,6 @@ class DrcDb(object):
         rec = self._dbcon.version(id_, data)
         if rec is None:
             raise DbCreateError("Failed to version node: {}".format(data))
-
-        #TODO:remove return type when fixed by remy
-        #r = rec[0] if isinstance(rec, (list, tuple, set)) else rec
 
         return DbNode(self, rec)
 
@@ -159,22 +163,24 @@ class DbNode(object):
         if record is not None:
             self.loadData(record)
 
-    def loadData(self, data):
+    def loadData(self, in_data):
 
-        if not isinstance(data, dict):
+        if not isinstance(in_data, dict):
             raise TypeError("argument 'data' must be a {}. Got {}."
-                            .format(dict, type(data)))
+                            .format(dict, type(in_data)))
 #        elif not data:
 #            raise ValueError("Invalid value passed to argument 'data': {}"
 #                             .format(data))
+        data = in_data.copy()
 
         self.id_ = data.pop('_id', self.id_)
-        self._data = data.copy()
+        self._data = data
         self.__dirty = False
 
         p = data.get('file', '')
         if p.endswith("/"):
             p = p[:-1]
+
         self.name = os.path.basename(p)
 
     def isDirty(self):
