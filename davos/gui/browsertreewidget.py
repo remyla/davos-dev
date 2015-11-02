@@ -148,8 +148,8 @@ class BrowserTreeWidget(BaseTreeWidget):
         try: childrenView.rootIndexChanged.disconnect(self.syncTreeSelection)
         except RuntimeError: pass
 
-        try: childrenView.rootIndexChanged.disconnect(childrenWidget.updatePathBar)
-        except RuntimeError: pass
+#        try: childrenView.rootIndexChanged.disconnect(childrenWidget.updatePathBar)
+#        except RuntimeError: pass
 
     def connectChildrenWidget(self):
 
@@ -167,7 +167,7 @@ class BrowserTreeWidget(BaseTreeWidget):
         treeView.clicked.connect(childrenWidget.changeRootIndex)
         childrenView.rootIndexChanged.connect(self.syncTreeSelection)
         selModel.currentRowChanged.connect(childrenWidget.updatePathBar)
-        childrenView.rootIndexChanged.connect(childrenWidget.updatePathBar)
+        #childrenView.rootIndexChanged.connect(childrenWidget.updatePathBar)
 
     def setChildrenWidgetVisible(self, bVisible):
 

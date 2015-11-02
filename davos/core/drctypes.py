@@ -19,7 +19,7 @@ from pytd.util.qtutils import toQFileInfo
 from pytd.util.qtutils import setWaitCursor
 from pytd.util.strutils import padded
 from pytd.util.external import parse
-from pytd.util.sysutils import toStr, hostApp, timer, qtGuiApp
+from pytd.util.sysutils import toStr, hostApp, qtGuiApp#, timer
 from pytd.util.sysutils import toTimestamp
 from pytd.gui.itemviews.utils import showPathInExplorer
 from pytd.util.external.send2trash import send2trash
@@ -225,8 +225,8 @@ class DrcEntry(DrcMetaObject):
     def relPath(self):
         return self.library.absToRelPath(self.absPath())
 
-    def envPath(self):
-        return self.library.absToEnvPath(self.absPath())
+    def envPath(self, envVar="NoEntry"):
+        return self.library.absToEnvPath(self.absPath(), envVar=envVar)
 
     def dbPath(self):
         lib = self.library
@@ -307,11 +307,11 @@ class DrcEntry(DrcMetaObject):
         assert self.isPublic(), "File is NOT PUBLIC !"
 
         cachedDbNodes = self.library._cachedDbNodes
-        cacheKey = self.getDbCacheKey()
+        dbCacheKey = self.getDbCacheKey()
 
-        dbnode = cachedDbNodes.get(cacheKey)
+        dbnode = cachedDbNodes.get(dbCacheKey)
         if dbnode:
-            logMsg(u"got from CACHE: '{}'".format(cacheKey), log='debug')
+            logMsg(u"got from CACHE: '{}'".format(dbCacheKey), log='debug')
         elif fromDb:
             sQuery = u"file:/^{}$/i".format(self.dbPath())
 
@@ -320,28 +320,21 @@ class DrcEntry(DrcMetaObject):
 #            print "    - got:", dbnode
 
             if dbnode:
-                logMsg(u"got from DB: '{}'".format(cacheKey), log='debug')
-                self._cacheDbNode(dbnode, cachedDbNodes, cacheKey)
+                logMsg(u"got from DB: '{}'".format(dbCacheKey), log='debug')
+                self._cacheDbNode(dbnode)
 
         if not dbnode:
-            logMsg(u"no such dbnode: '{}'".format(cacheKey), log='debug')
+            logMsg(u"No such dbnode: '{}'".format(dbCacheKey), log='debug')
 
         return dbnode
 
-    def _cacheDbNode(self, dbnode, dbNodesCache=None, cacheKey=None, refresh=True):
+    def _cacheDbNode(self, dbnode, refresh=True):
 
-        if dbNodesCache is None:
-            dbNodesCache = self.library._cachedDbNodes
-
-        if cacheKey is None:
-            cacheKey = self.getDbCacheKey()
-
-        logMsg(u"loading: '{}'".format(cacheKey), log='debug')
-        dbNodesCache[cacheKey] = dbnode
+        self.library._addDbNodeToCache(dbnode)
         if refresh:
             self.refresh(simple=True)
 
-    @timer
+    #@timer
     def loadChildDbNodes(self):
 
         library = self.library
@@ -351,17 +344,17 @@ class DrcEntry(DrcMetaObject):
 
             sDbPath = dbnode.getField("file")
 
-            cacheKey = normCase(sDbPath)
-            cachedNode = cachedDbNodes.get(cacheKey)
+            dbCacheKey = normCase(sDbPath)
+            cachedNode = cachedDbNodes.get(dbCacheKey)
             if cachedNode:
 #                print "-----------------"
-#                print "cachedNode", cacheKey
+#                print "cachedNode", dbCacheKey
 #                cachedNode.logData()
 #                print "-----------------"
                 cachedNode.refresh(dbnode._data)
             else:
-                logMsg(u"loading: {}".format(cacheKey), log='debug')
-                cachedDbNodes[cacheKey] = dbnode
+                logMsg(u"loading: {}".format(dbCacheKey), log='debug')
+                cachedDbNodes[dbCacheKey] = dbnode
 
     def listChildDbNodes(self, sQuery="", recursive=False, **kwargs):
 
@@ -395,8 +388,8 @@ class DrcEntry(DrcMetaObject):
 
         cachedDbNodes = self.library._cachedDbNodes
 
-        cacheKey = self.getDbCacheKey()
-        dbNode = cachedDbNodes.get(cacheKey)
+        dbCacheKey = self.getDbCacheKey()
+        dbNode = cachedDbNodes.get(dbCacheKey)
         if not dbNode:
             return True
 
@@ -404,7 +397,7 @@ class DrcEntry(DrcMetaObject):
             return False
 
         print u"delete DbNode of", self
-        del cachedDbNodes[cacheKey]
+        del cachedDbNodes[dbCacheKey]
         self._dbnode = None
 
         self.refresh(simple=True)
@@ -476,7 +469,6 @@ class DrcEntry(DrcMetaObject):
 
     def __applySyncData(self, syncData, sPathIter, dbNodeDct):
 
-        cachedDbNodes = self.library._cachedDbNodes
         proj = self.library.project
 
         prunedData = dict((k, v) for k, v in syncData.iteritems() if v is not None)
@@ -500,13 +492,13 @@ class DrcEntry(DrcMetaObject):
             if not dbNode:
                 dbNode, _ = drcFile.createDbNode(data=prunedData, check=False)
                 numCreated += 1
-                print "create    ", sDbPath
+                print "created    ", sDbPath
             else:
                 toUpdateNodes.append(dbNode)
-                print "update    ", sDbPath
+                #print "updated    ", sDbPath
 
             if not bCached:
-                drcFile._cacheDbNode(dbNode, cachedDbNodes, refresh=False)
+                drcFile._cacheDbNode(dbNode, refresh=False)
 
             #drcFileList.append(drcFile)
             #print dbNode.dataRepr()
@@ -607,11 +599,11 @@ class DrcEntry(DrcMetaObject):
             if dbNode:
                 sRuleList = dbNode.getField("sync_rules")
                 if sRuleList:
-                    self._cacheDbNode(dbNode, refresh=False)
+                    library._addDbNodeToCache(dbNode)
                     drcEntry = library.entryFromDbPath(sDbPath)
                     if drcEntry:
                         drcEntry.refresh(simple=True)
-                        sRuleList = drcEntry.syncRules
+                        sRuleList = drcEntry.getPrpty("syncRules")
                         break
 
             #print sDbPath, sRuleList, sLibDbPath
@@ -677,15 +669,15 @@ class DrcEntry(DrcMetaObject):
 
     def _remember(self):
 
-        cacheKey = normCase(self.relPath())
+        drcCacheKey = normCase(self.relPath())
         # print '"{}"'.format(self.relPath())
         _cachedEntries = self.library._cachedEntries
 
-        if cacheKey in _cachedEntries:
+        if drcCacheKey in _cachedEntries:
             logMsg("Already useCache: {0}.".format(self), log="debug")
         else:
             logMsg("Caching: {0}.".format(self), log="debug")
-            _cachedEntries[cacheKey] = self
+            _cachedEntries[drcCacheKey] = self
 
     def _forget(self, parent=None, **kwargs):
         logMsg(self.__class__.__name__, log='all')
@@ -700,10 +692,10 @@ class DrcEntry(DrcMetaObject):
 
     def __forgetOne(self, parent=None):
 
-        cacheKey = normCase(self.relPath())
+        drcCacheKey = normCase(self.relPath())
         _cachedEntries = self.library._cachedEntries
 
-        if cacheKey not in _cachedEntries:
+        if drcCacheKey not in _cachedEntries:
             logMsg("Already dropped: {0}.".format(self), log="debug")
         else:
             parentDir = parent if parent else self.parentDir()
@@ -714,7 +706,7 @@ class DrcEntry(DrcMetaObject):
             del self.loadedChildren[:]
             self.delModelRow()
 
-            return _cachedEntries.pop(cacheKey)
+            return _cachedEntries.pop(drcCacheKey)
 
     def __getattr__(self, sAttrName):
 
@@ -753,10 +745,14 @@ class DrcDir(DrcEntry):
 
         sFilename = kwargs.pop("newName", os.path.basename(sSrcFilePath))
         sComment = kwargs.pop("comment", "updated")
+        bDryRun = kwargs.pop("dryRun", False)
 
         versionFile = None
         bCreated = False
-        pubFile = self.getChildFile(sFilename)
+        pubFile = self.getChildFile(sFilename, weak=bDryRun)
+        if bDryRun:
+            return pubFile, versionFile
+
         if not pubFile:
             if sComment == "updated":
                 sComment = "first version"
@@ -767,7 +763,8 @@ class DrcDir(DrcEntry):
         try:
             pubFile.refresh(simple=True)
             versionFile, _ = pubFile.publishVersion(sSrcFilePath,
-                                                    comment=sComment, **kwargs)
+                                                    comment=sComment,
+                                                    **kwargs)
         except:
             if bCreated:
                 os.remove(pubFile.absPath())
@@ -805,9 +802,6 @@ class DrcDir(DrcEntry):
         sRootPath, sDirName = osp.split(self.absPath())
         sFileName = sDirName + "_preview.jpg"
         return pathJoin(sRootPath, sDirName, sFileName)
-
-    def getDbCacheKey(self):
-        return addEndSlash(DrcEntry.getDbCacheKey(self))
 
     def suppress(self):
         parentDir = self.parentDir()
@@ -1302,6 +1296,9 @@ class DrcFile(DrcEntry):
         # first, get all needed infos from user or inputs
         try:
             infos = self.beginPublish(sSrcFilePath, **kwargs)
+            if infos is None:
+                return newVersFile, sgVersion
+
             sComment, iNextVers, sgTaskInfo = infos
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
@@ -1410,7 +1407,7 @@ Continue publishing WITHOUT Shotgun Version ??"
 
         sComment = comment
         if not sComment:
-            sComment = promptForComment()
+            sComment, _ = promptForComment()
             if not sComment:
                 raise RuntimeError("Comment has NOT been provided !")
 

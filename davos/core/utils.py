@@ -33,6 +33,7 @@ def findVersionFields(s):
 def promptForComment(**kwargs):
 
     sComment = ""
+    bOk = False
 
     result = promptDialog(title='Please...',
                           message='Leave a comment: ',
@@ -47,8 +48,9 @@ def promptForComment(**kwargs):
         logMsg("Cancelled !" , warning=True)
     elif result == 'OK':
         sComment = promptDialog(query=True, text=True)
+        bOk = True
 
-    return sComment
+    return sComment, bOk
 
 def projectNameFromPath(p):
 

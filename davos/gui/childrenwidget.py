@@ -154,6 +154,10 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
 
         pathToolBar.clear()
 
+#        if index.isValid():
+#            print index.model()
+#            print index.model().itemFromIndex(index)
+
         if index.column() != 0:
             parentIndex = index.sibling(index.row(), 0)
         else:

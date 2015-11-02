@@ -152,10 +152,10 @@ class DrcLibrary(DrcDir):
 
         return entry
 
-    def contains(self, sPath):
+    def contains(self, sAbsPath):
 
         sLibPath = normCase(self.absPath())
-        sPathDirs = pathSplitDirs(normCase(sPath))
+        sPathDirs = pathSplitDirs(normCase(sAbsPath))
 
         numDirs = len(pathSplitDirs(sLibPath))
         sAlignedPath = pathJoin(*sPathDirs[:numDirs])
@@ -223,6 +223,20 @@ class DrcLibrary(DrcDir):
     def sendToTrash(self):
         raise RuntimeError("You cannot delete a library !!")
 
+    def _addDbNodeToCache(self, dbnode):
+
+        sDbPath = dbnode.file
+
+#        sAbsPath = self.dbToAbsPath(sDbPath)
+#        if not self.contains(sAbsPath):
+#            raise AssertionError(u"{} path not contained in {}: '{}'."
+#                                 .format(dbnode, self, sDbPath))
+
+        dbCacheKey = normCase(sDbPath)
+        logMsg(u"caching: '{}'".format(dbCacheKey), log='debug')
+
+        self._cachedDbNodes[dbCacheKey] = dbnode
+
     def _weakDir(self, pathOrInfo, **kwargs):
         return self.getEntry(pathOrInfo, weak=True, drcType=self.__class__.classDir,
                              **kwargs)
@@ -235,24 +249,24 @@ class DrcLibrary(DrcDir):
 
         DrcEntry._remember(self)
 
-        cacheKey = self.fullName
+        libCacheKey = self.fullName
         cacheDict = self.project.loadedLibraries
 
-        if cacheKey in cacheDict:
+        if libCacheKey in cacheDict:
             logMsg("<{}> Already loaded : {}.".format(getCaller(depth=4, fo=False), self)
                    , log="debug")
         else:
-            cacheDict[cacheKey] = self
+            cacheDict[libCacheKey] = self
 
     def _forget(self, parent=None):
 
         DrcEntry._forget(self, parent)
 
-        cacheKey = self.fullName
+        libCacheKey = self.fullName
         cacheDict = self.project.loadedLibraries
 
-        if cacheKey not in cacheDict:
+        if libCacheKey not in cacheDict:
             logMsg("<{}> Already dropped : {}.".format(getCaller(depth=4, fo=False), self), log="debug")
         else:
-            return cacheDict.pop(cacheKey)
+            return cacheDict.pop(libCacheKey)
 

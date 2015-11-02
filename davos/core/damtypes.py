@@ -37,14 +37,11 @@ class DamEntity(object):
 
         sParentAttr = cls.parentEntityAttr
         sParentName = kwargs.get(sParentAttr, "")
-        print kwargs
-        print sParentAttr, nameParts, sParentName
         if sParentAttr in nameParts.named.keys():
             if not sParentName:
                 sParentName = nameParts[sParentAttr]
             else:
                 sParsedName = nameParts[sParentAttr]
-                print sParentName, sParsedName
                 if sParentName != sParsedName:
                     msg = "Bad '{}' arg: '{}'. Must match the name prefix: '{}'."
                     raise ValueError(msg.format(sParentAttr, sParentName, sParsedName))

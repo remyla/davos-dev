@@ -647,7 +647,9 @@ class DamProject(object):
         mainPrivFile = self.entryFromPath(sMainFilePath, space="private", fail=True)
         mainPubFile = mainPrivFile.getPublicFile(fail=True)
 
-        entity = mainPubFile.getEntity(fail=True)
+        entity = kwargs.pop("entity", None)
+        if not entity:
+            entity = mainPubFile.getEntity(fail=True)
 
         sSection = entity.confSection
         depTypes = self.getVar(sSection, "dependency_types", None)
@@ -677,7 +679,8 @@ class DamProject(object):
             pubFile, versionFile = depDir.publishFile(sDepPath, autoLock=True,
                                                       autoUnlock=True,
                                                       saveChecksum=bChecksum,
-                                                      comment=sComment)
+                                                      comment=sComment,
+                                                      **kwargs)
             publishItems[i] = (pubFile, versionFile)
 
         depDir.refresh(children=True)
