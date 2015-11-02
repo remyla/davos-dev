@@ -291,7 +291,7 @@ class DamEntity(object):
         cls = self.__class__
 
         try:
-            sClsName = cls.__name__
+            sClsName = cls.sgEntityType
             sRepr = "{}('{}')".format(sClsName, self.name)
         except AttributeError:
             sRepr = cls.__name__

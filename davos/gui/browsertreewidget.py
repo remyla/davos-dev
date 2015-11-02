@@ -124,6 +124,8 @@ class BrowserTreeWidget(BaseTreeWidget):
 
     def syncTreeSelection(self, index):
 
+        self.childrenWidget.updatePathBar(index)
+
         bItemPressed = self.treeView.wasAnItemPressed()
         logMsg("syncTreeSelection, treeView item pressed = {0}".format(bItemPressed), log='debug')
         if not bItemPressed:
@@ -139,17 +141,14 @@ class BrowserTreeWidget(BaseTreeWidget):
         if selModel:
             try: selModel.currentChanged.disconnect(childrenWidget.changeRootIndex)
             except RuntimeError: pass
-            try: selModel.currentRowChanged.disconnect(childrenWidget.updatePathBar)
-            except RuntimeError: pass
+#            try: selModel.currentRowChanged.disconnect(childrenWidget.updatePathBar)
+#            except RuntimeError: pass
 
         try: treeView.clicked.disconnect(childrenWidget.changeRootIndex)
         except RuntimeError: pass
 
         try: childrenView.rootIndexChanged.disconnect(self.syncTreeSelection)
         except RuntimeError: pass
-
-#        try: childrenView.rootIndexChanged.disconnect(childrenWidget.updatePathBar)
-#        except RuntimeError: pass
 
     def connectChildrenWidget(self):
 
@@ -166,8 +165,7 @@ class BrowserTreeWidget(BaseTreeWidget):
         selModel.currentChanged.connect(childrenWidget.changeRootIndex)
         treeView.clicked.connect(childrenWidget.changeRootIndex)
         childrenView.rootIndexChanged.connect(self.syncTreeSelection)
-        selModel.currentRowChanged.connect(childrenWidget.updatePathBar)
-        #childrenView.rootIndexChanged.connect(childrenWidget.updatePathBar)
+#        selModel.currentRowChanged.connect(childrenWidget.updatePathBar)
 
     def setChildrenWidgetVisible(self, bVisible):
 

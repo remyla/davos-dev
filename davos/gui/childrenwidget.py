@@ -155,8 +155,7 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
         pathToolBar.clear()
 
 #        if index.isValid():
-#            print index.model()
-#            print index.model().itemFromIndex(index)
+#            print "\n", index.model().itemFromIndex(index), index.model()
 
         if index.column() != 0:
             parentIndex = index.sibling(index.row(), 0)
@@ -179,6 +178,8 @@ class ChildrenWidget(QtGui.QWidget, Ui_ChildrenWidget):
                 model = parentIndex.model()
                 parentItem = model.itemFromIndex(parentIndex)
                 sLabel = toUnicode(model.data(parentIndex, Qt.DisplayRole))
+
+#            print parentItem
 
             viewIndex = childrenView.mappedIdx(parentIndex)
             icon = viewIndex.data(Qt.DecorationRole)

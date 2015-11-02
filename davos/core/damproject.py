@@ -642,16 +642,9 @@ class DamProject(object):
 
         return mainPrivFile, mainPubFile
 
-    def publishDependencies(self, sDepType, sMainFilePath, sDepPathList, **kwargs):
+    def publishDependencies(self, sDepType, damEntity, sDepPathList, sComment, **kwargs):
 
-        mainPrivFile = self.entryFromPath(sMainFilePath, space="private", fail=True)
-        mainPubFile = mainPrivFile.getPublicFile(fail=True)
-
-        entity = kwargs.pop("entity", None)
-        if not entity:
-            entity = mainPubFile.getEntity(fail=True)
-
-        sSection = entity.confSection
+        sSection = damEntity.confSection
         depTypes = self.getVar(sSection, "dependency_types", None)
         if not depTypes:
             raise EnvironmentError("No dependency types configured for '{}'."
@@ -668,13 +661,15 @@ class DamProject(object):
                                    .format(sDepType, sSection, depDct))
 
         bChecksum = depDct.get("checksum", False)
-        depDir = entity.getResource("public", sRcDirName)
-
-        sComment = kwargs.pop("comment", '{} dependency'.format(mainPrivFile.name))
+        depDir = damEntity.getResource("public", sRcDirName)
 
         publishItems = list(sDepPathList)[:]
 
+        print "\nPublishing '{}' to '{}' of {}:".format(sDepType, sRcDirName, damEntity)
+
         for i, sDepPath in enumerate(sDepPathList):
+
+            print "- '{}'".format(sDepPath)
 
             pubFile, versionFile = depDir.publishFile(sDepPath, autoLock=True,
                                                       autoUnlock=True,
