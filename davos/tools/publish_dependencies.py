@@ -7,64 +7,70 @@ from davos.core.damtypes import DamAsset, DamShot
 
 def run():
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("projectName")
-    parser.add_argument("dependencyType")
-    parser.add_argument("entityType")
-    parser.add_argument("entityName")
-    parser.add_argument("listingFile")
-    parser.add_argument("comment")
-    parser.add_argument("--dryRun", type=int, default=1)
+    bListFileFound = False
 
-    ns = parser.parse_args()
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("projectName")
+        parser.add_argument("dependencyType")
+        parser.add_argument("entityType")
+        parser.add_argument("entityName")
+        parser.add_argument("listingFile")
+        parser.add_argument("comment")
+        parser.add_argument("--dryRun", type=int, default=1)
 
-    proj = DamProject(ns.projectName)
+        ns = parser.parse_args()
 
-    sEntityType = ns.entityType
+        proj = DamProject(ns.projectName)
 
-    if sEntityType == "asset":
-        EntityCls = DamAsset
-    elif sEntityType == "shot":
-        EntityCls = DamShot
-    else:
-        raise ValueError("Invalid entity type: '{}'.".format(sEntityType))
+        sEntityType = ns.entityType
 
-    damEntity = EntityCls(proj, name=ns.entityName)
+        if sEntityType == "asset":
+            EntityCls = DamAsset
+        elif sEntityType == "shot":
+            EntityCls = DamShot
+        else:
+            raise ValueError("Invalid entity type: '{}'.".format(sEntityType))
 
-    sListFilePath = ns.listingFile
-    if not os.path.isfile(sListFilePath):
-        raise ValueError("No such file: '{}'".format(sListFilePath))
+        damEntity = EntityCls(proj, name=ns.entityName)
 
-    sDepFileList = []
-    sNotFoundFileList = []
-    with open(sListFilePath, 'r') as listingFile:
-        for p in listingFile:
-            p = p.strip()
-            if os.path.isfile(p):
-                sDepFileList.append(p)
-            else:
-                sNotFoundFileList.append(p)
+        sListFilePath = ns.listingFile
+        bListFileFound = os.path.isfile(sListFilePath)
+        if not bListFileFound:
+            raise ValueError("No such file: '{}'".format(sListFilePath))
 
-    if sNotFoundFileList:
-        sMsg = "No such files:\n    "
-        sMsg += "\n    ".join(sNotFoundFileList)
-        raise AssertionError(sMsg)
+        sDepFileList = []
+        sNotFoundFileList = []
+        with open(sListFilePath, 'r') as listingFile:
+            for p in listingFile:
+                p = p.strip()
+                if os.path.isfile(p):
+                    sDepFileList.append(p)
+                else:
+                    sNotFoundFileList.append(p)
 
-    if not sDepFileList:
-        raise AssertionError("No files listed in '{}'".format(sListFilePath))
+        if sNotFoundFileList:
+            sMsg = "No such files:\n    "
+            sMsg += "\n    ".join(sNotFoundFileList)
+            raise AssertionError(sMsg)
 
-    sDepType = ns.dependencyType
-    sComment = ns.comment
-    bDryRun = ns.dryRun
-    print proj, damEntity, sDepType, sComment, bDryRun
+        if not sDepFileList:
+            raise AssertionError("No files listed in '{}'".format(sListFilePath))
 
-    proj.publishDependencies(sDepType, damEntity, sDepFileList, sComment, dryRun=bDryRun)
+        sDepType = ns.dependencyType
+        sComment = ns.comment
+        bDryRun = ns.dryRun
+        print proj, damEntity, sDepType, sComment, bDryRun
 
-    os.remove(sListFilePath)
+        proj.publishDependencies(sDepType, damEntity, sDepFileList, sComment, dryRun=bDryRun)
+
+    finally:
+        if bListFileFound:
+            os.remove(sListFilePath)
 
 if __name__ == "__main__":
 
-    os.environ["PYTHONINSPECT"] = "1"
+    #os.environ["PYTHONINSPECT"] = "1"
     try:
         run()
     except:
