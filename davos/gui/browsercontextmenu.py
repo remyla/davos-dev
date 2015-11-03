@@ -17,6 +17,7 @@ from pytd.util.sysutils import toStr#, hostApp
 from pytd.util.qtutils import setWaitCursor
 from davos.core.damtypes import DamAsset
 from pytd.util.fsutils import topmostFoundDir
+from pytd.util.sysutils import hostApp
 #from fnmatch import fnmatch
 
 
@@ -47,8 +48,11 @@ class BrowserContextMenu(BaseContextMenu):
 
         { "label":"separator"           , "menu": "Main"    , "dev":False                           },
         { "label":"View (Read-only)"    , "menu": "Main"    , "fnc":self.openFile                   },
+        { "label":"Import"              , "menu": "Main"    , "fnc":self.importFiles                },
+
+        { "label":"separator"           , "menu": "Main"},
         { "label":"Edit"                , "menu": "Main"    , "fnc":self.editFile                   },
-        { "label":"Publish..."          , "menu": "Main"    , "fnc":self.publishAnything             },
+        { "label":"Publish..."          , "menu": "Main"    , "fnc":self.doPublish                  },
 
         { "label":"separator"           , "menu": "Main"},
         { "label":"Off"                 , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[False]      },
@@ -89,9 +93,35 @@ class BrowserContextMenu(BaseContextMenu):
 
     def openFile(self, *itemList):
         drcEntry = itemList[-1]._metaobj
-        drcEntry.sysOpen()
+        drcEntry.openIt()
 
     openFile.auth_types = ("DrcFile",)
+
+    def importFiles(self, *itemList):
+
+        if not hostApp():
+            raise AssertionError("You can only import from inside another application.")
+
+        drcFileList = tuple(item._metaobj for item in itemList)
+
+        for drcFile in drcFileList:
+
+            try:
+                drcFile.importIt()
+            except Exception, e:
+                sResult = confirmDialog(title='SORRY !',
+                                        message=toStr(e),
+                                        button=["Continue", "Abort"],
+                                        defaultButton="Continue",
+                                        cancelButton="Abort",
+                                        dismissString="Abort",
+                                        icon="critical")
+                if sResult == "Abort":
+                    return
+                else:
+                    continue
+
+    importFiles.auth_types = ("DrcFile",)
 
     def setFilesLocked(self, bLock, *itemList):
 
@@ -176,21 +206,28 @@ class BrowserContextMenu(BaseContextMenu):
 
 
 
-    def publishAnything(self, *itemList):
+    def doPublish(self, *itemList):
 
         item = itemList[-1]
         pubEntry = item._metaobj
         proj = self.model()._metamodel
 
         if isinstance(pubEntry, DrcFile):
-            if proj.isEditableResource(pubEntry.absPath()):
+            sAbsPath = pubEntry.absPath()
+            if proj.isEditableResource(sAbsPath):
+
+                if hostApp() == "maya":
+                    sExt = osp.splitext(sAbsPath)[-1]
+                    if sExt in (".ma", ".mb"):
+                        raise AssertionError("Please, publish from integrated 'Davos' menu.")
+
                 self.__publishEdited(pubEntry)
             else:
                 self.__publishRegular(pubEntry)
         else:
             self.__publishFiles(pubEntry)
 
-    #publishAnything.auth_types = ("DrcFile",)
+    #doPublish.auth_types = ("DrcFile",)
 
     def __publishEdited(self, pubFile):
 

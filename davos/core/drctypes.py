@@ -243,7 +243,7 @@ class DrcEntry(DrcMetaObject):
         p = self.absPath()
         damEntity = self.library.project.entityFromPath(p, fail=False)
         if (not damEntity) and fail:
-            raise ValueError("Could not get an ENTITY from '{}'.".format(p))
+            raise RuntimeError("Could not get an ENTITY from '{}'.".format(p))
 
         return damEntity
 
@@ -845,10 +845,10 @@ class DrcFile(DrcEntry):
             v = self.latestBackupVersion()
         self.currentVersion = v
 
-    def sysOpen(self):
+    def openIt(self):
 
         p = self.absPath()
-        _, sExt = osp.splitext(p)
+        sExt = osp.splitext(p)[1]
         if sExt in (".ma", ".mb"):
 
             if hostApp() != "maya":
@@ -864,6 +864,28 @@ class DrcFile(DrcEntry):
 
     def mayaOpen(self):
         raise NotImplementedError("Sorry, not implemented yet.")
+
+    def importIt(self, *args, **kwargs):
+
+        sHostApp = hostApp()
+        if not sHostApp:
+            raise AssertionError("You can only import from inside another application.")
+
+        sAppTitle = sHostApp.capitalize()
+
+        sAbsPath = self.absPath()
+        sExt = osp.splitext(sAbsPath)[1].lower()
+
+        if (sHostApp == "maya"):
+            if sExt in (".ma", ".mb", ".fbx"):
+                self.mayaImportScene(*args, **kwargs)
+            else:
+                raise NotImplementedError("Can't import '{}' files to {}."
+                                          .format(sExt, sAppTitle))
+        else:
+            raise NotImplementedError("Sorry, not implemented for {} yet."
+                                      .format(sAppTitle))
+
 
     def edit(self, openFile=False, existing=""):
         logMsg(log='all')
