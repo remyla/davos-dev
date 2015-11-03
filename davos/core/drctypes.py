@@ -282,11 +282,20 @@ class DrcEntry(DrcMetaObject):
 
         if not dbnode:
 
-            nodeData = {} if data is None else data.copy()
-            nodeData.update({"file":self.dbPath()})
+            newData = {} if data is None else data.copy()
+            newData.update({"file":self.dbPath()})
+
+            try:
+                sRuleList, _ = self.inheritedSyncRules()
+                syncData = self._evalSyncRules(sRuleList)
+                newData.update((k, v) for k, v in syncData.iteritems()
+                                            if k not in newData)
+            except Exception, err:
+                sMsg = "<createDbNode> {} could not inherit sync data: ".format(self)
+                logMsg(sMsg + toStr(err), warning=True)
 
             #print "creating DbNode:", data
-            dbnode = self.library._db.createNode(nodeData)
+            dbnode = self.library._db.createNode(newData)
             if dbnode:
                 bCreated = True
                 self._cacheDbNode(dbnode)
@@ -453,7 +462,9 @@ class DrcEntry(DrcMetaObject):
             sRuleList = in_sRuleList
 
         syncData = self._evalSyncRules(sRuleList)
-        print self, "applies", syncData, 'inherited from', drcEntry
+        print self, "applies", syncData, "..."
+        if drcEntry:
+            print '    ...inherited from', drcEntry
 
         if applyRules:
             sPathIter, dbNodeDct = self.__beginApplySyncData()
@@ -585,7 +596,8 @@ class DrcEntry(DrcMetaObject):
         ruleNodeDct = library.listChildDbNodes("sync_rules:/.+/", recursive=True,
                                                asDict=True, keyField="file")
         libNode = library.getDbNode()
-        ruleNodeDct[libNode.file] = libNode
+        if libNode:
+            ruleNodeDct[libNode.file] = libNode
 
         sRuleList = []
         drcEntry = None
