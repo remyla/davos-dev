@@ -289,7 +289,7 @@ class DrcEntry(DrcMetaObject):
                 sRuleList, _ = self.inheritedSyncRules()
                 syncData = self._evalSyncRules(sRuleList)
                 newData.update((k, v) for k, v in syncData.iteritems()
-                                            if k not in newData)
+                                    if (k not in newData) or (v is not None))
             except Exception, err:
                 sMsg = "<createDbNode> {} could not inherit sync data: ".format(self)
                 logMsg(sMsg + toStr(err), warning=True)
@@ -299,7 +299,6 @@ class DrcEntry(DrcMetaObject):
             if dbnode:
                 bCreated = True
                 self._cacheDbNode(dbnode)
-
         else:
             msg = u"{} already exists: '{}' !".format(dbnode, dbnode.file)
             raise RuntimeError(msg)
