@@ -165,7 +165,16 @@ class DamEntity(object):
                              .format(sEntityName, fmt))
         return nameParts
 
-    def getSgInfo(self):
+    def getSgInfo(self, fail=True):
+
+        sgInfo = self._getSgInfo()
+
+        if (not sgInfo) and fail:
+            raise ValueError("{} NOT FOUND in Shotgun !!".format(self))
+
+        return sgInfo
+
+    def _getSgInfo(self):
         raise NotImplementedError("Must be implemented in sub-classes")
 
     def getSgTasks(self, in_sStepCodes=None, fail=False):
@@ -318,7 +327,7 @@ class DamAsset(DamEntity):
         if not self.confSection:
             self.confSection = proj._confobj.getSection(sAstType).name
 
-    def getSgInfo(self):
+    def _getSgInfo(self):
         return self.project._shotgundb.getAssetInfo(self.name)
 
 
@@ -334,7 +343,7 @@ class DamShot(DamEntity):
         if not self.confSection:
             self.confSection = "shot_lib"
 
-    def getSgInfo(self):
+    def _getSgInfo(self):
         return self.project._shotgundb.getShotInfo(self.name)
 
 

@@ -1428,8 +1428,8 @@ Continue publishing WITHOUT Shotgun Version ??"
             try:
                 sgTaskInfo = self._beginPublishSgVersion(sgTask)
             except Exception, e:
-                sMsg = "Failed to get Shotgun Task !\n\n\
-Continue publishing WITHOUT Shotgun Version ??"
+                sMsg = "Could not get a Shotgun Task: \n\n{}\n\n\
+Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
                 sResult = confirmDialog(title='WARNING !',
                                         message=sMsg,
                                         button=["Continue", "Abort"],
