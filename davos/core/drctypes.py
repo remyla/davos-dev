@@ -876,9 +876,14 @@ class DrcFile(DrcEntry):
         sAbsPath = self.absPath()
         sExt = osp.splitext(sAbsPath)[1].lower()
 
+        proj = self.library.project
+        allowedTexFmts = proj.getVar("project", "allowed_texture_formats")
+
         if (sHostApp == "maya"):
             if sExt in (".ma", ".mb", ".fbx"):
-                self.mayaImportScene(*args, **kwargs)
+                return self.mayaImportScene(*args, **kwargs)
+            elif sExt in allowedTexFmts:
+                return self.mayaImportImage()
             else:
                 raise NotImplementedError("Can't import '{}' files to {}."
                                           .format(sExt, sAppTitle))

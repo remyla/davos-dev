@@ -54,24 +54,21 @@ class BrowserContextMenu(BaseContextMenu):
         { "label":"Edit"                , "menu": "Main"    , "fnc":self.editFile                   },
         { "label":"Publish..."          , "menu": "Main"    , "fnc":self.doPublish                  },
 
-        { "label":"separator"           , "menu": "Main"},
         { "label":"Off"                 , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[False]      },
         { "label":"On"                  , "menu": "Set Lock", "fnc":self.setFilesLocked     , "args":[True]       },
         { "label":"Break"               , "menu": "Set Lock", "fnc":self.breakFilesLock     , "dev":True       },
+        { "label":"separator"           , "menu": "Main"},
 
         { "label":"Shotgun Page"        , "menu": "Go To"   , "fnc":self.showShotgunPage                },
         { "label":"Private Location"    , "menu": "Go To"   , "fnc":self.showPrivateLoc                 },
         { "label":"Location"            , "menu": "Go To"   , "fnc":self.showLocation       , "dev":True},
 
         { "label":"Asset"               , "menu": "Add New" , "fnc":self.createNewAsset     , "dev":True},
-        #{ "label":"Files"               , "menu": "Add New" , "fnc":self.publishNewFiles     },
         { "label":"Directory"           , "menu": "Add New" , "fnc":self.createNewDirectory     },
-
 
         { "label":"Remove"              , "menu": "Advanced", "fnc":self.removeItems        , "dev":True},
         { "label":"Create Private Dirs" , "menu": "Advanced", "fnc":self.createPrivateDirs  , "dev":True},
         { "label":"Publish Into Shotgun", "menu": "Advanced", "fnc":self.publishSgVersions  , "dev":True},
-
 
         { "label":"separator"           , "menu": "Main"},
         { "label":"Log Data"            , "menu": "DrcEntry", "fnc":self.logData            , "dev":True},
@@ -104,22 +101,25 @@ class BrowserContextMenu(BaseContextMenu):
 
         drcFileList = tuple(item._metaobj for item in itemList)
 
-        for drcFile in drcFileList:
+        if len(drcFileList) > 1:
+            for drcFile in drcFileList:
 
-            try:
-                drcFile.importIt()
-            except Exception, e:
-                sResult = confirmDialog(title='SORRY !',
-                                        message=toStr(e),
-                                        button=["Continue", "Abort"],
-                                        defaultButton="Continue",
-                                        cancelButton="Abort",
-                                        dismissString="Abort",
-                                        icon="critical")
-                if sResult == "Abort":
-                    return
-                else:
-                    continue
+                try:
+                    drcFile.importIt()
+                except Exception, e:
+                    sResult = confirmDialog(title='SORRY !',
+                                            message=toStr(e),
+                                            button=["Continue", "Abort"],
+                                            defaultButton="Continue",
+                                            cancelButton="Abort",
+                                            dismissString="Abort",
+                                            icon="critical")
+                    if sResult == "Abort":
+                        return
+                    else:
+                        continue
+        else:
+            drcFileList[0].importIt()
 
     importFiles.auth_types = ("DrcFile",)
 
@@ -187,23 +187,25 @@ class BrowserContextMenu(BaseContextMenu):
             logMsg("Cancelled !", warning=True)
             return
 
-        for entry in entryList:
+        if len(entryList) > 1:
+            for entry in entryList:
 
-            try:
-                entry.sendToTrash()
-            except Exception, e:
-                sResult = confirmDialog(title='SORRY !',
-                                        message=toStr(e),
-                                        button=["Continue", "Abort"],
-                                        defaultButton="Continue",
-                                        cancelButton="Abort",
-                                        dismissString="Abort",
-                                        icon="critical")
-                if sResult == "Abort":
-                    return
-                else:
-                    continue
-
+                try:
+                    entry.sendToTrash()
+                except Exception, e:
+                    sResult = confirmDialog(title='SORRY !',
+                                            message=toStr(e),
+                                            button=["Continue", "Abort"],
+                                            defaultButton="Continue",
+                                            cancelButton="Abort",
+                                            dismissString="Abort",
+                                            icon="critical")
+                    if sResult == "Abort":
+                        return
+                    else:
+                        continue
+        else:
+            entryList[0].sendToTrash()
 
 
     def doPublish(self, *itemList):
