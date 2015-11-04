@@ -2,41 +2,54 @@
 import os
 
 from pytd.util.logutils import logMsg#, forceLog
-from pytd.util.sysutils import chunkate
+from pytd.util.sysutils import chunkate, toStr
 #from pytd.util.sysutils import toStr
 
 class DummyDbCon(object):
 
     def create(self, keys):
-        logMsg(u"{}({})".format('dry-run: create', keys), log='debug')
+        logMsg(u"{}({})".format('dummy: create', keys), log='debug')
         return {}
 
     def update(self, id_, keys):
-        logMsg(u"{}({})".format('dry-run: update', id_, keys), log='debug')
+        logMsg(u"{}({})".format('dummy: update', id_, keys), log='debug')
         return []
 
     def delete(self, id_) :
-        logMsg(u"{}({})".format('dry-run: delete', id_), log='debug')
+        logMsg(u"{}({})".format('dummy: delete', id_), log='debug')
         return True
 
     def search(self, sQuery):
-        logMsg(u"{}({})".format('dry-run: search', sQuery), log='debug')
+        logMsg(u"{}({})".format('dummy: search', sQuery), log='debug')
         return []
 
     def read(self, ids):
-        logMsg(u"{}({})".format('dry-run: read', ids), log='debug')
+        logMsg(u"{}({})".format('dummy: read', ids), log='debug')
         return []
 
 
 class DrcDb(object):
 
-    def __init__(self, dbcon, sUserLogin):
-        self._dbcon = dbcon
-        self.userLogin = sUserLogin
+    def __init__(self, project):
+
+        if project._damasdb is None:
+            raise AssertionError(u"No Damas instance found in {}".format(project))
+
+        if project._authobj is None:
+            raise AssertionError(u"No Authenticator instance found in {}"
+                                 .format(project))
+
+        self.project = project
+        self._dbconn = project._damasdb
+
+    @property
+    def userLogin(self):
+        damUser = self.project.loggedUser()
+        return damUser.loginName if damUser else ""
 
     def createNode(self, data):
 
-        rec = self._dbcon.create(data)
+        rec = self._dbconn.create(data)
         if rec is None:
             raise DbCreateError("Failed to create node: {}".format(data))
 
@@ -44,7 +57,7 @@ class DrcDb(object):
 
     def findOne(self, sQuery):
 
-        ids = self._dbcon.search(sQuery)
+        ids = self._search(sQuery)#self._dbconn.search(sQuery)
         if not ids:
             return None
 
@@ -54,7 +67,7 @@ class DrcDb(object):
             raise ValueError("Several nodes found for '{}'.".format(sQuery))
         else:
             nodeId = ids[0]
-            recs = self.read(nodeId)
+            recs = self._read(nodeId)
             return DbNode(self, recs[0])
 
     def findNodes(self, sQuery, asDict=False, keyField=""):
@@ -75,19 +88,19 @@ class DrcDb(object):
     def _iterNodes(self, sQuery):
         logMsg(sQuery, log='all')
 
-        ids = self.search(sQuery)
+        ids = self._search(sQuery)
         if not ids:
             return None
 
-        return (DbNode(self, r) for r in self.read(ids) if r is not None)
+        return (DbNode(self, r) for r in self._read(ids) if r is not None)
 
     def nodeForIds(self, ids):
-        return list(DbNode(self, r) for r in self.read(ids) if r is not None)
+        return list(DbNode(self, r) for r in self._read(ids) if r is not None)
 
     def updateNodes(self, nodes, data):
 
         ids = tuple(n.id_ for n in nodes)
-        recs = self.update(ids, data)
+        recs = self._update(ids, data)
 
 #        print len(nodes), len(recs)
 #        for node, rec in zip(nodes, recs):
@@ -103,45 +116,57 @@ class DrcDb(object):
 
             node.loadData(rec)
 
-    def search(self, sQuery):
+    def _search(self, sQuery, authOnFail=True):
         logMsg(sQuery, log='all')
 
-        ids = self._dbcon.search(sQuery)
+        dbconn = self._dbconn
+
+        ids = dbconn.search(sQuery)
         if ids is None:
-            raise DbSearchError('Failed to search: "{}"'
-                                .format(sQuery))
+
+            if not authOnFail:
+                raise DbSearchError('Failed to search: "{}"'.format(sQuery))
+
+            bAuthOk = dbconn.verify()
+            if not bAuthOk:
+                try:
+                    bAuthOk = self.project.authenticate()
+                except Exception, e:
+                    logMsg(toStr(e), warning=True)
+
+            return self._search(sQuery, authOnFail=False)
 
         return ids
 
-    def read(self, ids):
+    def _read(self, ids):
 
         numIds = len(ids)
         if numIds > 3260:#TODO: remove when ids limit fixed in Damas
             #print numIds
             recs = []
-            dbcon = self._dbcon
+            dbcon = self._dbconn
             for chunkIt in chunkate(ids, 3260):
                 subIds = tuple(chunkIt)
                 #print len(subIds)
                 recs.extend(dbcon.read(subIds))
         else:
-            recs = self._dbcon.read(ids)
+            recs = self._dbconn.read(ids)
             if recs is None:
                 raise DbReadError('Failed to read ids: \n\n{}'.format(ids))
 
         return recs
 
-    def update(self, ids, data):
+    def _update(self, ids, data):
 
-        recs = self._dbcon.update(ids, data)
+        recs = self._dbconn.update(ids, data)
         if recs is None:
-            raise DbReadError('Failed to update ids: \n\n{}'.format(ids))
+            raise DbUpdateError('Failed to update ids: \n\n{}'.format(ids))
 
         return recs
 
     def createVersion(self, id_, data):
 
-        rec = self._dbcon.version(id_, data)
+        rec = self._dbconn.version(id_, data)
         if rec is None:
             raise DbCreateError("Failed to version node: {}".format(data))
 
@@ -149,12 +174,12 @@ class DrcDb(object):
 
 class DbNode(object):
 
-    __slots__ = ('__drcdb', '_dbcon', '_data', 'id_', '__dirty', 'name')
+    __slots__ = ('__drcdb', '_dbconn', '_data', 'id_', '__dirty', 'name')
 
     def __init__(self, drcdb, record=None):
 
         self.__drcdb = drcdb
-        self._dbcon = drcdb._dbcon
+        self._dbconn = drcdb._dbconn
         self.id_ = ''
         self._data = None
         self.__dirty = False
@@ -195,7 +220,7 @@ class DbNode(object):
             self._data[sField] = value
             self.__dirty = True
         else:
-            recs = self._dbcon.update(self.id_, {sField:value})
+            recs = self._dbconn.update(self.id_, {sField:value})
             if not recs:
                 #raise DbUpdateError("Failed to update {}".format(self))
                 return False
@@ -218,7 +243,7 @@ class DbNode(object):
 
     def setData(self, data):
 
-        recs = self._dbcon.update(self.id_, data)
+        recs = self._dbconn.update(self.id_, data)
         if not recs:
 #            raise DbUpdateError("Failed to update {}".format(self))
             return False
@@ -253,12 +278,12 @@ class DbNode(object):
         if data is None:
 
             if self.__dirty:
-                recs = self._dbcon.update(self.id_, self._data)
+                recs = self._dbconn.update(self.id_, self._data)
                 if not recs:
                     raise DbUpdateError("Failed to update {}: \n{}".format(self, self.dataRepr()))
                 logMsg(u"Refeshing from DB update: {}.".format(self), log='debug')
             else:
-                recs = self._dbcon.read(self.id_)
+                recs = self._dbconn.read(self.id_)
                 if not recs:
                     raise DbReadError("Failed to read {}".format(self))
                 logMsg(u"Refeshing from DB read: {}.".format(self), log='debug')
@@ -272,7 +297,7 @@ class DbNode(object):
         self.loadData(newData)
 
     def delete(self):
-        return self._dbcon.delete(self.id_)
+        return self._dbconn.delete(self.id_)
 
     def logData(self, *fields):
         print self.dataRepr(*fields)

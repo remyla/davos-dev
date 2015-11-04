@@ -28,7 +28,6 @@ LIBRARY_SPACES = ("public", "private")
 """
 from pytd.util.fsutils import pathJoin
 from davos.core import damproject
-reload(damproject)
 
 DamProject = damproject.DamProject
 
@@ -108,6 +107,7 @@ class DamProject(object):
 
         self._damasdb = None
         self._shotgundb = None
+        self._db = None
         self._authobj = None
         self._itemmodel = None
         self.__loggedUser = None
@@ -127,7 +127,7 @@ class DamProject(object):
     def init(self):
         logMsg(log='all')
 
-        bExists = self._alreadyExists()
+        bExists = self._instanceExists()
         if bExists and self.isAuthenticated():
             return True
 
@@ -145,24 +145,31 @@ class DamProject(object):
         self.__initShotgun()
         self.__initDamas()
 
-        return self.authenticate()
+        if not self.authenticate(renew=True):
+            return False
 
-    def _alreadyExists(self):
+        self._db = DrcDb(self)
+
+        return True
+
+    def _instanceExists(self):
         return id(self.__class__._instancesDct.get(self.name)) == id(self)
 
-    def authenticate(self):
+    def authenticate(self, renew=False):
 
-        self._authobj = self.getAuthenticator()
+        if renew or (not self._authobj):
+            self._authobj = self.getAuthenticator()
+
         userData = self._authobj.authenticate()
 
         if not self.isAuthenticated():
             return False
 
         self.__loggedUser = DamUser(self, userData)
-        sLogin = self.__loggedUser.loginName
-        updEnv("DAVOS_USER", sLogin, conflict="replace", usingFunc=hostSetEnvFunc())
 
-        self._db = DrcDb(self._damasdb, sLogin)
+        sUsrLogin = self.__loggedUser.loginName
+        updEnv("DAVOS_USER", sUsrLogin, conflict="replace", usingFunc=hostSetEnvFunc())
+        self._authobj.userLogin = sUsrLogin
 
         return True
 
@@ -195,14 +202,14 @@ class DamProject(object):
         bForce = kwargs.get("force", False)
 
         if bForce and (not self.isAuthenticated()):
-            self.authenticate(relog=True)
+            self.authenticate()
 
         return self.__loggedUser
 
     def loadLibraries(self, noError=False):
         logMsg(log='all')
 
-        bExists = self._alreadyExists()
+        bExists = self._instanceExists()
         if bExists and self.loadedLibraries:
             return
 
@@ -644,32 +651,46 @@ class DamProject(object):
 
     def publishDependencies(self, sDepType, damEntity, sDepPathList, sComment, **kwargs):
 
+        bDryRun = kwargs.get("dryRun", False)
+
         sSection = damEntity.confSection
         depTypes = self.getVar(sSection, "dependency_types", None)
         if not depTypes:
-            raise EnvironmentError("No dependency types configured for '{}'."
+            raise EnvironmentError(u"No dependency types configured for '{}'."
                                    .format(sSection))
         try:
             depDct = depTypes[sDepType]
         except KeyError:
-            raise ValueError("'{}' has no such dependency type: '{}'. Are valid: {}."
+            raise ValueError(u"'{}' has no such dependency type: '{}'. Are valid: {}."
                              .format(sSection, sDepType, depTypes.keys()))
         try:
             sRcDirName = depDct["location"]
         except KeyError:
-            raise EnvironmentError("Bad '{}' config in '{}'. Missing 'location' key: {} !"
+            raise EnvironmentError(u"Bad '{}' config in '{}'. Missing 'location' key: {} !"
                                    .format(sDepType, sSection, depDct))
 
         bChecksum = depDct.get("checksum", False)
-        depDir = damEntity.getResource("public", sRcDirName)
+
+        entityDir = damEntity.getResource("public", fail=True)
+        pubLib = entityDir.library
+
+        sDepDirPath = damEntity.getPath("public", sRcDirName)
+
+        if bDryRun:
+            depDir = pubLib._weakDir(sDepDirPath)
+        else:
+            if not osp.exists(sDepDirPath):
+                os.makedirs(sDepDirPath)
+            depDir = pubLib.getEntry(sDepDirPath)
 
         publishItems = list(sDepPathList)[:]
 
-        print "\nPublishing '{}' to '{}' of {}:".format(sDepType, sRcDirName, damEntity)
+        sDepLabel = sDepType.rsplit("_", 1)[0] + 's'
+        print u"\nPublishing {} of {} to '{}':".format(sDepLabel, damEntity, depDir.absPath())
 
         for i, sDepPath in enumerate(sDepPathList):
 
-            print "- '{}'".format(sDepPath)
+            print u"- '{}'".format(sDepPath)
 
             pubFile, versionFile = depDir.publishFile(sDepPath, autoLock=True,
                                                       autoUnlock=True,
@@ -786,8 +807,6 @@ class DamProject(object):
 
     def setItemModel(self, model):
         self._itemmodel = model
-        for lib in self.loadedLibraries.itervalues():
-            lib.setItemModel(model)
 
     def iterChildren(self):
         return self.loadedLibraries.itervalues()

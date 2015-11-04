@@ -323,9 +323,9 @@ class DrcEntry(DrcMetaObject):
         elif fromDb:
             sQuery = u"file:/^{}$/i".format(self.dbPath())
 
-#            print "finding DbNode:", sQuery
+            #print u"finding DbNode:", sQuery
             dbnode = self.library._db.findOne(sQuery)
-#            print "    - got:", dbnode
+            #print u"    - got:", dbnode
 
             if dbnode:
                 logMsg(u"got from DB: '{}'".format(dbCacheKey), log='debug')
@@ -428,6 +428,9 @@ class DrcEntry(DrcMetaObject):
     def delModelRow(self):
 
         model = self.library._itemmodel
+        if not model:
+            return
+
         primePrpty = self.metaProperty(model.primaryProperty)
 
         for primeItem in primePrpty.viewItems:
@@ -1199,24 +1202,26 @@ class DrcFile(DrcEntry):
 
         return bDiffers, sOtherChecksum
 
-    def getPublicFile(self, weak=False, fail=False):
+    def getPublicFile(self, weak=False, fail=False, **kwargs):
 
-        #assert self.isFile(), "File does NOT exist !"
         assert self.isPrivate(), "File must live in a PRIVATE library !"
 
+        pubFile = None
+
         privDir = self.parentDir()
-        pubDir = privDir.getHomonym('public')
+        pubDir = privDir.getHomonym('public', weak=weak)
+        if pubDir:
 
-        sPrivFilename , sExt = osp.splitext(self.name)
+            sPrivFilename , sExt = osp.splitext(self.name)
 
-        sPubDirPath = pubDir.absPath()
-        sPubFilename = sPrivFilename.split('-v')[0] + sExt
-        sPubFilePath = pathJoin(sPubDirPath, sPubFilename)
+            sPubDirPath = pubDir.absPath()
+            sPubFilename = sPrivFilename.split('-v')[0] + sExt
+            sPubFilePath = pathJoin(sPubDirPath, sPubFilename)
 
-        if weak:
-            pubFile = pubDir.library._weakFile(sPubFilePath, dbNode=False)
-        else:
-            pubFile = pubDir.library.getEntry(sPubFilePath, dbNode=False)
+            if weak:
+                pubFile = pubDir.library._weakFile(sPubFilePath, **kwargs)
+            else:
+                pubFile = pubDir.library.getEntry(sPubFilePath, **kwargs)
 
         if (not pubFile) and fail:
             raise RuntimeError("Could not get public version of '{}'"
@@ -1284,7 +1289,6 @@ class DrcFile(DrcEntry):
 
         sPattern = pathSuffixed(self.name, '*')
         sSrcFilename = osp.basename(p)
-        print sSrcFilename, sPattern
         if not fnmatch(sSrcFilename, sPattern):
             raise AssertionError("Bad filename pattern: Expected '{}', got '{}'"
                                  .format(sPattern, sSrcFilename))
@@ -1338,6 +1342,17 @@ class DrcFile(DrcEntry):
                 return newVersFile, sgVersion
 
             sComment, iNextVers, sgTaskInfo = infos
+        except Exception, e:
+            self._abortPublish(e, newVersFile, sgVersion)
+            raise
+
+        # copy a first backup file if no version yet (usually a empty file)
+        try:
+            iCurVers = self.currentVersion
+            if iCurVers == 0:
+                initVersFile = self.getVersionFile(0, weak=True)
+                if not initVersFile.exists():
+                    initVersFile.createFromFile(self)
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
             raise
@@ -1448,14 +1463,6 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
             sComment, _ = promptForComment()
             if not sComment:
                 raise RuntimeError("Comment has NOT been provided !")
-
-        # copy a first backup file if no version yet (usually a empty file)
-        backupFile = None
-        iCurVers = self.currentVersion
-        if iCurVers == 0:
-            backupFile = self.getVersionFile(0, weak=True)
-            if not backupFile.exists():
-                backupFile.createFromFile(self)
 
         return sComment, iNextVers, sgTaskInfo
 

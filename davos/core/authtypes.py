@@ -38,8 +38,10 @@ class ShotgunAuth(Authenticator):
     def __init__(self, project):
         super(ShotgunAuth, self).__init__()
 
+        if project._shotgundb is None:
+            raise AssertionError(u"No Shotgun instance found in {}".format(project))
+
         self._shotgundb = project._shotgundb
-        assert self._shotgundb is not None, u"No Shotgun instance found in {}".format(project)
 
     def loggedUser(self):
         userData = self._shotgundb.getLoggedUser()
@@ -58,9 +60,10 @@ class DamasAuth(Authenticator):
     def __init__(self, project):
         super(DamasAuth, self).__init__()
 
-        self._damasdb = project._damasdb
-        assert self._damasdb is not None, u"No Damas instance found in {}".format(project)
+        if project._damasdb is None:
+            raise AssertionError(u"No Damas instance found in {}".format(project))
 
+        self._damasdb = project._damasdb
         self.cookieFilePath = pathJoin(os.getenv("USERPROFILE"), "damas_auth.json")
 
     def loggedUser(self):

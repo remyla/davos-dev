@@ -15,7 +15,7 @@ from pytd.util import sysutils
 
 from . import drctypes
 from .drctypes import DrcEntry, DrcDir, DrcFile
-from .dbtypes import DrcDb
+#from .dbtypes import DrcDb
 from fnmatch import fnmatch
 
 
@@ -32,8 +32,6 @@ class DrcLibrary(DrcDir):
 
         self._cachedEntries = {}
         self._cachedDbNodes = {}
-        self._itemmodel = None
-        self._db = None
 
         self.sectionName = sLibName
         self.fullName = DrcLibrary.makeFullName(sSpace, sLibName)
@@ -42,20 +40,22 @@ class DrcLibrary(DrcDir):
 
         super(DrcLibrary, self).__init__(self, sLibPath, **kwargs)
 
+    @property
+    def _itemmodel(self):
+        proj = self.project
+        return proj._itemmodel if proj else None
+
+    @property
+    def _db(self):
+        proj = self.project
+        return proj._db if proj else None
+
     def loadData(self, fileInfo, **kwargs):
         logMsg(log="all")
-
-        if self.project:
-            self._itemmodel = self.project._itemmodel
-            sUserLogin = self.project.loggedUser().loginName
-            self._db = DrcDb(self.project._damasdb, sUserLogin)
 
         super(DrcLibrary, self).loadData(fileInfo, **kwargs)
 
         self.label = self.fullName if sysutils.inDevMode() else self.name
-
-    def setItemModel(self, model):
-        self._itemmodel = model
 
     def addModelRow(self):
 

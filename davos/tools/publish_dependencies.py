@@ -60,7 +60,10 @@ def run():
         sDepType = ns.dependencyType
         sComment = ns.comment
         bDryRun = ns.dryRun
-        print proj, damEntity, sDepType, sComment, bDryRun
+
+        if bDryRun:
+            print proj, damEntity, sDepType, sComment, bDryRun
+            os.environ["PYTHONINSPECT"] = "1"
 
         proj.publishDependencies(sDepType, damEntity, sDepFileList, sComment, dryRun=bDryRun)
 
@@ -70,7 +73,6 @@ def run():
 
 if __name__ == "__main__":
 
-    #os.environ["PYTHONINSPECT"] = "1"
     try:
         run()
     except:

@@ -53,12 +53,28 @@ class DamEntity(object):
 
     def getResource(self, sSpace, sRcName="entity_dir", default="NoEntry", **kwargs):
 
-        sRcPath = self.getPath(sSpace, pathVar=sRcName, default=default)
+        bFail = kwargs.pop("fail", False)
+
+        try:
+            sRcPath = self.getPath(sSpace, pathVar=sRcName)
+        except AttributeError:
+            if default == "NoEntry":
+                raise
+            return default
 
         proj = self.project
         drcLib = proj.getLibrary(sSpace, self.__class__.libraryName)
 
-        return proj.entryFromPath(sRcPath, library=drcLib, **kwargs)
+        drcEntry = proj.entryFromPath(sRcPath, library=drcLib, **kwargs)
+        if (not drcEntry) and bFail:
+            if sRcName != "entity_dir":
+                sMsg = "{} has no such resource: '{}' !".format(self, sRcPath)
+            else:
+                sMsg = "{} directory not found: '{}' !".format(self, sRcPath)
+
+            raise RuntimeError(sMsg)
+
+        return drcEntry
 
     def getPath(self, sSpace, pathVar="entity_dir", **kwargs):
         return self.project.getPath(sSpace, self.confSection, pathVar,
