@@ -63,7 +63,8 @@ def run():
 
         if bDryRun:
             print proj, damEntity, sDepType, sComment, bDryRun
-            os.environ["PYTHONINSPECT"] = "1"
+
+        os.environ["PYTHONINSPECT"] = "1"
 
         proj.publishDependencies(sDepType, damEntity, sDepFileList, sComment, dryRun=bDryRun)
 
