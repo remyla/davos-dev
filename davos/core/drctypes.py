@@ -671,8 +671,9 @@ class DrcEntry(DrcMetaObject):
         DrcMetaObject._writeAllValues(self, propertyNames=sOtherPrptySet)
 
         data = self.dataToStore(sDbNodePrptySet)
+        data = dict((k, v) for k, v in data.iteritems() if v not in ("", None))
 
-        logMsg("Writing DbNode data:", data, self, log='debug')
+        logMsg("Writing DbNode data:", data, self, log='silent')
 
         dbnode = self.getDbNode()
         if not dbnode:
@@ -1163,7 +1164,7 @@ class DrcFile(DrcEntry):
 
         return privDir.library.getEntry(sSrcFilePath)
 
-    def getPrivateFile(self, suffix="", weak=False):
+    def getPrivateFile(self, suffix="", weak=False, **kwargs):
 
         assert self.isPublic(), "File is NOT PUBLIC !"
 
@@ -1180,9 +1181,9 @@ class DrcFile(DrcEntry):
             sPrivFilePath = pathSuffixed(sPrivFilePath, suffix)
 
         if weak:
-            return privDir.library._weakFile(sPrivFilePath)
+            return privDir.library._weakFile(sPrivFilePath, **kwargs)
         else:
-            return privDir.library.getEntry(sPrivFilePath)
+            return privDir.library.getEntry(sPrivFilePath, **kwargs)
 
     def differsFrom(self, sOtherFilePath):
 
@@ -1548,17 +1549,17 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
         versionFile._setPrpty("currentVersion", iVersion, write=False)
 
         sPropertyList = ("checksum", "comment", "sourceFile", "currentVersion",)
-
         versData = versionFile.dataToStore(sPropertyList)
-        versData = dict((k, v)for k, v in versData.iteritems() if v not in ("", None))
-        versData['file'] = versionFile.dbPath()
 
         syncData = self.getSyncData()
         versData.update(syncData)
 
+        versData = dict((k, v) for k, v in versData.iteritems() if v not in ("", None))
+        versData['file'] = versionFile.dbPath()
+
         curNode = self.getDbNode()
 
-        logMsg("Creating version node: {}".format(versData), log="info")
+        print "Creating version node: {}".format(versData)
         versNode = self.library._db.createVersion(curNode.id_, versData)
         if not versNode:
             raise RuntimeError("Could not create DbNode for {} !".format(versionFile))

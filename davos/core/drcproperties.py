@@ -7,7 +7,7 @@ from pytd.core.metaproperty import BasePropertyFactory
 from pytd.core.metaproperty import MetaProperty
 from pytd.core.metaproperty import EditState as Eds
 from pytd.core.metaobject import MetaObject
-from pytd.util.sysutils import toTimestamp, argToList, inDevMode
+from pytd.util.sysutils import toTimestamp, argToList, inDevMode, toUnicode
 
 def syncProperty(sDbKey, **kwargs):
     params = {
@@ -294,30 +294,10 @@ class DrcTimeProperty(DrcBaseProperty):
         elif value:
             return datetime.fromtimestamp(value)
 
-
-class DbStrProperty(DrcBaseProperty):
+class DbBaseProperty(DrcBaseProperty):
 
     def __init__(self, sProperty, metaobj):
-        super(DbStrProperty, self).__init__(sProperty, metaobj)
-
-    def read(self):
-        value = DrcBaseProperty.read(self)
-        if self.isMulti():
-            return value.split(u',') if value else []
-        return value
-
-    def castToWrite(self, in_value):
-        value = DrcBaseProperty.castToWrite(self, in_value)
-
-        if self.isMulti():
-            if value and isinstance(value, basestring):
-                values = self._splitRgx.findall(value)
-            else:
-                values = argToList(value)
-
-            value = u",".join(values) if value else None
-
-        return value
+        super(DbBaseProperty, self).__init__(sProperty, metaobj)
 
     def createAccessor(self):
         dbnode = self._metaobj.getDbNode()
@@ -325,19 +305,46 @@ class DbStrProperty(DrcBaseProperty):
             dbnode, _ = self._metaobj.createDbNode(check=False)
         return dbnode
 
-class DbIntProperty(DbStrProperty):
+class DbStrProperty(DbBaseProperty):
+
+    def __init__(self, sProperty, metaobj):
+        super(DbStrProperty, self).__init__(sProperty, metaobj)
+
+    def read(self):
+        value = DbBaseProperty.read(self)
+        if self.isMulti():
+            return value.split(u',') if value else []
+        return value
+
+    def castToWrite(self, in_value):
+        value = DbBaseProperty.castToWrite(self, in_value)
+
+        if self.isMulti():
+
+            if value and isinstance(value, basestring):
+                values = self._splitRgx.findall(value)
+            else:
+                values = argToList(value)
+
+            value = u",".join(toUnicode(v) for v in values) if value else None
+        else:
+            value = toUnicode(value)
+
+        return value
+
+class DbIntProperty(DbBaseProperty):
 
     def __init__(self, sProperty, metaobj):
         super(DbIntProperty, self).__init__(sProperty, metaobj)
 
     def read(self):
-        value = DbStrProperty.read(self)
+        value = DbBaseProperty.read(self)
         if isinstance(value, basestring):
             return int(value) if value else 0
         return value
 
     def castToWrite(self, in_value):
-        value = DbStrProperty.castToWrite(self, in_value)
+        value = DbBaseProperty.castToWrite(self, in_value)
         return int(value) if value else 0
 
 class DbBoolProperty(DbIntProperty):
@@ -353,13 +360,9 @@ class DbSyncProperty(DbBoolProperty):
     def __init__(self, sProperty, metaobj):
         super(DbSyncProperty, self).__init__(sProperty, metaobj)
 
-#    def read(self):
-#        value = DbBoolProperty.read(self)
-#        return bool(value) if value else False
-
     def castToWrite(self, in_value):
         value = DbBoolProperty.castToWrite(self, in_value)
-        return value if value else None
+        return toUnicode(value) if value else None
 
 class DbTimeProperty(DbIntProperty):
 
@@ -372,9 +375,9 @@ class DbTimeProperty(DbIntProperty):
 
         # MongoDb timestamps are expressed in milliseconds.
         if self.__class__.timeZone == "utc":
-            dateTime = datetime.utcfromtimestamp(timestamp * 0.001)
+            dateTime = datetime.utcfromtimestamp(timestamp / 1000)
         else:
-            dateTime = datetime.fromtimestamp(timestamp * 0.001)
+            dateTime = datetime.fromtimestamp(timestamp / 1000)
 
         return dateTime
 

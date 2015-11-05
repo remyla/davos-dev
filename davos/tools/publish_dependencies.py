@@ -2,6 +2,9 @@
 import os
 import argparse
 
+if __name__ == "__main__":
+    os.environ["PYTHONINSPECT"] = "1"
+
 from davos.core.damproject import DamProject
 from davos.core.damtypes import DamAsset, DamShot
 
@@ -62,9 +65,7 @@ def run():
         bDryRun = ns.dryRun
 
         if bDryRun:
-            print proj, damEntity, sDepType, sComment, bDryRun
-
-        os.environ["PYTHONINSPECT"] = "1"
+            print proj, damEntity, sDepType, sComment, type(sComment), bDryRun
 
         proj.publishDependencies(sDepType, damEntity, sDepFileList, sComment, dryRun=bDryRun)
 
@@ -72,11 +73,12 @@ def run():
         if bListFileFound:
             os.remove(sListFilePath)
 
+    sSep = "\n    - "
+    sFiles = sSep.join(sDepFileList)
+    print "\nSuccessfully published associated files:" + sSep + sFiles
+
+    raw_input("\nPress enter to quit...")
+    quit()
+
 if __name__ == "__main__":
-
-    try:
-        run()
-    except:
-        os.environ["PYTHONINSPECT"] = "1"
-        raise
-
+    run()

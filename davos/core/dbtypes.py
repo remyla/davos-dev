@@ -70,17 +70,20 @@ class DrcDb(object):
             recs = self._read(nodeId)
             return DbNode(self, recs[0])
 
-    def findNodes(self, sQuery, asDict=False, keyField=""):
+    def findNodes(self, sQuery, **kwargs):
         logMsg(sQuery, log='all')
 
         nodesIter = self._iterNodes(sQuery)
 
-        if asDict:
-            if not keyField:
+        bDict = kwargs.get("asDict", False)
+        sKeyField = kwargs.get("keyField", "")
+
+        if bDict:
+            if not sKeyField:
                 raise ValueError("To be able to return as dict, \
                                 please provide a 'keyField'!")
 
-            return dict((n.getField(keyField), n) for n in nodesIter) if nodesIter else {}
+            return dict((n.getField(sKeyField), n) for n in nodesIter) if nodesIter else {}
 
         nodes = list(nodesIter) if nodesIter else []
         return nodes
