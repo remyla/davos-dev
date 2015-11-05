@@ -188,7 +188,7 @@ DrcFileProperties = [
 ),
 ('locked',
     {
-    'type':'db_str',
+    'type':'db_bool',
     'isMulti':False,
     'default':False,
     'accessor':'_dbnode',
@@ -417,6 +417,7 @@ class PropertyFactory(BasePropertyFactory):
     'drc_time' : DrcTimeProperty,
     'db_str' : DbStrProperty,
     'db_int' : DbIntProperty,
+    'db_bool': DbBoolProperty,
     'db_sync': DbSyncProperty,
     'db_time' : DbTimeProperty,
     }
