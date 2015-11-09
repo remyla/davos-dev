@@ -1113,7 +1113,7 @@ class DrcFile(DrcEntry):
 
                     if sConfirm == 'Cancel':
                         logMsg("Cancelled !", warning=True)
-                        return None, bCopied
+                        sConfirm = "abort"
 
                     existing = sConfirm.lower()
                 else:
@@ -1194,12 +1194,12 @@ class DrcFile(DrcEntry):
         if osp.normcase(sOtherFilePath) == osp.normcase(sCurFilePath):
             return False, sOtherChecksum
 
-        sOwnChecksum = self.getPrpty("checksum")
-        if not sOwnChecksum:
+        sCurChecksum = self.getPrpty("checksum")
+        if not sCurChecksum:
             return True, sOtherChecksum
 
         sOtherChecksum = sha1HashFile(sOtherFilePath)
-        bDiffers = (sOtherChecksum != sOwnChecksum)
+        bDiffers = (sOtherChecksum != sCurChecksum)
 
         return bDiffers, sOtherChecksum
 
@@ -1298,13 +1298,13 @@ class DrcFile(DrcEntry):
         iNxtVers = (self.currentVersion + 1) if version is None else version
 
         if iPrivVers < iNxtVers:
-            msg = ("Can't publish an OBSOLETE version ! Expected v{}, got v{}."
-                   .format(iNxtVers, iPrivVers))
+            msg = ("Your version {} is OBSOLETE ! You should be editing v{}."
+                   .format(iPrivVers, iNxtVers))
             raise AssertionError(msg)
 
         elif iPrivVers > iNxtVers:
-            msg = ("Unexpected version ! Expected v{}, got v{}."
-                   .format(iNxtVers, iPrivVers))
+            msg = ("Got unexpected version {} ! You should be editing v{}."
+                   .format(iPrivVers, iNxtVers))
             raise AssertionError(msg)
 
         privFile.publishAsserted = True
