@@ -673,7 +673,7 @@ class DrcEntry(DrcMetaObject):
         data = self.dataToStore(sDbNodePrptySet)
         data = dict((k, v) for k, v in data.iteritems() if v not in ("", None))
 
-        logMsg("Writing DbNode data:", data, self, log='silent')
+        logMsg("Writing DbNode data:", data, self, log='debug')
 
         dbnode = self.getDbNode()
         if not dbnode:
@@ -1559,7 +1559,7 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
 
         curNode = self.getDbNode()
 
-        print "Creating version node: {}".format(versData)
+        logMsg("Creating version node: {}".format(versData), log="debug")
         versNode = self.library._db.createVersion(curNode.id_, versData)
         if not versNode:
             raise RuntimeError("Could not create DbNode for {} !".format(versionFile))
@@ -1657,11 +1657,11 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
             if autoUnlock:
                 bRestore = bRestore or (sPrevLock == "NoLockToRestore")
                 bLock = False
-                print "auto-unlocking"
+                logMsg("auto-unlocking", log='debug')
             else:
                 bRestore = bRestore and (sPrevLock != "NoLockToRestore")
                 bLock = True if sPrevLock else False
-                print "restoring lock to", bLock
+                logMsg("restoring lock to {}".format(bLock), log='debug')
 
             if bRestore:
                 self.setLocked(bLock, owner=sLoggedUser, refresh=False)
