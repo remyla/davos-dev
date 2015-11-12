@@ -251,7 +251,7 @@ class DrcEntry(DrcMetaObject):
 
         proj = self.library.project
         sAbsPath = self.absPath()
-        data = proj.dataFromPath(sAbsPath)
+        data = proj.dataFromPath(sAbsPath, library=self.library)
 
         sSection = data.get("section")
         sRcName = data.get("resource")
@@ -264,6 +264,11 @@ class DrcEntry(DrcMetaObject):
                 return default
 
         return proj.getRcParam(sSection, sRcName, sParam, default=default)
+
+    def dataFromPath(self):
+
+        library = self.library
+        return library.project.dataFromPath(self.absPath(), library=library)
 
     ''
     #=======================================================================
@@ -1569,6 +1574,8 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
         return versionFile
 
     def getVersionFile(self, iVersion, weak=False):
+
+        assert versionFromName(self.name) is None, "File is already a version !"
 
         sFilename = self.nameFromVersion(iVersion)
         sFilePath = pathJoin(self.backupDirPath(), sFilename)

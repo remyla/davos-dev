@@ -150,7 +150,7 @@ class BrowserContextMenu(BaseContextMenu):
 
     def publishSgVersions(self, *itemList):
 
-        versionFiles = tuple(item._metaobj for item in itemList)
+        versionFiles = list(item._metaobj for item in itemList)
         self.model()._metamodel.publishSgVersions(versionFiles)
 
     @setWaitCursor

@@ -293,7 +293,7 @@ class DamEntity(object):
 
         return taskNameOrInfo
 
-    def listVersions(self):
+    def findSgVersions(self, sRcName="", sgTask=None, **kwargs):
 
         shotgundb = self.project._shotgundb
         if not shotgundb:
@@ -304,9 +304,18 @@ class DamEntity(object):
             ['entity', 'is', self.getSgInfo()]
         ]
 
+        if sgTask:
+            filters.append(['task', 'is', sgTask])
+
+        if sRcName:
+            sRcPath = self.getPath("public", sRcName)
+            sBaseName, _ = osp.splitext(osp.basename(sRcPath))
+            filters.append(['code', 'starts_with', sBaseName])
+
         return shotgundb.sg.find("Version", filters,
-                                 ['code', 'entity', 'sg_task'],
-                                 [{'field_name':'code', 'direction':'asc'}])
+                                 ['code', 'sg_current_release_version', 'sg_task'],
+                                 [{'field_name':'code', 'direction':'desc'}],
+                                 **kwargs)
 
     def showShotgunPage(self):
         self.project._shotgundb.showInBrowser(self.getSgInfo())

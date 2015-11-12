@@ -489,13 +489,13 @@ class DamProject(object):
                 raise
             return None
 
-    def dataFromPath(self, sEntryPath):
+    def dataFromPath(self, sEntryPath, library=None):
 
         sSpace, sSection = self.sectionFromPath(sEntryPath)
         if not sSection:
             return {}
 
-        drcEntry = self.entryFromPath(sEntryPath, weak=True)
+        drcEntry = self.entryFromPath(sEntryPath, library=library, weak=True)
         pubEntry = drcEntry
         if not drcEntry.isPublic():
             pubEntry = drcEntry.getPublicFile(fail=True, weak=True)
@@ -731,15 +731,24 @@ class DamProject(object):
             headFileSet.add(headFile)
 
         if len(headFileSet) > 1:
-            raise ValueError("Given files should be versions of the same head file !")
+            raise ValueError("Given files should be versions of the same file ! Got {}."
+                             .format(tuple(headFileSet)))
 
         headFile = headFileSet.pop()
-        bSgVersion = headFile.getParam('create_sg_version', False)
+
+        data = headFile.dataFromPath()
+        sSection = data.get("section")
+        sRcName = data.get("resource")
+        if not sRcName:
+            raise AssertionError("No such configured resource: {}".format(headFile))
+
+        bSgVersion = self.getRcParam(sSection, sRcName, 'create_sg_version', default=False)
         if not bSgVersion:
             raise RuntimeError("Public file not configured to have a shotgun version: {} !"
                                .format(headFile))
 
-        sgVersions = headFile.getEntity().listVersions()
+        damEntity = headFile.getEntity(fail=True)
+        sgVersions = damEntity.findSgVersions(sRcName)
         sgVersNames = tuple(d["code"] for d in sgVersions)
 
         try:
@@ -754,7 +763,7 @@ class DamProject(object):
                                     dismissString="Abort",
                                     icon="warning")
             if sResult == "Abort":
-                raise
+                return
 
         newSgVersions = versionFiles[:]
         for i, versFile in enumerate(versionFiles):
