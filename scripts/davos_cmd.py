@@ -10,6 +10,7 @@ try:
 except ImportError:pass
 
 from davos.core.damproject import DamProject
+from davos.core.damtypes import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--project", "-p", default=os.environ.get("DAVOS_INIT_PROJECT"))

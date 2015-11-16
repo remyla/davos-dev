@@ -102,7 +102,10 @@ class DrcEntry(DrcMetaObject):
             DrcMetaObject.loadData(self, propertyNames=sDbPrptyNames)
 
         sEntryName = self.name
-        self.baseName, self.suffix = osp.splitext(sEntryName)
+        sBaseName, self.extension = osp.splitext(sEntryName)
+        if "-" in sBaseName:
+            sBaseName = sBaseName.split("-", 1)[0]
+        self.baseName = sBaseName
         self.label = sEntryName
 
         #print self, self._dbnode.logData() if self._dbnode else "Rien du tout"
@@ -241,7 +244,8 @@ class DrcEntry(DrcMetaObject):
 
     def getEntity(self, fail=False):
         p = self.absPath()
-        damEntity = self.library.project.entityFromPath(p, fail=False)
+        library = self.library
+        damEntity = library.project.entityFromPath(p, fail=False, library=library)
         if (not damEntity) and fail:
             raise RuntimeError("Could not get an ENTITY from '{}'.".format(p))
 
@@ -1577,6 +1581,9 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
 
         assert versionFromName(self.name) is None, "File is already a version !"
 
+        if iVersion == -1:
+            iVersion = self.currentVersion
+
         sFilename = self.nameFromVersion(iVersion)
         sFilePath = pathJoin(self.backupDirPath(), sFilename)
 
@@ -1603,11 +1610,14 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
         if not comment:
             sComment = self.comment
 
+        data = dict(created_at=self.dbMtime)
+
         sgVersion = proj.createSgVersion(sVersionName,
                                          entityNameOrInfo,
                                          taskNameOrInfo,
                                          sComment,
-                                         self.envPath())
+                                         self.envPath(),
+                                         moreData=data)
         return sgVersion
 
     def getSgVersion(self):

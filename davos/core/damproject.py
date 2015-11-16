@@ -470,9 +470,9 @@ class DamProject(object):
 
         return None
 
-    def entityFromPath(self, sEntryPath, fail=True):
+    def entityFromPath(self, sEntryPath, fail=True, library=None):
 
-        data = self.dataFromPath(sEntryPath)
+        data = self.dataFromPath(sEntryPath, library=library)
         sSection = data.get('section')
         if not sSection:
             return None
@@ -710,14 +710,14 @@ class DamProject(object):
             if sEntityType and (stepInfo['entity_type'] == sEntityType):
                 yield stepInfo
 
-    def createSgVersion(self, sVersionName, sgEntity, sgTask, sComment, sFilePath):
+    def createSgVersion(self, sVersionName, sgEntity, sgTask, sComment, sFilePath, **kwargs):
 
         shotgundb = self._shotgundb
         if not shotgundb:
             return None
 
         return shotgundb.createVersion(sgEntity["type"], sgEntity, sVersionName, sgTask,
-                                       sComment, sFilePath)
+                                       sComment, sFilePath, **kwargs)
 
     @setWaitCursor
     def uploadSgVersion(self, sgVersion, sMediaPath):
@@ -744,11 +744,11 @@ class DamProject(object):
 
         bSgVersion = self.getRcParam(sSection, sRcName, 'create_sg_version', default=False)
         if not bSgVersion:
-            raise RuntimeError("Public file not configured to have a shotgun version: {} !"
+            raise RuntimeError("Public file not configured to have shotgun versions: {} !"
                                .format(headFile))
 
         damEntity = headFile.getEntity(fail=True)
-        sgVersions = damEntity.findSgVersions(sRcName)
+        sgVersions = damEntity.findSgVersions(resourceName=sRcName)
         sgVersNames = tuple(d["code"] for d in sgVersions)
 
         try:
@@ -785,12 +785,12 @@ class DamProject(object):
         if not shotgundb:
             return None
 
-        filters = [
-                        ['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
-                        ['code', 'is', sVersionName]
-                    ]
+        filters = [['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
+                   ['code', 'is', sVersionName]]
 
-        return shotgundb.sg.find_one("Version", filters, ['code', 'entity', 'sg_task'])
+        return shotgundb.sg.find_one("Version", filters, ['code', 'entity',
+                                                          'sg_current_release_version',
+                                                          'sg_task'])
 
     def findDbNodes(self, sQuery="", **kwargs):
 
