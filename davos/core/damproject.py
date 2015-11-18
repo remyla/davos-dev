@@ -548,6 +548,21 @@ class DamProject(object):
 
         return "", ""
 
+    def versionFileFromPrivatePath(self, sPrivFilePath, fail=False):
+
+        privFile = self.entryFromPath(sPrivFilePath, space="private")
+        if not privFile:
+            raise ValueError("No such private file: '{}'".format(sPrivFilePath))
+
+        v = privFile.versionFromName()
+        if v is None:
+            raise ValueError("Could not get version number from filename: '{}'"
+                             .format(privFile.name))
+
+        pubFile = privFile.getPublicFile(fail=True)
+
+        return pubFile.getVersionFile(v, fail=fail)
+
     def iterSectionPaths(self):
 
         for sSection, _ in self._confobj.listSections():
@@ -791,6 +806,33 @@ class DamProject(object):
         return shotgundb.sg.find_one("Version", filters, ['code', 'entity',
                                                           'sg_current_release_version',
                                                           'sg_task'])
+
+    def findSgVersions(self, sgEntity, baseName="", sgTask=None, moreFilters=None,
+                       limit=0):
+
+        shotgundb = self._shotgundb
+
+        filters = [
+            ['project', 'is', {'type':'Project', 'id':shotgundb._getProjectId()}],
+            ['entity', 'is', sgEntity]
+        ]
+
+        if sgTask:
+            filters.append(['task', 'is', sgTask])
+
+        if baseName:
+            filters.append(['code', 'starts_with', baseName])
+
+        if moreFilters:
+            filters.extend(moreFilters)
+
+        return shotgundb.sg.find("Version", filters,
+                                 ['code', 'sg_current_release_version', 'sg_task'],
+                                 [{'field_name':'code', 'direction':'desc'}],
+                                 limit=limit)
+
+    def updateSgEntity(self, sgEntity, **data):
+        return self._shotgundb.updateEntity(sgEntity, **data)
 
     def findDbNodes(self, sQuery="", **kwargs):
 

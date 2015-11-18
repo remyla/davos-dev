@@ -491,7 +491,8 @@ class DrcEntry(DrcMetaObject):
 
     def __applySyncData(self, syncData, sPathIter, dbNodeDct):
 
-        proj = self.library.project
+        library = self.library
+        proj = library.project
 
         prunedData = dict((k, v) for k, v in syncData.iteritems() if v is not None)
 
@@ -502,7 +503,7 @@ class DrcEntry(DrcMetaObject):
         #drcFileList = []
         for sPath in sPathIter:
 
-            drcFile = proj.entryFromPath(sPath, dbNode=False)
+            drcFile = library.getEntry(sPath, dbNode=False)
             sDbPath = drcFile.dbPath()
 
             bCached = True
@@ -858,16 +859,15 @@ class DrcFile(DrcEntry):
 
         DrcEntry.loadData(self, fileInfo, **kwargs)
 
-        dbNode = self._dbnode
-        if not (dbNode and dbNode.hasField("version")):
-            self.updateCurrentVersion()
+#        dbNode = self._dbnode
+#        if not (dbNode and dbNode.hasField("version")):
+#            v = versionFromName(self.name)
+#            if v is None:
+#                v = self.latestBackupVersion()
+#            self.currentVersion = v
 
-    def updateCurrentVersion(self):
-
-        v = versionFromName(self.name)
-        if v is None:
-            v = self.latestBackupVersion()
-        self.currentVersion = v
+    def versionFromName(self):
+        return versionFromName(self.name)
 
     def openIt(self):
 
@@ -1214,7 +1214,7 @@ class DrcFile(DrcEntry):
 
     def getPublicFile(self, weak=False, fail=False, **kwargs):
 
-        assert self.isPrivate(), "File must live in a PRIVATE library !"
+        assert self.isPrivate(), "File is ALREADY PUBLIC !"
 
         pubFile = None
 
@@ -1234,8 +1234,8 @@ class DrcFile(DrcEntry):
                 pubFile = pubDir.library.getEntry(sPubFilePath, **kwargs)
 
         if (not pubFile) and fail:
-            raise RuntimeError("Could not get public version of '{}'"
-                               .format(self.relPath()))
+            raise RuntimeError("Could not get public file for '{}'"
+                               .format(self.absPath()))
 
         return pubFile
 
@@ -1351,7 +1351,7 @@ class DrcFile(DrcEntry):
             if infos is None:
                 return newVersFile, sgVersion
 
-            sComment, iNextVers, sgTaskInfo = infos
+            sComment, iNextVers, sgTask = infos
         except Exception, e:
             self._abortPublish(e, newVersFile, sgVersion)
             raise
@@ -1377,27 +1377,33 @@ class DrcFile(DrcEntry):
             raise
 
         # create shotgun version if possible else warn the user.
-        if sgTaskInfo:
+        if sgTask:
+            bSgMandatory = self.library.project.getVar("project",
+                                                       "sg_versions_mandatory", False)
             try:
-                sgVersion = newVersFile.createSgVersion(sgTaskInfo, sComment)
+                sgVersion = newVersFile.createSgVersion(sgTask, sComment)
                 if not sgVersion:
-                    raise RuntimeError("")
+                    raise RuntimeError("No Shotgun Version created !")
             except Exception, e:
-                sMsg = "Failed to create Shotgun Version !\n\n\
-Continue publishing WITHOUT Shotgun Version ??"
-                sResult = confirmDialog(title='WARNING !',
-                                        message=sMsg,
-                                        button=["Continue", "Abort"],
-                                        defaultButton="Continue",
-                                        cancelButton="Abort",
-                                        dismissString="Abort",
-                                        icon="warning")
-                if sResult == "Abort":
-                    logMsg("Cancelled !", warning=True)
-                    return self._abortPublish(e, newVersFile, sgVersion)
+                if bSgMandatory:
+                    self._abortPublish(e, newVersFile, sgVersion)
+                    raise
                 else:
-                    sMsg = "Failed to create Shotgun Version: " + toStr(e)
-                    logMsg(sMsg, warning=True)
+                    sMsg = "Failed to create Shotgun Version !\n\n\
+Continue publishing WITHOUT Shotgun Version ??"
+                    sResult = confirmDialog(title='WARNING !',
+                                            message=sMsg,
+                                            button=["Continue", "Abort"],
+                                            defaultButton="Continue",
+                                            cancelButton="Abort",
+                                            dismissString="Abort",
+                                            icon="warning")
+                    if sResult == "Abort":
+                        logMsg("Canceled !", warning=True)
+                        return self._abortPublish(e, newVersFile, sgVersion)
+                    else:
+                        sMsg = "Failed to create Shotgun Version: " + toStr(e)
+                        logMsg(sMsg, warning=True)
 
                 sgVersion = None
 
@@ -1410,8 +1416,8 @@ Continue publishing WITHOUT Shotgun Version ??"
             self._abortPublish(e, newVersFile, sgVersion)
             raise
 
-        # copy metadata from version file to head file
         prevVersFile = self.getVersionFile(self.currentVersion, weak=False)
+        # copy metadata from version file to head file
         try:
             self.copyValuesFrom(newVersFile)
         except Exception, e:
@@ -1450,23 +1456,30 @@ Continue publishing WITHOUT Shotgun Version ??"
         sgTaskInfo = None
         bSgVersion = self.getParam('create_sg_version', False) if withSgVersion else False
         if bSgVersion:
+            bSgMandatory = self.library.project.getVar("project",
+                                                       "sg_versions_mandatory", False)
             try:
                 sgTaskInfo = self._beginPublishSgVersion(sgTask)
+                if bSgMandatory and (not sgTaskInfo):
+                    raise RuntimeError("No Shotgun Task given or selected !")
             except Exception, e:
-                sMsg = "Could not get a Shotgun Task: \n\n{}\n\n\
-Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
-                sResult = confirmDialog(title='WARNING !',
-                                        message=sMsg,
-                                        button=["Continue", "Abort"],
-                                        defaultButton="Continue",
-                                        cancelButton="Abort",
-                                        dismissString="Abort",
-                                        icon="warning")
-                if sResult == "Abort":
+                if bSgMandatory:
                     raise
                 else:
-                    sMsg = "Failed to get Shotgun Task: " + toStr(e)
-                    logMsg(sMsg, warning=True)
+                    sMsg = "Could not get a Shotgun Task: \n\n{}\n\n\
+Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
+                    sResult = confirmDialog(title='WARNING !',
+                                            message=sMsg,
+                                            button=["Continue", "Abort"],
+                                            defaultButton="Continue",
+                                            cancelButton="Abort",
+                                            dismissString="Abort",
+                                            icon="warning")
+                    if sResult == "Abort":
+                        return
+                    else:
+                        sMsg = "Failed to get Shotgun Task: " + toStr(e)
+                        logMsg(sMsg, warning=True)
 
         sComment = comment
         if not sComment:
@@ -1577,44 +1590,38 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
 
         return versionFile
 
-    def getVersionFile(self, iVersion, weak=False):
-
-        assert versionFromName(self.name) is None, "File is already a version !"
-
-        if iVersion == -1:
-            iVersion = self.currentVersion
-
-        sFilename = self.nameFromVersion(iVersion)
-        sFilePath = pathJoin(self.backupDirPath(), sFilename)
-
-        if weak:
-            return self.library._weakFile(sFilePath)
-        else:
-            return self.library.getEntry(sFilePath)
-
-    def createSgVersion(self, sgTaskInfo, comment=""):
+    def createSgVersion(self, in_sgTask, comment=""):
 
         assert self.isPublic(), 'File is NOT PUBLIC !'
         assert versionFromName(self.name) is not None, "File is NOT a VERSION !"
 
         proj = self.library.project
 
-        taskNameOrInfo = sgTaskInfo
-        if "entity" not in sgTaskInfo:
-            raise ValueError("'sgTaskInfo' arg must contain an 'entity' key !")
+        sgTask = in_sgTask.copy()
+        if "entity" not in sgTask:
+            raise ValueError("'sgTask' arg must contain an 'entity' key !")
 
-        entityNameOrInfo = sgTaskInfo.pop("entity")
+        sgEntity = sgTask.pop("entity")
 
         sVersionName = self.sgVersionName()
         sComment = comment
         if not comment:
             sComment = self.comment
 
-        data = dict(created_at=self.dbMtime)
+        data = {"created_at":self.dbMtime}
+
+        filters = [["created_at", "less_than", self.dbMtime]]
+        prevSgVersList = proj.findSgVersions(sgEntity, baseName=self.baseName,
+                                            moreFilters=filters, limit=1)
+        if prevSgVersList:
+            prevSgVers = prevSgVersList[0]
+            sgRelease = prevSgVers["sg_current_release_version"]
+            if sgRelease:
+                data["sg_current_release_version"] = sgRelease
 
         sgVersion = proj.createSgVersion(sVersionName,
-                                         entityNameOrInfo,
-                                         taskNameOrInfo,
+                                         sgEntity,
+                                         sgTask,
                                          sComment,
                                          self.envPath(),
                                          moreData=data)
@@ -1626,6 +1633,27 @@ Continue publishing WITHOUT Shotgun Version ??".format(toStr(e))
 
     def sgVersionName(self):
         return osp.splitext(self.name)[0]
+
+    def getVersionFile(self, iVersion, weak=False, fail=False):
+
+        assert self.isPublic(), "File is NOT PUBLIC !"
+        assert versionFromName(self.name) is None, "File is already a version !"
+
+        if iVersion == -1:
+            iVersion = self.currentVersion
+
+        sFilename = self.nameFromVersion(iVersion)
+        sFilePath = pathJoin(self.backupDirPath(), sFilename)
+
+        if weak:
+            versFile = self.library._weakFile(sFilePath)
+        else:
+            versFile = self.library.getEntry(sFilePath)
+
+        if fail and (not versFile):
+            raise RuntimeError("No such version file: '{}'".format(sFilePath))
+
+        return versFile
 
     def getHeadFile(self, fail=False):
 

@@ -4,7 +4,7 @@ import os
 from davos.core.damproject import DamProject
 from pytd.util.sysutils import timer
 
-def _iterWastedDbNodes(proj, dbNodeList):
+def _iterWastedDbNodes(proj, dbNodeList, limit=0):
 
     iNumNodes = len(dbNodeList)
 
@@ -13,6 +13,10 @@ def _iterWastedDbNodes(proj, dbNodeList):
     c = 0
     for dbnode in dbNodeList:
         c += 1
+
+        if limit and c == limit:
+            break
+
         print "Processing {}/{} db nodes...".format(c, iNumNodes)
 
         sDbPath = dbnode.file
@@ -32,23 +36,31 @@ def _iterWastedDbNodes(proj, dbNodeList):
             yield dbnode, sAbsPath
 
 @timer
-def findWastedDbNodes(*args):
-    return tuple(_iterWastedDbNodes(*args))
+def findWastedDbNodes(*args, **kwargs):
+    return tuple(_iterWastedDbNodes(*args, **kwargs))
 
-def launch(bDryRun=True, project=""):
+proj = None
+wastedNodes = None
+dbNodeList = None
+
+def launch(bDryRun=True, project="", **kwargs):
+
+    global proj, wastedNodes, dbNodeList
 
     sProject = os.environ["DAVOS_INIT_PROJECT"] if not project else project
     proj = DamProject(sProject)
     print sProject.center(80, "-")
 
-    dbNodeList = proj.findDbNodes()
+    if wastedNodes is None:
+        dbNodeList = proj.findDbNodes()
+        wastedNodes = findWastedDbNodes(proj, dbNodeList, **kwargs)
 
-    wastedNodes = findWastedDbNodes(proj, dbNodeList)
-
+    numNodes = len(wastedNodes)
     print '\n', '\n'.join(n.file + "\n    " + os.path.normpath(p) for n, p in wastedNodes)
-    print "found {}/{} unused DbNodes".format(len(wastedNodes), len(dbNodeList))
+    print "found {}/{} unused DbNodes".format(numNodes, len(dbNodeList))
 
-    if not bDryRun:
-        for n, _ in wastedNodes:
-            print "deleting", n
-            n.delete()
+    if (not bDryRun) and numNodes:
+        if raw_input("Delete these nodes ? (yes/no)").strip() == "yes":
+            for n, _ in wastedNodes:
+                print "deleting", n
+                n.delete()
